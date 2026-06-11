@@ -1,0 +1,107 @@
+@model TeamSync.ViewModels.LoginViewModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign In - TeamSync</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/teamsync.css" asp-append-version="true" />
+</head>
+<body>
+    <main class="ts-auth-container">
+        <div class="ts-auth-card">
+          <!-- Brand Header -->
+            <div class="ts-auth-brand">
+        <h1 class="ts-display-lg">
+    <span class="material-symbols-outlined icon-fill" style="font-size: 40px;">sync</span>
+                 TeamSync
+              </h1>
+      <p class="ts-body-md">Academic rigor meets modern management.</p>
+         </div>
+
+        <!-- Login Card -->
+   <div class="ts-card">
+          <div class="ts-card-body" style="padding: 2rem;">
+            <h2 class="ts-title-lg" style="margin-bottom: 0.25rem;">Sign In</h2>
+             <p class="ts-body-sm ts-text-secondary" style="margin-bottom: 1.5rem;">Please enter your credentials to access your workspace.</p>
+
+        <form asp-action="Login" asp-controller="Account" method="post">
+          @Html.AntiForgeryToken()
+
+        @if (!ViewData.ModelState.IsValid)
+      {
+                  <div class="ts-alert ts-alert-error">
+          <div asp-validation-summary="All"></div>
+   </div>
+        }
+
+            <!-- Email Input -->
+   <div class="ts-form-group">
+   <label asp-for="Email" class="ts-label">Email Address</label>
+             <div class="ts-input-wrapper">
+       <span class="material-symbols-outlined ts-input-icon">mail</span>
+  <input asp-for="Email" type="email" class="ts-input ts-input-with-icon" placeholder="name@university.edu" />
+          </div>
+           <span asp-validation-for="Email" class="ts-validation-error"></span>
+      </div>
+
+            <!-- Password Input -->
+            <div class="ts-form-group">
+    <label asp-for="Password" class="ts-label">Password</label>
+     <div class="ts-input-wrapper">
+ <span class="material-symbols-outlined ts-input-icon">lock</span>
+         <input asp-for="Password" type="password" class="ts-input ts-input-with-icon" placeholder="••••••••" />
+ </div>
+ <span asp-validation-for="Password" class="ts-validation-error"></span>
+    </div>
+
+   <!-- Options Row -->
+               <div class="ts-flex ts-items-center ts-justify-between ts-mt-md ts-mb-md">
+   <div class="ts-checkbox-row">
+         <input asp-for="RememberMe" type="checkbox" class="ts-checkbox" />
+        <label asp-for="RememberMe">Remember me</label>
+          </div>
+  <a href="#" class="ts-link ts-label-sm">Forgot password?</a>
+       </div>
+
+             <!-- Submit Button -->
+    <div class="ts-mt-md">
+        <button type="submit" class="ts-btn ts-btn-primary ts-btn-w-full">
+          Sign In
+             <span class="material-symbols-outlined" style="font-size: 18px;">arrow_forward</span>
+      </button>
+         </div>
+        </form>
+
+         <!-- Divider -->
+     <div class="ts-divider">
+     <span class="ts-divider-text">OR</span>
+      </div>
+
+         <!-- Registration Link -->
+        <p class="ts-text-center ts-body-sm ts-text-secondary">
+            Don't have an account?
+            <a asp-action="Register" asp-controller="Account" class="ts-link ts-label-md" style="margin-left: 0.25rem;">Register here</a>
+        </p>
+       </div>
+       </div>
+
+     <!-- Footer -->
+     <div class="ts-text-center ts-mt-lg">
+         <p class="ts-label-sm" style="color: var(--ts-outline);">© 2026 TeamSync Academic Platform. All rights reserved.</p>
+   </div>
+        </div>
+    </main>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+</body>
+</html>

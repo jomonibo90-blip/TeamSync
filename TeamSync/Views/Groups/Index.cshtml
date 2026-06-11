@@ -1,0 +1,113 @@
+@model IEnumerable<TeamSync.ViewModels.GroupListViewModel>
+@{
+    ViewData["Title"] = "Project Groups";
+}
+
+<div class="ts-page-header ts-flex ts-justify-between ts-items-center" style="flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1 class="ts-display-lg ts-text-primary" style="margin-bottom: 0.5rem;">Project Groups</h1>
+        <p class="ts-body-lg ts-text-secondary">Manage and track your academic teams and assignments.</p>
+    </div>
+    <div class="ts-flex ts-items-center ts-gap-md" style="flex-wrap: wrap;">
+        <!-- Search Input -->
+        <div class="ts-input-wrapper" style="width: 280px; max-width: 100%;">
+            <span class="material-symbols-outlined ts-input-icon">search</span>
+            <input type="text" class="ts-input ts-input-with-icon" placeholder="Search projects or courses..." />
+        </div>
+        <div class="ts-flex ts-gap-sm">
+            <button class="ts-btn ts-btn-secondary">
+                <span class="material-symbols-outlined" style="font-size: 18px;">filter_list</span> Filter
+            </button>
+            <a asp-action="Join" class="ts-btn ts-btn-secondary" style="border-color: var(--ts-primary); color: var(--ts-primary);">
+                <span class="material-symbols-outlined" style="font-size: 18px;">login</span> Join
+            </a>
+            <a asp-action="Create" class="ts-btn ts-btn-primary">
+                <span class="material-symbols-outlined" style="font-size: 18px;">add</span> New
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="ts-dashboard-grid">
+    @if (!Model.Any())
+    {
+        <div class="ts-dashboard-card ts-col-span-3">
+            <div class="ts-dashboard-card-body ts-empty-state">
+                <span class="material-symbols-outlined">folder_shared</span>
+                <h3 class="ts-title-lg">No Project Groups Found</h3>
+                <p class="ts-body-md ts-mt-sm">You aren't a member of any groups yet, or none have been created.</p>
+                <a asp-action="Create" class="ts-btn ts-btn-primary ts-mt-lg">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">add</span> Create Your First Group
+                </a>
+            </div>
+        </div>
+    }
+    else
+    {
+        foreach (var group in Model)
+        {
+            <div class="ts-dashboard-card" style="display: flex; flex-direction: column;">
+                <!-- Card Header -->
+                <div class="ts-dashboard-card-header" style="align-items: flex-start; padding: 1rem;">
+                    <div>
+                        <div class="ts-flex ts-items-center ts-gap-sm ts-mb-sm">
+                            <span style="padding: 2px 6px; background: rgba(13,110,253,0.1); color: var(--ts-primary); border-radius: 4px; font-size: 12px; font-weight: bold;">
+                                @group.UserRole
+                            </span>
+                            @if (group.IsActive)
+                            {
+                                <span style="padding: 2px 6px; background: rgba(25,135,84,0.1); color: var(--ts-success); border-radius: 4px; font-size: 12px; font-weight: bold; display: flex; align-items: center; gap: 2px;">
+                                    <span class="material-symbols-outlined" style="font-size: 12px;">check_circle</span> Active
+                                </span>
+                            }
+                            else
+                            {
+                                <span style="padding: 2px 6px; background: var(--ts-surface-container-high); color: var(--ts-secondary); border-radius: 4px; font-size: 12px; font-weight: bold;">
+                                    Archived
+                                </span>
+                            }
+                        </div>
+                        <h3 class="ts-title-lg" style="margin: 0; line-height: 1.2;">@group.Name</h3>
+                    </div>
+                    <button class="ts-icon-btn" style="padding: 0; margin-left: -0.5rem;">
+                        <span class="material-symbols-outlined">more_vert</span>
+                    </button>
+                </div>
+                <!-- Card Body -->
+                <div class="ts-dashboard-card-body" style="flex: 1; display: flex; flex-direction: column; padding: 1rem;">
+                    <p class="ts-body-sm ts-text-secondary" style="flex: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                        @(string.IsNullOrEmpty(group.Description) ? "No description provided." : group.Description)
+                    </p>
+                    <div class="ts-flex ts-justify-between ts-items-center ts-mt-md" style="border-top: 1px solid var(--ts-border); padding-top: 1rem;">
+                        <div>
+                            <span class="ts-label-sm ts-text-secondary">Members</span>
+                            <div class="ts-flex ts-items-center ts-mt-sm">
+                                <div style="display: flex; flex-direction: row-reverse; justify-content: flex-end;">
+                                    <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--ts-surface-container-high); color: var(--ts-secondary); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border: 2px solid var(--ts-surface); margin-left: -8px;">
+                                        @group.MemberCount
+                                    </div>
+                                    <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--ts-primary-container); color: var(--ts-on-primary-container); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border: 2px solid var(--ts-surface); z-index: 1;">
+                                        <span class="material-symbols-outlined" style="font-size: 14px;">person</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <span class="ts-label-sm ts-text-secondary">Created</span>
+                            <div class="ts-label-md ts-flex ts-items-center ts-gap-sm ts-mt-sm">
+                                <span class="material-symbols-outlined ts-text-primary" style="font-size: 16px;">calendar_today</span>
+                                @group.CreatedAt.ToString("MMM dd, yyyy")
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Card Footer (Actions) -->
+                <div style="padding: 1rem; background: var(--ts-background); border-top: 1px solid var(--ts-border); text-align: center;">
+                    <a asp-action="Details" asp-route-id="@group.Id" class="ts-btn ts-btn-secondary" style="width: 100%; border: none; background: transparent; color: var(--ts-primary); text-decoration: none;">
+                        View Group Details
+                    </a>
+                </div>
+            </div>
+        }
+    }
+</div>

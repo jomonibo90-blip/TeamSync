@@ -1,0 +1,86 @@
+@model List<TeamSync.ViewModels.GroupListViewModel>
+@{
+    ViewData["Title"] = "Student Overview";
+}
+
+<div class="ts-page-header">
+    <h1 class="ts-display-lg ts-text-primary" style="margin-bottom: 0.5rem;">Welcome back, @(User.Identity?.Name ?? "Student")</h1>
+    <p class="ts-body-lg ts-text-secondary">Here's a summary of your active projects and upcoming tasks.</p>
+</div>
+
+<div class="ts-dashboard-grid">
+    <!-- Left Column (Projects & Stats) -->
+    <div class="ts-col-span-2" style="display: flex; flex-direction: column; gap: var(--ts-gutter);">
+
+        <!-- Current Projects Card -->
+        <div class="ts-dashboard-card">
+            <div class="ts-dashboard-card-header">
+                <h3 class="ts-title-lg">
+                    <span class="material-symbols-outlined ts-text-primary" style="font-size: 20px;">science</span>
+                    Current Projects
+                </h3>
+                <a href="@Url.Action("Index", "Groups")" class="ts-btn ts-btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 12px; border: none; font-weight: 500; color: var(--ts-primary);">View All</a>
+            </div>
+
+            <div class="ts-dashboard-card-body" style="display:flex; flex-direction:column; gap:1.5rem;">
+                @if (!Model.Any())
+                {
+                    <div style="text-align: center; color: var(--ts-text-secondary);">
+                        You haven't joined any projects yet.
+                        <div class="ts-mt-md">
+                            <a href="@Url.Action("Join", "Groups")" class="ts-btn ts-btn-primary">Join a Project</a>
+                        </div>
+                    </div>
+                }
+
+                @foreach (var group in Model.Take(3))
+                {
+                    <div style="border-bottom: 1px solid var(--ts-border); padding-bottom: 1rem; margin-bottom: 1rem;">
+                        <div class="ts-flex ts-justify-between ts-items-center ts-mb-sm">
+                            <a href="@Url.Action("Details", "Groups", new { id = group.Id })" class="ts-label-md" style="text-decoration: none; color: var(--ts-primary);">@group.Name</a>
+                            <span class="ts-label-sm ts-text-secondary">@group.UserRole</span>
+                        </div>
+                        <p class="ts-body-sm ts-text-secondary">@group.Description</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Contribution Score -->
+        <div class="ts-dashboard-card">
+            <div class="ts-dashboard-card-header">
+                <h3 class="ts-title-lg">
+                    <span class="material-symbols-outlined ts-text-primary" style="font-size: 20px;">insights</span>
+                    Contribution Activity
+                </h3>
+            </div>
+            <div class="ts-dashboard-card-body ts-flex ts-items-center ts-gap-md" style="flex-wrap: wrap;">
+                <div style="text-align: center; margin-right: 2rem;">
+                    <div class="ts-display-lg ts-text-primary">0</div>
+                    <div class="ts-label-sm ts-text-secondary" style="text-transform: uppercase;">Tasks Completed</div>
+                </div>
+                <div style="flex: 1; height: 100px; display: flex; align-items: flex-end; gap: 4px; padding: 1rem; border: 1px solid var(--ts-border); border-radius: var(--ts-radius-lg); background: var(--ts-surface-container-low);">
+                    <!-- Fake chart bars for UI purposes until Task Management is fully connected -->
+                    <div style="flex: 1; height: 10%; background: var(--ts-primary); opacity: 0.2; border-radius: 2px 2px 0 0;"></div>
+                    <div style="flex: 1; height: 10%; background: var(--ts-primary); opacity: 0.2; border-radius: 2px 2px 0 0;"></div>
+                    <div style="flex: 1; height: 10%; background: var(--ts-primary); opacity: 0.2; border-radius: 2px 2px 0 0;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column (Tasks) -->
+    <div style="display: flex; flex-direction: column;">
+        <div class="ts-dashboard-card" style="height: 100%;">
+            <div class="ts-dashboard-card-header">
+                <h3 class="ts-title-lg">
+                    <span class="material-symbols-outlined ts-text-primary" style="font-size: 20px;">checklist</span>
+                    Upcoming Tasks
+                </h3>
+            </div>
+            <div class="ts-dashboard-card-body" style="display: flex; flex-direction:column; gap: 1rem;">
+                <p class="ts-body-sm ts-text-secondary ts-mb-md">Task management is coming in Sprint 2...</p>
+            </div>
+        </div>
+    </div>
+</div>

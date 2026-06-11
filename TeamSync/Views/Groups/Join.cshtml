@@ -1,0 +1,42 @@
+@model TeamSync.ViewModels.JoinGroupViewModel
+@{
+    ViewData["Title"] = "Join Group";
+}
+
+<div class="ts-page-header">
+    <h1 class="ts-headline-lg-mobile md:ts-headline-lg">Join a Group</h1>
+    <p class="ts-body-lg ts-text-secondary">Enter the join code provided by your instructor or team lead.</p>
+</div>
+
+<div class="ts-dashboard-grid">
+    <div class="ts-dashboard-card ts-col-span-2">
+        <div class="ts-dashboard-card-header">
+            <h3 class="ts-title-lg">Join Code</h3>
+        </div>
+        <div class="ts-dashboard-card-body">
+            <form asp-action="Join" method="post">
+                <div asp-validation-summary="ModelOnly" class="ts-validation-error ts-mb-md"></div>
+
+                <div class="ts-form-group">
+                    <label asp-for="JoinCode" class="ts-label"></label>
+                    <div class="ts-input-wrapper">
+                        <span class="material-symbols-outlined ts-input-icon">key</span>
+                        <input asp-for="JoinCode" class="ts-input ts-input-with-icon" placeholder="e.g. ABC-123" />
+                    </div>
+                    <span asp-validation-for="JoinCode" class="ts-validation-error"></span>
+                </div>
+
+                <div class="ts-flex ts-gap-md ts-mt-lg">
+                    <a asp-action="Index" class="ts-btn ts-btn-secondary">Cancel</a>
+                    <button type="submit" class="ts-btn ts-btn-primary">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">login</span> Join
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
