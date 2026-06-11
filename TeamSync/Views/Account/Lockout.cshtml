@@ -1,0 +1,46 @@
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Account Locked - TeamSync</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="~/css/teamsync.css" asp-append-version="true" />
+</head>
+<body>
+ <main class="ts-auth-container">
+        <div class="ts-auth-card">
+            <!-- Brand Header -->
+    <div class="ts-auth-brand">
+             <h1 class="ts-display-lg">
+            <span class="material-symbols-outlined icon-fill" style="font-size: 40px;">sync</span>
+            TeamSync
+     </h1>
+            </div>
+
+ <div class="ts-card">
+                <div class="ts-card-body ts-text-center" style="padding: 3rem 2rem;">
+ <span class="material-symbols-outlined" style="font-size: 64px; color: var(--ts-error); margin-bottom: 1rem;">lock_person</span>
+        <h2 class="ts-headline-md" style="margin: 0 0 0.5rem 0;">Account Locked</h2>
+               <p class="ts-body-md ts-text-secondary" style="margin-bottom: 1.5rem; max-width: 300px; margin-left: auto; margin-right: auto;">
+               Your account has been temporarily locked due to multiple failed login attempts.
+           </p>
+     <p class="ts-body-sm ts-text-secondary" style="margin-bottom: 1.5rem;">
+       Please try again later or contact support for assistance.
+                  </p>
+           <a asp-action="Login" asp-controller="Account" class="ts-btn ts-btn-secondary">
+                <span class="material-symbols-outlined" style="font-size: 18px;">arrow_back</span>
+      Back to Login
+             </a>
+   </div>
+ </div>
+        </div>
+    </main>
+</body>
+</html>

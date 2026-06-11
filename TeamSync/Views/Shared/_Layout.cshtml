@@ -1,0 +1,172 @@
+﻿@{
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
+
+    bool IsActive(string controller, string? action = null)
+ {
+  if (action != null)
+            return currentController.Equals(controller, StringComparison.OrdinalIgnoreCase) 
+                && currentAction.Equals(action, StringComparison.OrdinalIgnoreCase);
+        return currentController.Equals(controller, StringComparison.OrdinalIgnoreCase);
+    }
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+ <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - TeamSync</title>
+
+ <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
+    <!-- TeamSync Design System -->
+    <link rel="stylesheet" href="~/css/teamsync.css" asp-append-version="true" />
+</head>
+<body class="ts-app-body">
+  <!-- Mobile Drawer Overlay -->
+    <div class="ts-drawer-overlay" id="drawerOverlay"></div>
+
+    <!-- Mobile Navigation Drawer -->
+    <nav class="ts-mobile-drawer" id="mobileDrawer">
+        <div class="ts-drawer-header">
+            <h1 class="ts-headline-md ts-text-primary" style="display: flex; align-items: center; gap: 8px;">
+                <span class="material-symbols-outlined icon-fill">sync</span>
+                TeamSync
+            </h1>
+            <button class="ts-drawer-close" id="closeDrawer">
+ <span class="material-symbols-outlined">close</span>
+            </button>
+      </div>
+        <div class="ts-drawer-nav">
+            <a href="@Url.Action("Dashboard", "Home")" class="ts-nav-item @(IsActive("Home", "Dashboard") ? "active" : "")">
+   <span class="material-symbols-outlined">dashboard</span>
+              <span>Dashboard</span>
+      </a>
+ <a href="@Url.Action("Index", "Groups")" class="ts-nav-item @(IsActive("Groups") ? "active" : "")">
+     <span class="material-symbols-outlined @(IsActive("Groups") ? "icon-fill" : "")">folder_shared</span>
+              <span>Projects</span>
+   </a>
+  <a href="#" class="ts-nav-item">
+           <span class="material-symbols-outlined">assignment</span>
+          <span>Tasks</span>
+</a>
+       <a href="#" class="ts-nav-item">
+         <span class="material-symbols-outlined">analytics</span>
+              <span>Reports</span>
+         </a>
+        </div>
+    </nav>
+
+    <!-- Desktop Sidebar Navigation -->
+    <nav class="ts-sidebar">
+        <div class="ts-sidebar-header">
+            <h1 class="ts-headline-md ts-text-primary" style="display: flex; align-items: center; gap: 8px;">
+                <span class="material-symbols-outlined icon-fill">sync</span>
+                TeamSync
+            </h1>
+        </div>
+        <div class="ts-sidebar-nav">
+  <a href="@Url.Action("Dashboard", "Home")" class="ts-nav-item @(IsActive("Home", "Dashboard") ? "active" : "")">
+             <span class="material-symbols-outlined @(IsActive("Home", "Dashboard") ? "icon-fill" : "")">dashboard</span>
+  <span>Dashboard</span>
+            </a>
+            <a href="@Url.Action("Index", "Groups")" class="ts-nav-item @(IsActive("Groups") ? "active" : "")">
+    <span class="material-symbols-outlined @(IsActive("Groups") ? "icon-fill" : "")">folder_shared</span>
+    <span>Projects</span>
+            </a>
+            <a href="#" class="ts-nav-item">
+     <span class="material-symbols-outlined">assignment</span>
+      <span>Tasks</span>
+       </a>
+            <a href="#" class="ts-nav-item">
+         <span class="material-symbols-outlined">analytics</span>
+        <span>Reports</span>
+</a>
+  </div>
+      @if (User?.Identity?.IsAuthenticated ?? false)
+        {
+            <div class="ts-sidebar-footer">
+          <div class="ts-user-info">
+   <div class="ts-avatar">
+  @{
+      var initials = User.Identity?.Name?.Substring(0, 1).ToUpper() ?? "U";
+          }
+              @initials
+  </div>
+         <div class="ts-user-details">
+<span class="ts-label-md">@User.Identity?.Name</span>
+          <span class="ts-body-sm ts-text-secondary">Student</span>
+               </div>
+  </div>
+   </div>
+        }
+    </nav>
+
+    <!-- Main Content Wrapper -->
+  <div class="ts-main-wrapper">
+      <!-- Top App Bar -->
+        <header class="ts-topbar">
+            <div class="ts-topbar-left">
+ <button class="ts-menu-btn" id="openDrawer">
+      <span class="material-symbols-outlined">menu</span>
+            </button>
+ <h2 class="ts-topbar-title ts-title-lg ts-text-primary">@ViewData["Title"]</h2>
+            </div>
+            <div class="ts-topbar-right">
+     <button class="ts-icon-btn">
+             <span class="material-symbols-outlined">notifications</span>
+      </button>
+         @if (User?.Identity?.IsAuthenticated ?? false)
+         {
+     <div class="ts-avatar ts-avatar-sm">
+    @{
+  var initial = User.Identity?.Name?.Substring(0, 1).ToUpper() ?? "U";
+ }
+@initial
+       </div>
+    <a asp-controller="Account" asp-action="Logout" class="ts-icon-btn ts-hide-mobile" title="Logout">
+     <span class="material-symbols-outlined">logout</span>
+      </a>
+   }
+ </div>
+        </header>
+
+      <!-- Main Content -->
+   <main class="ts-main-content">
+  <div class="ts-content-container">
+    @RenderBody()
+         </div>
+        </main>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+
+    <script>
+        // Mobile drawer toggle
+        const openBtn = document.getElementById('openDrawer');
+        const closeBtn = document.getElementById('closeDrawer');
+        const drawer = document.getElementById('mobileDrawer');
+        const overlay = document.getElementById('drawerOverlay');
+
+        function toggleDrawer() {
+            drawer.classList.toggle('open');
+  overlay.classList.toggle('open');
+            document.body.classList.toggle('drawer-open');
+   }
+
+        openBtn?.addEventListener('click', toggleDrawer);
+        closeBtn?.addEventListener('click', toggleDrawer);
+        overlay?.addEventListener('click', toggleDrawer);
+    </script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
