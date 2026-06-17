@@ -53,7 +53,7 @@ public class HomeController : Controller
             {
                 Id = g.Id,
                 Name = g.Name,
-                Description = g.Description,
+                Description = g.Description ?? string.Empty,
                 MemberCount = g.Members.Count,
                 StudentCount = g.Members.Count(m => m.Role != "Professor"),
                 CreatedAt = g.CreatedAt,
@@ -68,15 +68,15 @@ public class HomeController : Controller
             var memberships = await _context.GroupMembers
                 .Include(gm => gm.Group)
                 .ThenInclude(g => g.Members)
-                .Where(gm => gm.UserId == user.Id)
-                .OrderByDescending(gm => gm.Group.CreatedAt)
+                .Where(gm => gm.UserId == user.Id && gm.Group != null)
+                .OrderByDescending(gm => gm.Group!.CreatedAt)
                 .ToListAsync();
 
             groupViewModels = memberships.Select(gm => new GroupListViewModel
             {
-                Id = gm.Group.Id,
+                Id = gm.Group!.Id,
                 Name = gm.Group.Name,
-                Description = gm.Group.Description,
+                Description = gm.Group.Description ?? string.Empty,
                 MemberCount = gm.Group.Members.Count,
                 StudentCount = gm.Group.Members.Count(m => m.Role != "Professor"),
                 CreatedAt = gm.Group.CreatedAt,
@@ -91,15 +91,15 @@ public class HomeController : Controller
             var memberships = await _context.GroupMembers
                 .Include(gm => gm.Group)
                 .ThenInclude(g => g.Members)
-                .Where(gm => gm.UserId == user.Id)
-                .OrderByDescending(gm => gm.Group.CreatedAt)
+                .Where(gm => gm.UserId == user.Id && gm.Group != null)
+                .OrderByDescending(gm => gm.Group!.CreatedAt)
                 .ToListAsync();
 
             groupViewModels = memberships.Select(gm => new GroupListViewModel
             {
-                Id = gm.Group.Id,
+                Id = gm.Group!.Id,
                 Name = gm.Group.Name,
-                Description = gm.Group.Description,
+                Description = gm.Group.Description ?? string.Empty,
                 MemberCount = gm.Group.Members.Count,
                 StudentCount = gm.Group.Members.Count(m => m.Role != "Professor"),
                 CreatedAt = gm.Group.CreatedAt,

@@ -61,7 +61,7 @@ public class AdminController : Controller
             query = query.Where(u =>
                 u.FirstName.ToLower().Contains(search) ||
                 u.LastName.ToLower().Contains(search) ||
-                u.Email.ToLower().Contains(search) ||
+                (u.Email != null && u.Email.ToLower().Contains(search)) ||
                 u.StudentId.ToLower().Contains(search));
         }
 

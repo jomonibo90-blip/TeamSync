@@ -46,7 +46,7 @@ public class GroupsController : Controller
             {
                 Id = g.Id,
                 Name = g.Name,
-                Description = g.Description,
+                Description = g.Description ?? string.Empty,
                 MemberCount = g.Members.Count,
                 CreatedAt = g.CreatedAt,
                 IsActive = g.IsActive,
@@ -59,15 +59,15 @@ public class GroupsController : Controller
             var memberships = await _context.GroupMembers
                 .Include(gm => gm.Group)
                 .ThenInclude(g => g.Members)
-                .Where(gm => gm.UserId == user.Id)
-                .OrderByDescending(gm => gm.Group.CreatedAt)
+                .Where(gm => gm.UserId == user.Id && gm.Group != null)
+                .OrderByDescending(gm => gm.Group!.CreatedAt)
                 .ToListAsync();
 
             groupViewModels = memberships.Select(gm => new GroupListViewModel
             {
-                Id = gm.Group.Id,
+                Id = gm.Group!.Id,
                 Name = gm.Group.Name,
-                Description = gm.Group.Description,
+                Description = gm.Group.Description ?? string.Empty,
                 MemberCount = gm.Group.Members.Count,
                 CreatedAt = gm.Group.CreatedAt,
                 IsActive = gm.Group.IsActive,
@@ -629,8 +629,10 @@ public class GroupsController : Controller
 
         if (removalRequest == null) return NotFound();
 
+        if (removalRequest.Group == null) return NotFound();
+
         // Only professor of the group or admin can approve
-        var currentMember = removalRequest.Group?.Members
+        var currentMember = removalRequest.Group.Members
             .FirstOrDefault(m => m.UserId == currentUser.Id);
 
         bool isAdmin = User.IsInRole("Admin");
@@ -692,8 +694,10 @@ public class GroupsController : Controller
 
         if (removalRequest == null) return NotFound();
 
+        if (removalRequest.Group == null) return NotFound();
+
         // Only professor of the group or admin can reject
-        var currentMember = removalRequest.Group?.Members
+        var currentMember = removalRequest.Group.Members
             .FirstOrDefault(m => m.UserId == currentUser.Id);
 
         bool isAdmin = User.IsInRole("Admin");
@@ -857,8 +861,10 @@ public class GroupsController : Controller
 
         if (addMemberRequest == null) return NotFound();
 
+        if (addMemberRequest.Group == null) return NotFound();
+
         // Only professor of the group or admin can approve
-        var currentMember = addMemberRequest.Group?.Members
+        var currentMember = addMemberRequest.Group.Members
             .FirstOrDefault(m => m.UserId == currentUser.Id);
 
         bool isAdmin = User.IsInRole("Admin");
@@ -936,8 +942,10 @@ public class GroupsController : Controller
 
         if (addMemberRequest == null) return NotFound();
 
+        if (addMemberRequest.Group == null) return NotFound();
+
         // Only professor of the group or admin can reject
-        var currentMember = addMemberRequest.Group?.Members
+        var currentMember = addMemberRequest.Group.Members
             .FirstOrDefault(m => m.UserId == currentUser.Id);
 
         bool isAdmin = User.IsInRole("Admin");
@@ -975,8 +983,10 @@ public class GroupsController : Controller
 
         if (joinRequest == null) return NotFound();
 
+        if (joinRequest.Group == null) return NotFound();
+
         // Only professor of the group or admin can approve
-        var currentMember = joinRequest.Group?.Members
+        var currentMember = joinRequest.Group.Members
             .FirstOrDefault(m => m.UserId == currentUser.Id);
 
         bool isAdmin = User.IsInRole("Admin");
@@ -1051,8 +1061,10 @@ public class GroupsController : Controller
 
         if (joinRequest == null) return NotFound();
 
+        if (joinRequest.Group == null) return NotFound();
+
         // Only professor of the group or admin can reject
-        var currentMember = joinRequest.Group?.Members
+        var currentMember = joinRequest.Group.Members
             .FirstOrDefault(m => m.UserId == currentUser.Id);
 
         bool isAdmin = User.IsInRole("Admin");
