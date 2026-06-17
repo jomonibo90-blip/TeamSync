@@ -785,7 +785,7 @@ public class GroupsController : Controller
 
         var sb = new StringBuilder();
         sb.AppendLine("GroupId,Name,Description,IsActive,ArchivedAt,CreatedAt");
-        sb.AppendLine($"{group.Id},\"{group.Name}\",\"{group.Description}\",{group.IsActive},{group.ArchivedAt},{group.CreatedAt}");
+        sb.AppendLine($"{group.Id},\"{group.Name}\",\"{group.Description ?? string.Empty}\",{group.IsActive},{group.ArchivedAt},{group.CreatedAt}");
         sb.AppendLine();
         sb.AppendLine("Members:");
         sb.AppendLine("UserId,FullName,Email,Role,JoinedAt");
@@ -798,7 +798,7 @@ public class GroupsController : Controller
         sb.AppendLine("TaskId,Title,Description,AssignedToId,Status,CreatedAt");
         foreach (var t in group.Tasks)
         {
-            sb.AppendLine($"{t.Id},\"{t.Title}\",\"{t.Description}\",{t.AssignedToId},{t.Status},{t.CreatedAt}");
+            sb.AppendLine($"{t.Id},\"{t.Title}\",\"{t.Description ?? string.Empty}\",{t.AssignedToId},{t.Status},{t.CreatedAt}");
         }
         var bytes = Encoding.UTF8.GetBytes(sb.ToString());
         return File(bytes, "text/csv", $"group-{group.Id}.csv");
