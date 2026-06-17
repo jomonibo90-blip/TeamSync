@@ -2,6 +2,8 @@
 @{
     ViewData["Title"] = Model.Name;
     bool canManageMembers = Model.CurrentUserRole == "Professor" || Model.CurrentUserRole == "Lead" || User.IsInRole("Admin");
+    bool isProfessor = Model.CurrentUserRole == "Professor" || User.IsInRole("Admin");
+    bool isStudent = Model.CurrentUserRole == "Member";
 }
 
 <div class="ts-page-header ts-flex ts-justify-between ts-items-center" style="flex-wrap: wrap; gap: 1rem;">
@@ -28,12 +30,27 @@
             <a asp-action="Edit" asp-route-id="@Model.Id" class="ts-btn ts-btn-secondary" style="padding: 0.5rem;" title="Edit Group">
                 <span class="material-symbols-outlined" style="font-size: 20px;">settings</span>
             </a>
+            @if (isProfessor)
+            {
+                <form asp-action="DeleteGroup" asp-route-id="@Model.Id" method="post" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this group? This action cannot be undone.');">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="ts-btn ts-btn-danger" style="padding: 0.5rem;" title="Delete Group">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">delete</span>
+                    </button>
+                </form>
+            }
         }
         else
         {
             <button class="ts-btn ts-btn-secondary">
                 <span class="material-symbols-outlined" style="font-size: 18px;">chat</span> Message Group
             </button>
+            @if (isStudent || isProfessor)
+            {
+                <button class="ts-btn ts-btn-secondary ts-btn-danger" onclick="openLeaveModal()">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">logout</span> Leave Group
+                </button>
+            }
         }
     </div>
 </div>
@@ -52,13 +69,156 @@
     </div>
 }
 
+@* Show pending removal requests (only for professors/admins) *@
+@if (isProfessor && Model.PendingRemovalRequests.Any())
+{
+    <div class="ts-dashboard-card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--ts-warning); background: rgba(255,193,7,0.05);">
+        <div class="ts-dashboard-card-header">
+            <h3 class="ts-title-lg" style="color: var(--ts-warning);">
+                <span class="material-symbols-outlined ts-text-warning" style="font-size: 20px;">pending_actions</span>
+                Pending Removal Requests (@Model.PendingRemovalRequests.Count)
+            </h3>
+        </div>
+        <div class="ts-dashboard-card-body">
+            @foreach (var request in Model.PendingRemovalRequests)
+            {
+                <div style="padding: 1rem; margin-bottom: 1rem; background: var(--ts-surface); border-radius: var(--ts-radius-md); border-left: 3px solid var(--ts-warning);">
+                    <div class="ts-flex ts-justify-between ts-items-start ts-mb-sm">
+                        <div>
+                            <div class="ts-label-md">
+                                @(request.RequestType == "Leave" ? "Leave Request" : "Removal Request")
+                            </div>
+                            <div class="ts-body-sm ts-text-secondary ts-mt-xs">
+                                @request.UserFullName requested by @request.RequestedByFullName on @request.CreatedAt.ToString("MMM dd, yyyy HH:mm")
+                            </div>
+                        </div>
+                        <span style="display:inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; background: rgba(255,193,7,0.1); color: var(--ts-warning);">
+                            @request.Status
+                        </span>
+                    </div>
+                    @if (!string.IsNullOrEmpty(request.Reason))
+                    {
+                        <div class="ts-body-sm ts-text-secondary ts-mb-md">
+                            <strong>Reason:</strong> @request.Reason
+                        </div>
+                    }
+                    <div class="ts-flex ts-gap-md">
+                        <form asp-action="ApproveMemberRemoval" asp-route-removalRequestId="@request.Id" method="post" style="display: inline;">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="ts-btn ts-btn-sm ts-btn-success">
+                                <span class="material-symbols-outlined" style="font-size: 16px;">check_circle</span> Approve
+                            </button>
+                        </form>
+                        <form asp-action="RejectMemberRemoval" asp-route-removalRequestId="@request.Id" method="post" style="display: inline;" onsubmit="return confirm('Reject this request?');">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="ts-btn ts-btn-sm ts-btn-secondary">
+                                <span class="material-symbols-outlined" style="font-size: 16px;">cancel</span> Reject
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@* Show pending add member requests (only for professors/admins) *@
+@if (isProfessor && Model.PendingAddRequests.Any())
+{
+    <div class="ts-dashboard-card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--ts-info); background: rgba(13,110,253,0.05);">
+        <div class="ts-dashboard-card-header">
+            <h3 class="ts-title-lg" style="color: var(--ts-info);">
+                <span class="material-symbols-outlined ts-text-info" style="font-size: 20px;">person_add_alt</span>
+                Pending Member Add Requests (@Model.PendingAddRequests.Count)
+            </h3>
+        </div>
+        <div class="ts-dashboard-card-body">
+            @foreach (var request in Model.PendingAddRequests)
+            {
+                <div style="padding: 1rem; margin-bottom: 1rem; background: var(--ts-surface); border-radius: var(--ts-radius-md); border-left: 3px solid var(--ts-info);">
+                    <div class="ts-flex ts-justify-between ts-items-start ts-mb-sm">
+                        <div>
+                            <div class="ts-label-md">Add Member Request</div>
+                            <div class="ts-body-sm ts-text-secondary ts-mt-xs">
+                                @request.Email requested by @request.RequestedByFullName on @request.CreatedAt.ToString("MMM dd, yyyy HH:mm")
+                            </div>
+                        </div>
+                        <span style="display:inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; background: rgba(13,110,253,0.1); color: var(--ts-info);">
+                            @request.Status
+                        </span>
+                    </div>
+                    <div class="ts-flex ts-gap-md">
+                        <form asp-action="ApproveAddMember" asp-route-addMemberRequestId="@request.Id" method="post" style="display: inline;">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="ts-btn ts-btn-sm ts-btn-success">
+                                <span class="material-symbols-outlined" style="font-size: 16px;">check_circle</span> Approve
+                            </button>
+                        </form>
+                        <form asp-action="RejectAddMember" asp-route-addMemberRequestId="@request.Id" method="post" style="display: inline;" onsubmit="return confirm('Reject this request?');">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="ts-btn ts-btn-sm ts-btn-secondary">
+                                <span class="material-symbols-outlined" style="font-size: 16px;">cancel</span> Reject
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@* Show pending join requests (only for professors/admins) *@
+@if (isProfessor && Model.PendingJoinRequests.Any())
+{
+    <div class="ts-dashboard-card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--ts-success); background: rgba(25,135,84,0.05);">
+        <div class="ts-dashboard-card-header">
+            <h3 class="ts-title-lg" style="color: var(--ts-success);">
+                <span class="material-symbols-outlined ts-text-success" style="font-size: 20px;">person_check</span>
+                Pending Join Requests (@Model.PendingJoinRequests.Count)
+            </h3>
+        </div>
+        <div class="ts-dashboard-card-body">
+            @foreach (var request in Model.PendingJoinRequests)
+            {
+                <div style="padding: 1rem; margin-bottom: 1rem; background: var(--ts-surface); border-radius: var(--ts-radius-md); border-left: 3px solid var(--ts-success);">
+                    <div class="ts-flex ts-justify-between ts-items-start ts-mb-sm">
+                        <div>
+                            <div class="ts-label-md">Join Request</div>
+                            <div class="ts-body-sm ts-text-secondary ts-mt-xs">
+                                @request.UserFullName (@request.Email) on @request.CreatedAt.ToString("MMM dd, yyyy HH:mm")
+                            </div>
+                        </div>
+                        <span style="display:inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; background: rgba(25,135,84,0.1); color: var(--ts-success);">
+                            @request.Status
+                        </span>
+                    </div>
+                    <div class="ts-flex ts-gap-md">
+                        <form asp-action="ApproveJoinRequest" asp-route-joinRequestId="@request.Id" method="post" style="display: inline;">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="ts-btn ts-btn-sm ts-btn-success">
+                                <span class="material-symbols-outlined" style="font-size: 16px;">check_circle</span> Approve
+                            </button>
+                        </form>
+                        <form asp-action="RejectJoinRequest" asp-route-joinRequestId="@request.Id" method="post" style="display: inline;" onsubmit="return confirm('Reject this request?');">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="ts-btn ts-btn-sm ts-btn-secondary">
+                                <span class="material-symbols-outlined" style="font-size: 16px;">cancel</span> Reject
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
 <div class="ts-dashboard-grid">
     <!-- Main Content Area -->
     <div class="ts-col-span-2">
         <div class="ts-dashboard-card">
             <div class="ts-dashboard-card-header">
                 <h3 class="ts-title-lg">
-                    <span class="material-symbols-outlined ts-text-primary" style="font-size: 20px;">group</span>
+
                     Members (@Model.Members.Count)
                 </h3>
             </div>
@@ -77,12 +237,36 @@
                                 </div>
                             </div>
                             <div style="text-align: right;">
-                                <span style="display:inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; 
-                                      @(member.Role == "Professor" ? "background: rgba(13,110,253,0.1); color: var(--ts-primary);" : 
-                                        member.Role == "Lead" ? "background: rgba(25,135,84,0.1); color: var(--ts-success);" : 
-                                        "background: var(--ts-surface-container-high); color: var(--ts-secondary);")">
-                                    @member.Role
-                                </span>
+                                <div style="display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end;">
+                                    <span style="display:inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; 
+                                          @(member.Role == "Professor" ? "background: rgba(13,110,253,0.1); color: var(--ts-primary);" : 
+                                            member.Role == "Lead" ? "background: rgba(25,135,84,0.1); color: var(--ts-success);" : 
+                                            "background: var(--ts-surface-container-high); color: var(--ts-secondary);")">
+                                        @member.Role
+                                    </span>
+                                    
+                                    @* Action buttons *@
+                                    @if (canManageMembers && member.Role != "Professor")
+                                    {
+                                        <div style="display: flex; gap: 0.5rem;">
+                                            @* Promote to Lead (only if not already Lead) *@
+                                            @if (member.Role == "Member" && isProfessor)
+                                            {
+                                                <form asp-action="PromoteToLead" asp-route-groupId="@Model.Id" asp-route-userId="@member.UserId" method="post" style="display: inline;">
+                                                    @Html.AntiForgeryToken()
+                                                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-secondary" title="Promote to Lead">
+                                                        <span class="material-symbols-outlined" style="font-size: 16px;">star</span>
+                                                    </button>
+                                                </form>
+                                            }
+                                            
+                                            @* Remove button *@
+                                            <button class="ts-btn ts-btn-sm ts-btn-danger" title="Remove Member" onclick="openRemoveModal('@member.UserId', '@member.FullName')">
+                                                <span class="material-symbols-outlined" style="font-size: 16px;">person_remove</span>
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
                                 <div class="ts-label-sm ts-text-secondary ts-mt-sm">Joined @member.JoinedAt.ToString("MMM dd")</div>
                             </div>
                         </li>
@@ -127,6 +311,7 @@
             </div>
             
             <form asp-action="AddMember" method="post">
+                @Html.AntiForgeryToken()
                 <input type="hidden" name="GroupId" value="@Model.Id" />
                 
                 <div class="ts-form-group">
@@ -146,3 +331,120 @@
         </div>
     </div>
 }
+
+@* Remove Member Modal *@
+@if (canManageMembers)
+{
+    <div id="removeMemberModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center;">
+        <div style="background: var(--ts-surface); border-radius: var(--ts-radius-xl); width: 100%; max-width: 400px; margin: 10vh auto; padding: 1.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+            <div class="ts-flex ts-justify-between ts-items-center ts-mb-lg">
+                <h3 class="ts-title-lg" style="margin: 0;">Remove Member</h3>
+                <button onclick="document.getElementById('removeMemberModal').style.display='none'" style="background: none; border: none; cursor: pointer; color: var(--ts-secondary);">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            
+            <form id="removeMemberForm" asp-action="RemoveMember" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="groupId" value="@Model.Id" />
+                <input type="hidden" id="userId" name="userId" />
+                
+                <p class="ts-body-md ts-mb-md">Are you sure you want to remove <strong id="memberName"></strong> from this group?</p>
+                
+                <div class="ts-form-group">
+                    <label for="reason" class="ts-label">Reason (optional)</label>
+                    <textarea name="reason" id="reason" class="ts-input" placeholder="Enter reason for removal..." rows="3" style="resize: vertical;"></textarea>
+                </div>
+                
+                <div class="ts-body-sm ts-text-secondary ts-mb-md">
+                    <strong>Note:</strong> @(Model.CurrentUserRole == "Professor" ? "This removal will be immediate." : "This removal request will be sent to the professor for approval.")
+                </div>
+                
+                <div class="ts-flex ts-gap-md ts-mt-lg" style="justify-content: flex-end;">
+                    <button type="button" class="ts-btn ts-btn-secondary" onclick="document.getElementById('removeMemberModal').style.display='none'">Cancel</button>
+                    <button type="submit" class="ts-btn ts-btn-danger">Remove Member</button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
+@* Leave Group Modal (for students and professors) *@
+@if (isStudent || isProfessor)
+{
+    <div id="leaveGroupModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center;">
+        <div style="background: var(--ts-surface); border-radius: var(--ts-radius-xl); width: 100%; max-width: 400px; margin: 10vh auto; padding: 1.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+            <div class="ts-flex ts-justify-between ts-items-center ts-mb-lg">
+                <h3 class="ts-title-lg" style="margin: 0;">Leave Group</h3>
+                <button onclick="document.getElementById('leaveGroupModal').style.display='none'" style="background: none; border: none; cursor: pointer; color: var(--ts-secondary);">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <p class="ts-body-md ts-mb-md">Are you sure you want to leave <strong>@Model.Name</strong>?</p>
+
+            @if (isProfessor)
+            {
+                <div id="professorWarning" class="ts-alert ts-alert-warning ts-mb-md" style="display: none; background: rgba(255,193,7,0.1); color: var(--ts-warning); border: 1px solid rgba(255,193,7,0.2); padding: 0.75rem;">
+                    <strong>⚠️ Warning:</strong> You are the only professor in this group. Consider adding another professor before leaving.
+                </div>
+            }
+
+            <form asp-action="RemoveMember" asp-route-groupId="@Model.Id" asp-route-userId="" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="leaveUserId" name="userId" />
+                <input type="hidden" id="leaveReason" name="reason" value="@(isProfessor ? "Professor left the group" : "Student requested to leave group")" />
+
+                <div class="ts-body-sm ts-text-secondary ts-mb-md">
+                    <strong>Note:</strong> @(isProfessor ? "Your departure will be immediate." : "Your leave request will be sent to the professor for approval.")
+                </div>
+
+                <div class="ts-flex ts-gap-md ts-mt-lg" style="justify-content: flex-end;">
+                    <button type="button" class="ts-btn ts-btn-secondary" onclick="document.getElementById('leaveGroupModal').style.display='none'">Cancel</button>
+                    <button type="submit" class="ts-btn ts-btn-danger">Leave Group</button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
+<script>
+function openRemoveModal(userId, memberName) {
+    document.getElementById('userId').value = userId;
+    document.getElementById('memberName').textContent = memberName;
+    document.getElementById('removeMemberModal').style.display = 'flex';
+}
+
+function openLeaveModal() {
+    document.getElementById('leaveGroupModal').style.display = 'flex';
+
+    // Set current user ID if available
+    const userIdFromPage = '@User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value';
+    if (userIdFromPage) {
+        document.getElementById('leaveUserId').value = userIdFromPage;
+    }
+
+    // Check if user is professor and if they're the only one
+    const isProfessor = @(isProfessor ? "true" : "false");
+    if (isProfessor) {
+        const professorCount = @Model.Members.Count(m => m.Role == "Professor");
+        const warningDiv = document.getElementById('professorWarning');
+        if (professorCount === 1 && warningDiv) {
+            warningDiv.style.display = 'block';
+        } else if (warningDiv) {
+            warningDiv.style.display = 'none';
+        }
+    }
+}
+
+// Close modals when clicking outside
+document.addEventListener('click', function(event) {
+    const addModal = document.getElementById('addMemberModal');
+    const removeModal = document.getElementById('removeMemberModal');
+    const leaveModal = document.getElementById('leaveGroupModal');
+
+    if (event.target === addModal) addModal.style.display = 'none';
+    if (event.target === removeModal) removeModal.style.display = 'none';
+    if (event.target === leaveModal) leaveModal.style.display = 'none';
+});
+</script>

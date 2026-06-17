@@ -14,6 +14,9 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
     public DbSet<Models.GroupMember> GroupMembers { get; set; }
     public DbSet<Models.Task> Tasks { get; set; }
     public DbSet<Models.Contribution> Contributions { get; set; }
+    public DbSet<Models.RemovalRequest> RemovalRequests { get; set; }
+    public DbSet<Models.AddMemberRequest> AddMemberRequests { get; set; }
+    public DbSet<Models.JoinRequest> JoinRequests { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -71,6 +74,81 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
             .HasForeignKey(c => c.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // Configure RemovalRequest relationships
+        modelBuilder.Entity<Models.RemovalRequest>()
+            .HasOne(rr => rr.GroupMember)
+            .WithMany()
+            .HasForeignKey(rr => rr.GroupMemberId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<Models.RemovalRequest>()
+            .HasOne(rr => rr.Group)
+            .WithMany()
+            .HasForeignKey(rr => rr.GroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Models.RemovalRequest>()
+            .HasOne(rr => rr.User)
+            .WithMany()
+            .HasForeignKey(rr => rr.UserId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<Models.RemovalRequest>()
+            .HasOne(rr => rr.RequestedBy)
+            .WithMany()
+            .HasForeignKey(rr => rr.RequestedByUserId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<Models.RemovalRequest>()
+            .HasOne(rr => rr.ApprovedBy)
+            .WithMany()
+            .HasForeignKey(rr => rr.ApprovedByUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Configure AddMemberRequest relationships
+        modelBuilder.Entity<Models.AddMemberRequest>()
+            .HasOne(amr => amr.Group)
+            .WithMany()
+            .HasForeignKey(amr => amr.GroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Models.AddMemberRequest>()
+            .HasOne(amr => amr.User)
+            .WithMany()
+            .HasForeignKey(amr => amr.UserId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<Models.AddMemberRequest>()
+            .HasOne(amr => amr.RequestedBy)
+            .WithMany()
+            .HasForeignKey(amr => amr.RequestedByUserId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<Models.AddMemberRequest>()
+            .HasOne(amr => amr.ApprovedBy)
+            .WithMany()
+            .HasForeignKey(amr => amr.ApprovedByUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Configure JoinRequest relationships
+        modelBuilder.Entity<Models.JoinRequest>()
+            .HasOne(jr => jr.Group)
+            .WithMany()
+            .HasForeignKey(jr => jr.GroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Models.JoinRequest>()
+            .HasOne(jr => jr.User)
+            .WithMany()
+            .HasForeignKey(jr => jr.UserId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<Models.JoinRequest>()
+            .HasOne(jr => jr.ApprovedBy)
+            .WithMany()
+            .HasForeignKey(jr => jr.ApprovedByUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         // Add indexes for common queries
         modelBuilder.Entity<Models.Group>()
             .HasIndex(g => g.CreatedById);
@@ -92,5 +170,14 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
 
         modelBuilder.Entity<Models.Contribution>()
             .HasIndex(c => c.UserId);
+
+        modelBuilder.Entity<Models.RemovalRequest>()
+            .HasIndex(rr => rr.GroupId);
+
+        modelBuilder.Entity<Models.RemovalRequest>()
+            .HasIndex(rr => rr.UserId);
+
+        modelBuilder.Entity<Models.RemovalRequest>()
+            .HasIndex(rr => rr.Status);
     }
 }

@@ -55,6 +55,7 @@ public class HomeController : Controller
                 Name = g.Name,
                 Description = g.Description,
                 MemberCount = g.Members.Count,
+                StudentCount = g.Members.Count(m => m.Role != "Professor"),
                 CreatedAt = g.CreatedAt,
                 IsActive = g.IsActive,
                 UserRole = g.CreatedById == user.Id ? "Professor" : "Admin"
@@ -77,6 +78,7 @@ public class HomeController : Controller
                 Name = gm.Group.Name,
                 Description = gm.Group.Description,
                 MemberCount = gm.Group.Members.Count,
+                StudentCount = gm.Group.Members.Count(m => m.Role != "Professor"),
                 CreatedAt = gm.Group.CreatedAt,
                 IsActive = gm.Group.IsActive,
                 UserRole = gm.Role
@@ -99,6 +101,7 @@ public class HomeController : Controller
                 Name = gm.Group.Name,
                 Description = gm.Group.Description,
                 MemberCount = gm.Group.Members.Count,
+                StudentCount = gm.Group.Members.Count(m => m.Role != "Professor"),
                 CreatedAt = gm.Group.CreatedAt,
                 IsActive = gm.Group.IsActive,
                 UserRole = gm.Role
