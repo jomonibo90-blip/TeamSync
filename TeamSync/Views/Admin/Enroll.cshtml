@@ -1,0 +1,121 @@
+@model EnrollUserViewModel
+@{
+    ViewData["Title"] = "Enroll New User";
+}
+
+<div class="ts-page-header ts-mb-lg">
+    <a asp-action="Dashboard" class="ts-btn ts-btn-secondary ts-btn-sm" style="margin-bottom: 1rem;">
+        <span class="material-symbols-outlined" style="font-size: 18px;">arrow_back</span>
+        Back to Dashboard
+    </a>
+    <h1 class="ts-headline-lg-mobile md:ts-headline-lg">Enroll New User</h1>
+    <p class="ts-body-lg ts-text-secondary">Add a new professor or student to the system</p>
+</div>
+
+<div style="max-width: 600px; margin: 0 auto;">
+    <div class="ts-dashboard-card">
+        <div class="ts-dashboard-card-body">
+            <form asp-action="Enroll" method="post">
+                <!-- Personal Information Section -->
+                <div style="margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--ts-border);">
+                    <h3 class="ts-title-md ts-mb-md">Personal Information</h3>
+
+                    <div class="ts-form-group">
+                        <label asp-for="FirstName" class="ts-label">First Name *</label>
+                        <div class="ts-input-wrapper">
+                            <span class="material-symbols-outlined ts-input-icon">person</span>
+                            <input asp-for="FirstName" class="ts-input ts-input-with-icon" placeholder="John" required />
+                        </div>
+                        <span asp-validation-for="FirstName" class="ts-body-sm ts-text-danger"></span>
+                    </div>
+
+                    <div class="ts-form-group">
+                        <label asp-for="LastName" class="ts-label">Last Name *</label>
+                        <div class="ts-input-wrapper">
+                            <span class="material-symbols-outlined ts-input-icon">person</span>
+                            <input asp-for="LastName" class="ts-input ts-input-with-icon" placeholder="Doe" required />
+                        </div>
+                        <span asp-validation-for="LastName" class="ts-body-sm ts-text-danger"></span>
+                    </div>
+
+                    <div class="ts-form-group">
+                        <label asp-for="Email" class="ts-label">Email Address *</label>
+                        <div class="ts-input-wrapper">
+                            <span class="material-symbols-outlined ts-input-icon">mail</span>
+                            <input asp-for="Email" type="email" class="ts-input ts-input-with-icon" placeholder="john.doe@university.edu" required />
+                        </div>
+                        <span asp-validation-for="Email" class="ts-body-sm ts-text-danger"></span>
+                    </div>
+
+                    <div class="ts-form-group">
+                        <label asp-for="StudentId" class="ts-label">Student/Employee ID *</label>
+                        <div class="ts-input-wrapper">
+                            <span class="material-symbols-outlined ts-input-icon">badge</span>
+                            <input asp-for="StudentId" class="ts-input ts-input-with-icon" placeholder="STU001" required />
+                        </div>
+                        <span asp-validation-for="StudentId" class="ts-body-sm ts-text-danger"></span>
+                    </div>
+                </div>
+
+                <!-- Role Selection Section -->
+                <div style="margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--ts-border);">
+                    <h3 class="ts-title-md ts-mb-md">Account Role</h3>
+
+                    <div class="ts-form-group">
+                        <label asp-for="Role" class="ts-label">Role *</label>
+                        <select asp-for="Role" class="ts-input" required>
+                            <option value="Student">Student</option>
+                            <option value="Professor">Professor</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                        <p class="ts-body-sm ts-text-secondary ts-mt-sm">
+                            <strong>Student:</strong> Can join groups and complete tasks.<br />
+                            <strong>Professor:</strong> Can create and manage groups, approve requests.<br />
+                            <strong>Admin:</strong> Full system access.
+                        </p>
+                        <span asp-validation-for="Role" class="ts-body-sm ts-text-danger"></span>
+                    </div>
+                </div>
+
+                <!-- Credentials Section -->
+                <div style="margin-bottom: 2rem;">
+                    <h3 class="ts-title-md ts-mb-md">Credentials</h3>
+
+                    <div class="ts-form-group">
+                        <label asp-for="Password" class="ts-label">Password *</label>
+                        <div class="ts-input-wrapper">
+                            <span class="material-symbols-outlined ts-input-icon">lock</span>
+                            <input asp-for="Password" type="password" class="ts-input ts-input-with-icon" placeholder="••••••••" required />
+                        </div>
+                        <p class="ts-body-sm ts-text-secondary ts-mt-sm">
+                            Minimum 8 characters. Share this with the user to log in.
+                        </p>
+                        <span asp-validation-for="Password" class="ts-body-sm ts-text-danger"></span>
+                    </div>
+
+                    <div class="ts-alert" style="background: rgba(13,110,253,0.05); border-left: 3px solid var(--ts-primary);">
+                        <div class="ts-flex ts-items-start ts-gap-md">
+                            <span class="material-symbols-outlined ts-text-primary">info</span>
+                            <div class="ts-body-sm">
+                                <strong>Note:</strong> The account will be created with email confirmed. The user should change their password on first login.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="ts-flex ts-gap-md ts-mt-lg" style="justify-content: flex-end;">
+                    <a asp-action="Users" class="ts-btn ts-btn-secondary">Cancel</a>
+                    <button type="submit" class="ts-btn ts-btn-primary">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">person_add</span>
+                        Enroll User
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

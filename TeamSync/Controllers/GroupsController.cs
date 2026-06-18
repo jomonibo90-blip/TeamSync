@@ -5,6 +5,11 @@ using Microsoft.EntityFrameworkCore;
 using TeamSync.Data;
 using TeamSync.Models;
 using TeamSync.ViewModels;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace TeamSync.Controllers;
 
@@ -41,7 +46,7 @@ public class GroupsController : Controller
             {
                 Id = g.Id,
                 Name = g.Name,
-                Description = g.Description,
+                Description = g.Description ?? string.Empty,
                 MemberCount = g.Members.Count,
                 CreatedAt = g.CreatedAt,
                 IsActive = g.IsActive,
@@ -54,15 +59,15 @@ public class GroupsController : Controller
             var memberships = await _context.GroupMembers
                 .Include(gm => gm.Group)
                 .ThenInclude(g => g.Members)
-                .Where(gm => gm.UserId == user.Id)
-                .OrderByDescending(gm => gm.Group.CreatedAt)
+                .Where(gm => gm.UserId == user.Id && gm.Group != null)
+                .OrderByDescending(gm => gm.Group!.CreatedAt)
                 .ToListAsync();
 
             groupViewModels = memberships.Select(gm => new GroupListViewModel
             {
-                Id = gm.Group.Id,
+                Id = gm.Group!.Id,
                 Name = gm.Group.Name,
-                Description = gm.Group.Description,
+                Description = gm.Group.Description ?? string.Empty,
                 MemberCount = gm.Group.Members.Count,
                 CreatedAt = gm.Group.CreatedAt,
                 IsActive = gm.Group.IsActive,
@@ -148,6 +153,25 @@ public class GroupsController : Controller
             return Forbid();
         }
 
+        // Load pending removal requests for this group
+        var pendingRequests = await _context.RemovalRequests
+            .Where(rr => rr.GroupId == id && rr.Status == "Pending")
+            .Include(rr => rr.User)
+            .Include(rr => rr.RequestedBy)
+            .ToListAsync();
+
+        // Load pending add member requests for this group
+        var pendingAddRequests = await _context.AddMemberRequests
+            .Where(amr => amr.GroupId == id && amr.Status == "Pending")
+            .Include(amr => amr.RequestedBy)
+            .ToListAsync();
+
+        // Load pending join requests for this group
+        var pendingJoinRequests = await _context.JoinRequests
+            .Where(jr => jr.GroupId == id && jr.Status == "Pending")
+            .Include(jr => jr.User)
+            .ToListAsync();
+
         var viewModel = new GroupDetailsViewModel
         {
             Id = group.Id,
@@ -155,6 +179,7 @@ public class GroupsController : Controller
             Description = group.Description ?? string.Empty,
             JoinCode = group.JoinCode,
             IsActive = group.IsActive,
+            ArchivedAt = group.ArchivedAt,
             CreatedAt = group.CreatedAt,
             CurrentUserRole = currentMember?.Role ?? "Admin",
             Members = group.Members
@@ -168,6 +193,32 @@ public class GroupsController : Controller
                 Email = m.User?.Email ?? string.Empty,
                 Role = m.Role,
                 JoinedAt = m.JoinedAt
+            }).ToList(),
+            PendingRemovalRequests = pendingRequests.Select(rr => new RemovalRequestViewModel
+            {
+                Id = rr.Id,
+                UserFullName = $"{rr.User?.FirstName} {rr.User?.LastName}",
+                RequestedByFullName = $"{rr.RequestedBy?.FirstName} {rr.RequestedBy?.LastName}",
+                Reason = rr.Reason,
+                Status = rr.Status,
+                CreatedAt = rr.CreatedAt,
+                RequestType = rr.UserId == rr.RequestedByUserId ? "Leave" : "Removal"
+            }).ToList(),
+            PendingAddRequests = pendingAddRequests.Select(amr => new AddMemberRequestViewModel
+            {
+                Id = amr.Id,
+                Email = amr.Email,
+                RequestedByFullName = $"{amr.RequestedBy?.FirstName} {amr.RequestedBy?.LastName}",
+                Status = amr.Status,
+                CreatedAt = amr.CreatedAt
+            }).ToList(),
+            PendingJoinRequests = pendingJoinRequests.Select(jr => new JoinRequestViewModel
+            {
+                Id = jr.Id,
+                UserFullName = $"{jr.User?.FirstName} {jr.User?.LastName}",
+                Email = jr.User?.Email ?? string.Empty,
+                Status = jr.Status,
+                CreatedAt = jr.CreatedAt
             }).ToList()
         };
 
@@ -207,21 +258,52 @@ public class GroupsController : Controller
             return View(model);
         }
 
+        // Check if a pending join request already exists
+        var existingRequest = await _context.JoinRequests
+            .FirstOrDefaultAsync(jr => jr.GroupId == group.Id && jr.UserId == user.Id && jr.Status == "Pending");
+
+        if (existingRequest != null)
+        {
+            ModelState.AddModelError(string.Empty, "You already have a pending join request for this group.");
+            return View(model);
+        }
+
         bool isProfessor = await _userManager.IsInRoleAsync(user, "Professor");
 
-        var groupMember = new GroupMember
+        // Professors can join directly, students need approval
+        if (isProfessor)
         {
-            GroupId = group.Id,
-            UserId = user.Id,
-            Role = isProfessor ? "Professor" : "Member",
-            JoinedAt = DateTime.UtcNow,
-            IsActive = true
-        };
+            var groupMember = new GroupMember
+            {
+                GroupId = group.Id,
+                UserId = user.Id,
+                Role = "Professor",
+                JoinedAt = DateTime.UtcNow,
+                IsActive = true
+            };
 
-        _context.GroupMembers.Add(groupMember);
-        await _context.SaveChangesAsync();
+            _context.GroupMembers.Add(groupMember);
+            await _context.SaveChangesAsync();
 
-        return RedirectToAction(nameof(Details), new { id = group.Id });
+            return RedirectToAction(nameof(Details), new { id = group.Id });
+        }
+        else
+        {
+            // Create a join request for professor approval
+            var joinRequest = new JoinRequest
+            {
+                GroupId = group.Id,
+                UserId = user.Id,
+                Status = "Pending",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.JoinRequests.Add(joinRequest);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Join request sent to professor for approval.";
+            return RedirectToAction("Index", "Groups");
+        }
     }
 
     [HttpPost]
@@ -242,6 +324,12 @@ public class GroupsController : Controller
             .FirstOrDefaultAsync(g => g.Id == model.GroupId);
 
         if (group == null) return NotFound();
+
+        if (!group.IsActive)
+        {
+            TempData["ErrorMessage"] = "This group is archived (project ended). You cannot add members.";
+            return RedirectToAction(nameof(Details), new { id = group.Id });
+        }
 
         // Ensure the current user has permission to add members
         var currentMember = group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
@@ -266,22 +354,57 @@ public class GroupsController : Controller
             return RedirectToAction(nameof(Details), new { id = model.GroupId });
         }
 
-        bool isUserToAddProfessor = await _userManager.IsInRoleAsync(userToAdd, "Professor");
+        // Check if a pending request already exists
+        var existingRequest = await _context.AddMemberRequests
+            .FirstOrDefaultAsync(amr => amr.GroupId == group.Id && amr.UserId == userToAdd.Id && amr.Status == "Pending");
 
-        var groupMember = new GroupMember
+        if (existingRequest != null)
         {
-            GroupId = group.Id,
-            UserId = userToAdd.Id,
-            Role = isUserToAddProfessor ? "Professor" : "Member",
-            JoinedAt = DateTime.UtcNow,
-            IsActive = true
-        };
+            TempData["ErrorMessage"] = "A pending add request for this user already exists.";
+            return RedirectToAction(nameof(Details), new { id = model.GroupId });
+        }
 
-        _context.GroupMembers.Add(groupMember);
-        await _context.SaveChangesAsync();
+        bool isCurrentUserProfessor = currentMember?.Role == "Professor" || User.IsInRole("Admin");
 
-        TempData["SuccessMessage"] = "Member added successfully.";
-        return RedirectToAction(nameof(Details), new { id = group.Id });
+        // If professor or admin, add directly. Otherwise, create a request
+        if (isCurrentUserProfessor)
+        {
+            bool isUserToAddProfessor = await _userManager.IsInRoleAsync(userToAdd, "Professor");
+
+            var groupMember = new GroupMember
+            {
+                GroupId = group.Id,
+                UserId = userToAdd.Id,
+                Role = isUserToAddProfessor ? "Professor" : "Member",
+                JoinedAt = DateTime.UtcNow,
+                IsActive = true
+            };
+
+            _context.GroupMembers.Add(groupMember);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Member added successfully.";
+            return RedirectToAction(nameof(Details), new { id = group.Id });
+        }
+        else
+        {
+            // Create an add member request for professor approval
+            var request = new AddMemberRequest
+            {
+                GroupId = group.Id,
+                UserId = userToAdd.Id,
+                Email = userToAdd.Email,
+                RequestedByUserId = currentUser.Id,
+                Status = "Pending",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.AddMemberRequests.Add(request);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Member add request sent to professor for approval.";
+            return RedirectToAction(nameof(Details), new { id = group.Id });
+        }
     }
 
     [HttpGet]
@@ -341,6 +464,11 @@ public class GroupsController : Controller
         group.Name = model.Name;
         group.Description = model.Description;
         group.IsActive = model.IsActive;
+
+        if (!group.IsActive && group.ArchivedAt == null)
+        {
+            group.ArchivedAt = DateTime.UtcNow;
+        }
         group.UpdatedAt = DateTime.UtcNow;
 
         _context.Groups.Update(group);
@@ -363,6 +491,12 @@ public class GroupsController : Controller
 
         if (group == null) return NotFound();
 
+        if (!group.IsActive && !User.IsInRole("Admin"))
+        {
+            TempData["ErrorMessage"] = "Cannot regenerate join code for an archived group.";
+            return RedirectToAction(nameof(Details), new { id = group.Id });
+        }
+
         var currentMember = group.Members.FirstOrDefault(m => m.UserId == user.Id);
         bool canEdit = currentMember?.Role == "Professor" || currentMember?.Role == "Lead" || User.IsInRole("Admin");
 
@@ -376,5 +510,581 @@ public class GroupsController : Controller
 
         TempData["SuccessMessage"] = "Join code regenerated successfully.";
         return RedirectToAction(nameof(Details), new { id = group.Id });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RemoveMember(int groupId, string userId, string reason = "")
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var group = await _context.Groups
+            .Include(g => g.Members)
+            .FirstOrDefaultAsync(g => g.Id == groupId);
+
+        if (group == null) return NotFound();
+
+        var memberToRemove = await _context.GroupMembers
+            .FirstOrDefaultAsync(m => m.GroupId == groupId && m.UserId == userId);
+
+        if (memberToRemove == null)
+        {
+            TempData["ErrorMessage"] = "Member not found.";
+            return RedirectToAction(nameof(Details), new { id = groupId });
+        }
+
+        var currentMember = group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
+        bool isAdmin = User.IsInRole("Admin");
+        bool isLead = currentMember?.Role == "Lead";
+        bool isRemovingSelf = userId == currentUser.Id;
+        bool isCurrentUserProfessor = currentMember?.Role == "Professor";
+
+        if (isAdmin || isCurrentUserProfessor)
+        {
+            // Direct removal (no approval needed)
+            _context.GroupMembers.Remove(memberToRemove);
+            await _context.SaveChangesAsync();
+
+            // After removal, if no members remain, archive the group
+            var remaining = await _context.GroupMembers.CountAsync(gm => gm.GroupId == groupId);
+            if (remaining == 0)
+            {
+                group.IsActive = false;
+                group.ArchivedAt = DateTime.UtcNow;
+                _context.Groups.Update(group);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Group has been archived because it no longer has members.";
+                return RedirectToAction("Index", "Home");
+            }
+            TempData["SuccessMessage"] = "Member removed successfully.";
+            return RedirectToAction(nameof(Details), new { id = groupId });
+        }
+        else if (isLead || isRemovingSelf)
+        {
+            // Check if any professors exist in the group
+            var hasProfessor = group.Members.Any(m => m.Role == "Professor");
+
+            if (!hasProfessor && isRemovingSelf)
+            {
+                // No professor in group: auto-approve student's leave request
+                _context.GroupMembers.Remove(memberToRemove);
+                await _context.SaveChangesAsync();
+
+                // Check if this was the last member
+                var remaining = await _context.GroupMembers.CountAsync(gm => gm.GroupId == groupId);
+                if (remaining == 0)
+                {
+                    group.IsActive = false;
+                    group.ArchivedAt = DateTime.UtcNow;
+                    _context.Groups.Update(group);
+                    await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "You have left the group. Group has been archived because it no longer has members.";
+                    return RedirectToAction("Index", "Home");
+                }
+
+                TempData["SuccessMessage"] = "You have left the group successfully.";
+                return RedirectToAction("Index", "Groups");
+            }
+
+            // Professor exists (or Lead trying to remove another): create removal request
+            var removalRequest = new RemovalRequest
+            {
+                GroupMemberId = memberToRemove.Id,
+                GroupId = groupId,
+                UserId = userId,
+                RequestedByUserId = currentUser.Id,
+                Reason = reason,
+                Status = "Pending",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.RemovalRequests.Add(removalRequest);
+            await _context.SaveChangesAsync();
+
+            string message = isRemovingSelf 
+                ? "Your leave request has been sent to the professor for approval." 
+                : "Removal request has been sent to the professor for approval.";
+            TempData["SuccessMessage"] = message;
+            return RedirectToAction(nameof(Details), new { id = groupId });
+        }
+        else
+        {
+            TempData["ErrorMessage"] = "You don't have permission to remove members.";
+            return RedirectToAction(nameof(Details), new { id = groupId });
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApproveMemberRemoval(int removalRequestId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var removalRequest = await _context.RemovalRequests
+            .Include(rr => rr.Group)
+            .ThenInclude(g => g.Members)
+            .FirstOrDefaultAsync(rr => rr.Id == removalRequestId);
+
+        if (removalRequest == null) return NotFound();
+
+        if (removalRequest.Group == null) return NotFound();
+
+        // Only professor of the group or admin can approve
+        var currentMember = removalRequest.Group.Members
+            .FirstOrDefault(m => m.UserId == currentUser.Id);
+
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = currentMember?.Role == "Professor" || User.IsInRole("Professor");
+
+        if (!isAdmin && !isProfessor)
+        {
+            TempData["ErrorMessage"] = "You don't have permission to approve this request.";
+            return RedirectToAction(nameof(Details), new { id = removalRequest.GroupId });
+        }
+
+        // Approve and remove the member
+        removalRequest.Status = "Approved";
+        removalRequest.ApprovedByUserId = currentUser.Id;
+        removalRequest.ResolvedAt = DateTime.UtcNow;
+
+        var memberToRemove = await _context.GroupMembers
+            .FirstOrDefaultAsync(m => m.Id == removalRequest.GroupMemberId);
+
+        if (memberToRemove != null)
+        {
+            _context.GroupMembers.Remove(memberToRemove);
+        }
+
+        _context.RemovalRequests.Update(removalRequest);
+        await _context.SaveChangesAsync();
+
+        // After removal and save, archive group if it has no members
+        var remainingAfter = await _context.GroupMembers.CountAsync(gm => gm.GroupId == removalRequest.GroupId);
+        if (remainingAfter == 0)
+        {
+            var grp = removalRequest.Group;
+            if (grp != null)
+            {
+                grp.IsActive = false;
+                grp.ArchivedAt = DateTime.UtcNow;
+                _context.Groups.Update(grp);
+                await _context.SaveChangesAsync();
+            }
+            TempData["SuccessMessage"] = "Removal request approved. Member removed and group archived because it has no remaining members.";
+            return RedirectToAction("Index", "Home");
+        }
+
+        TempData["SuccessMessage"] = "Member removed successfully.";
+        return RedirectToAction(nameof(Details), new { id = removalRequest.GroupId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RejectMemberRemoval(int removalRequestId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var removalRequest = await _context.RemovalRequests
+            .Include(rr => rr.Group)
+            .ThenInclude(g => g.Members)
+            .FirstOrDefaultAsync(rr => rr.Id == removalRequestId);
+
+        if (removalRequest == null) return NotFound();
+
+        if (removalRequest.Group == null) return NotFound();
+
+        // Only professor of the group or admin can reject
+        var currentMember = removalRequest.Group.Members
+            .FirstOrDefault(m => m.UserId == currentUser.Id);
+
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = currentMember?.Role == "Professor" || User.IsInRole("Professor");
+
+        if (!isAdmin && !isProfessor)
+        {
+            TempData["ErrorMessage"] = "You don't have permission to reject this request.";
+            return RedirectToAction(nameof(Details), new { id = removalRequest.GroupId });
+        }
+
+        // Reject the removal request
+        removalRequest.Status = "Rejected";
+        removalRequest.ApprovedByUserId = currentUser.Id;
+        removalRequest.ResolvedAt = DateTime.UtcNow;
+
+        _context.RemovalRequests.Update(removalRequest);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Removal request rejected.";
+        return RedirectToAction(nameof(Details), new { id = removalRequest.GroupId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteGroup(int id)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var group = await _context.Groups
+            .Include(g => g.Members)
+            .FirstOrDefaultAsync(g => g.Id == id);
+
+        if (group == null) return NotFound();
+
+        // Only the professor who created the group or admin can delete
+        bool isAdmin = User.IsInRole("Admin");
+        bool isCreator = group.CreatedById == currentUser.Id;
+        bool canDelete = isAdmin || (isCreator && (User.IsInRole("Professor") || User.IsInRole("Admin")));
+
+        if (!canDelete)
+        {
+            TempData["ErrorMessage"] = "You don't have permission to delete this group.";
+            return RedirectToAction(nameof(Details), new { id = group.Id });
+        }
+
+        // Archive the group instead of hard delete (professors/creators)
+        group.IsActive = false;
+        group.ArchivedAt = DateTime.UtcNow;
+        _context.Groups.Update(group);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Group archived successfully. Administrators can purge permanently.";
+        return RedirectToAction("Index", "Home");
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> PurgeGroup(int id)
+    {
+        if (!User.IsInRole("Admin")) return Forbid();
+
+        var group = await _context.Groups
+            .Include(g => g.Members)
+            .Include(g => g.Tasks)
+            .FirstOrDefaultAsync(g => g.Id == id);
+
+        if (group == null) return NotFound();
+
+        _context.Groups.Remove(group);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Group permanently deleted.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportGroup(int id)
+    {
+        if (!User.IsInRole("Admin")) return Forbid();
+
+        var group = await _context.Groups
+            .Include(g => g.Members).ThenInclude(m => m.User)
+            .Include(g => g.Tasks)
+            .FirstOrDefaultAsync(g => g.Id == id);
+
+        if (group == null) return NotFound();
+
+        var sb = new StringBuilder();
+        sb.AppendLine("GroupId,Name,Description,IsActive,ArchivedAt,CreatedAt");
+        sb.AppendLine($"{group.Id},\"{group.Name}\",\"{group.Description ?? string.Empty}\",{group.IsActive},{group.ArchivedAt},{group.CreatedAt}");
+        sb.AppendLine();
+        sb.AppendLine("Members:");
+        sb.AppendLine("UserId,FullName,Email,Role,JoinedAt");
+        foreach (var m in group.Members)
+        {
+            sb.AppendLine($"{m.UserId},\"{m.User?.FirstName} {m.User?.LastName}\",{m.User?.Email},{m.Role},{m.JoinedAt}");
+        }
+        sb.AppendLine();
+        sb.AppendLine("Tasks:");
+        sb.AppendLine("TaskId,Title,Description,AssignedToId,Status,CreatedAt");
+        foreach (var t in group.Tasks)
+        {
+            sb.AppendLine($"{t.Id},\"{t.Title}\",\"{t.Description ?? string.Empty}\",{t.AssignedToId},{t.Status},{t.CreatedAt}");
+        }
+        var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+        return File(bytes, "text/csv", $"group-{group.Id}.csv");
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> PromoteToLead(int groupId, string userId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var group = await _context.Groups
+            .Include(g => g.Members)
+            .FirstOrDefaultAsync(g => g.Id == groupId);
+
+        if (group == null) return NotFound();
+
+        // Only professor or admin can promote to lead
+        var currentMember = group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = currentMember?.Role == "Professor" || User.IsInRole("Professor");
+
+        if (!isAdmin && !isProfessor)
+        {
+            TempData["ErrorMessage"] = "You don't have permission to promote members.";
+            return RedirectToAction(nameof(Details), new { id = groupId });
+        }
+
+        var memberToPromote = group.Members.FirstOrDefault(m => m.UserId == userId);
+        if (memberToPromote == null)
+        {
+            TempData["ErrorMessage"] = "Member not found.";
+            return RedirectToAction(nameof(Details), new { id = groupId });
+        }
+
+        memberToPromote.Role = "Lead";
+        _context.GroupMembers.Update(memberToPromote);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Member promoted to Lead successfully.";
+        return RedirectToAction(nameof(Details), new { id = groupId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApproveAddMember(int addMemberRequestId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var addMemberRequest = await _context.AddMemberRequests
+            .Include(amr => amr.Group)
+            .ThenInclude(g => g.Members)
+            .FirstOrDefaultAsync(amr => amr.Id == addMemberRequestId);
+
+        if (addMemberRequest == null) return NotFound();
+
+        if (addMemberRequest.Group == null) return NotFound();
+
+        // Only professor of the group or admin can approve
+        var currentMember = addMemberRequest.Group.Members
+            .FirstOrDefault(m => m.UserId == currentUser.Id);
+
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = currentMember?.Role == "Professor" || User.IsInRole("Professor");
+
+        if (!isAdmin && !isProfessor)
+        {
+            TempData["ErrorMessage"] = "You don't have permission to approve this request.";
+            return RedirectToAction(nameof(Details), new { id = addMemberRequest.GroupId });
+        }
+
+        // Get the user to add
+        var userToAdd = await _userManager.FindByIdAsync(addMemberRequest.UserId);
+        if (userToAdd == null)
+        {
+            // User no longer exists, reject the request
+            addMemberRequest.Status = "Rejected";
+            addMemberRequest.ApprovedByUserId = currentUser.Id;
+            addMemberRequest.ResolvedAt = DateTime.UtcNow;
+            _context.AddMemberRequests.Update(addMemberRequest);
+            await _context.SaveChangesAsync();
+
+            TempData["ErrorMessage"] = "User no longer exists.";
+            return RedirectToAction(nameof(Details), new { id = addMemberRequest.GroupId });
+        }
+
+        // Check if user is already a member
+        if (addMemberRequest.Group.Members.Any(m => m.UserId == userToAdd.Id))
+        {
+            addMemberRequest.Status = "Rejected";
+            addMemberRequest.ApprovedByUserId = currentUser.Id;
+            addMemberRequest.ResolvedAt = DateTime.UtcNow;
+            _context.AddMemberRequests.Update(addMemberRequest);
+            await _context.SaveChangesAsync();
+
+            TempData["ErrorMessage"] = "User is already a member of this group.";
+            return RedirectToAction(nameof(Details), new { id = addMemberRequest.GroupId });
+        }
+
+        // Approve and add the member
+        addMemberRequest.Status = "Approved";
+        addMemberRequest.ApprovedByUserId = currentUser.Id;
+        addMemberRequest.ResolvedAt = DateTime.UtcNow;
+
+        bool isUserProfessor = await _userManager.IsInRoleAsync(userToAdd, "Professor");
+
+        var groupMember = new GroupMember
+        {
+            GroupId = addMemberRequest.GroupId,
+            UserId = userToAdd.Id,
+            Role = isUserProfessor ? "Professor" : "Member",
+            JoinedAt = DateTime.UtcNow,
+            IsActive = true
+        };
+
+        _context.AddMemberRequests.Update(addMemberRequest);
+        _context.GroupMembers.Add(groupMember);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Member add request approved. User has been added to the group.";
+        return RedirectToAction(nameof(Details), new { id = addMemberRequest.GroupId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RejectAddMember(int addMemberRequestId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var addMemberRequest = await _context.AddMemberRequests
+            .Include(amr => amr.Group)
+            .ThenInclude(g => g.Members)
+            .FirstOrDefaultAsync(amr => amr.Id == addMemberRequestId);
+
+        if (addMemberRequest == null) return NotFound();
+
+        if (addMemberRequest.Group == null) return NotFound();
+
+        // Only professor of the group or admin can reject
+        var currentMember = addMemberRequest.Group.Members
+            .FirstOrDefault(m => m.UserId == currentUser.Id);
+
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = currentMember?.Role == "Professor" || User.IsInRole("Professor");
+
+        if (!isAdmin && !isProfessor)
+        {
+            TempData["ErrorMessage"] = "You don't have permission to reject this request.";
+            return RedirectToAction(nameof(Details), new { id = addMemberRequest.GroupId });
+        }
+
+        // Reject the add member request
+        addMemberRequest.Status = "Rejected";
+        addMemberRequest.ApprovedByUserId = currentUser.Id;
+        addMemberRequest.ResolvedAt = DateTime.UtcNow;
+
+        _context.AddMemberRequests.Update(addMemberRequest);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Member add request rejected.";
+        return RedirectToAction(nameof(Details), new { id = addMemberRequest.GroupId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApproveJoinRequest(int joinRequestId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var joinRequest = await _context.JoinRequests
+            .Include(jr => jr.Group)
+            .ThenInclude(g => g.Members)
+            .FirstOrDefaultAsync(jr => jr.Id == joinRequestId);
+
+        if (joinRequest == null) return NotFound();
+
+        if (joinRequest.Group == null) return NotFound();
+
+        // Only professor of the group or admin can approve
+        var currentMember = joinRequest.Group.Members
+            .FirstOrDefault(m => m.UserId == currentUser.Id);
+
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = currentMember?.Role == "Professor" || User.IsInRole("Professor");
+
+        if (!isAdmin && !isProfessor)
+        {
+            TempData["ErrorMessage"] = "You don't have permission to approve this request.";
+            return RedirectToAction(nameof(Details), new { id = joinRequest.GroupId });
+        }
+
+        // Get the user trying to join
+        var userToJoin = await _userManager.FindByIdAsync(joinRequest.UserId);
+        if (userToJoin == null)
+        {
+            joinRequest.Status = "Rejected";
+            joinRequest.ApprovedByUserId = currentUser.Id;
+            joinRequest.ResolvedAt = DateTime.UtcNow;
+            _context.JoinRequests.Update(joinRequest);
+            await _context.SaveChangesAsync();
+
+            TempData["ErrorMessage"] = "User no longer exists.";
+            return RedirectToAction(nameof(Details), new { id = joinRequest.GroupId });
+        }
+
+        // Check if user is already a member
+        if (joinRequest.Group.Members.Any(m => m.UserId == userToJoin.Id))
+        {
+            joinRequest.Status = "Rejected";
+            joinRequest.ApprovedByUserId = currentUser.Id;
+            joinRequest.ResolvedAt = DateTime.UtcNow;
+            _context.JoinRequests.Update(joinRequest);
+            await _context.SaveChangesAsync();
+
+            TempData["ErrorMessage"] = "User is already a member of this group.";
+            return RedirectToAction(nameof(Details), new { id = joinRequest.GroupId });
+        }
+
+        // Approve and add the member
+        joinRequest.Status = "Approved";
+        joinRequest.ApprovedByUserId = currentUser.Id;
+        joinRequest.ResolvedAt = DateTime.UtcNow;
+
+        var groupMember = new GroupMember
+        {
+            GroupId = joinRequest.GroupId,
+            UserId = userToJoin.Id,
+            Role = "Member",
+            JoinedAt = DateTime.UtcNow,
+            IsActive = true
+        };
+
+        _context.JoinRequests.Update(joinRequest);
+        _context.GroupMembers.Add(groupMember);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Join request approved. User has been added to the group.";
+        return RedirectToAction(nameof(Details), new { id = joinRequest.GroupId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RejectJoinRequest(int joinRequestId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var joinRequest = await _context.JoinRequests
+            .Include(jr => jr.Group)
+            .ThenInclude(g => g.Members)
+            .FirstOrDefaultAsync(jr => jr.Id == joinRequestId);
+
+        if (joinRequest == null) return NotFound();
+
+        if (joinRequest.Group == null) return NotFound();
+
+        // Only professor of the group or admin can reject
+        var currentMember = joinRequest.Group.Members
+            .FirstOrDefault(m => m.UserId == currentUser.Id);
+
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = currentMember?.Role == "Professor" || User.IsInRole("Professor");
+
+        if (!isAdmin && !isProfessor)
+        {
+            TempData["ErrorMessage"] = "You don't have permission to reject this request.";
+            return RedirectToAction(nameof(Details), new { id = joinRequest.GroupId });
+        }
+
+        // Reject the join request
+        joinRequest.Status = "Rejected";
+        joinRequest.ApprovedByUserId = currentUser.Id;
+        joinRequest.ResolvedAt = DateTime.UtcNow;
+
+        _context.JoinRequests.Update(joinRequest);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Join request rejected.";
+        return RedirectToAction(nameof(Details), new { id = joinRequest.GroupId });
     }
 }

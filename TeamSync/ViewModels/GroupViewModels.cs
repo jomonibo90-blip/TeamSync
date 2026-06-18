@@ -8,9 +8,11 @@ public class GroupListViewModel
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public int MemberCount { get; set; }
+    public int StudentCount { get; set; } // Count of only students and leads (excluding professors)
     public DateTime CreatedAt { get; set; }
     public bool IsActive { get; set; }
     public string UserRole { get; set; } = string.Empty; // e.g., "Lead", "Member", "Professor"
+    public DateTime? ArchivedAt { get; set; }
 }
 
 public class CreateGroupViewModel
@@ -34,8 +36,12 @@ public class GroupDetailsViewModel
     public string JoinCode { get; set; } = string.Empty;
     public string CurrentUserRole { get; set; } = string.Empty;
     public bool IsActive { get; set; }
+    public DateTime? ArchivedAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<GroupMemberViewModel> Members { get; set; } = new();
+    public List<RemovalRequestViewModel> PendingRemovalRequests { get; set; } = new();
+    public List<AddMemberRequestViewModel> PendingAddRequests { get; set; } = new();
+    public List<JoinRequestViewModel> PendingJoinRequests { get; set; } = new();
 }
 
 public class GroupMemberViewModel
@@ -45,6 +51,35 @@ public class GroupMemberViewModel
     public string Email { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
     public DateTime JoinedAt { get; set; }
+}
+
+public class RemovalRequestViewModel
+{
+    public int Id { get; set; }
+    public string UserFullName { get; set; } = string.Empty;
+    public string RequestedByFullName { get; set; } = string.Empty;
+    public string Reason { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public string RequestType { get; set; } = string.Empty; // "Leave" or "Removal"
+}
+
+public class AddMemberRequestViewModel
+{
+    public int Id { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string RequestedByFullName { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+}
+
+public class JoinRequestViewModel
+{
+    public int Id { get; set; }
+    public string UserFullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
 }
 
 public class JoinGroupViewModel

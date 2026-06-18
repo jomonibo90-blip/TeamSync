@@ -1,0 +1,136 @@
+@model List<UserListViewModel>
+@{
+    ViewData["Title"] = "Manage Users";
+    var currentRole = ViewData["CurrentRole"]?.ToString() ?? "";
+    var searchTerm = ViewData["SearchTerm"]?.ToString() ?? "";
+}
+
+<div class="ts-page-header ts-flex ts-justify-between ts-items-center" style="flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+    <div>
+        <h1 class="ts-headline-lg-mobile md:ts-headline-lg">User Management</h1>
+        <p class="ts-body-lg ts-text-secondary">View, search, and manage all system users</p>
+    </div>
+    <a asp-action="Enroll" class="ts-btn ts-btn-primary">
+        <span class="material-symbols-outlined" style="font-size: 18px;">person_add</span>
+        Enroll New User
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="ts-dashboard-card" style="margin-bottom: 1.5rem;">
+    <div class="ts-dashboard-card-body">
+        <form method="get" asp-action="Users" class="ts-flex ts-gap-md" style="flex-wrap: wrap; align-items: flex-end;">
+            <div>
+                <label for="role" class="ts-label">Filter by Role</label>
+                <select name="role" id="role" class="ts-input" style="min-width: 150px;">
+                    <option value="">All Roles</option>
+                    <option value="Admin" selected="@(currentRole == "Admin")">Admin</option>
+                    <option value="Professor" selected="@(currentRole == "Professor")">Professor</option>
+                    <option value="Student" selected="@(currentRole == "Student")">Student</option>
+                </select>
+            </div>
+
+            <div style="flex: 1; min-width: 200px;">
+                <label for="search" class="ts-label">Search</label>
+                <div class="ts-input-wrapper">
+                    <span class="material-symbols-outlined ts-input-icon">search</span>
+                    <input type="text" name="search" id="search" class="ts-input ts-input-with-icon" 
+                           placeholder="Name, email, or student ID..." value="@searchTerm" />
+                </div>
+            </div>
+
+            <button type="submit" class="ts-btn ts-btn-secondary">
+                <span class="material-symbols-outlined" style="font-size: 18px;">search</span>
+                Search
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Users Table -->
+<div class="ts-dashboard-card">
+    <div class="ts-dashboard-card-header">
+        <h3 class="ts-title-lg">Users (@Model.Count)</h3>
+    </div>
+    <div class="ts-dashboard-card-body" style="padding: 0; overflow-x: auto;">
+        @if (Model.Any())
+        {
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--ts-border); background: var(--ts-surface-container);">
+                        <th style="padding: 1rem; text-align: left; font-weight: 600; color: var(--ts-secondary);">Name</th>
+                        <th style="padding: 1rem; text-align: left; font-weight: 600; color: var(--ts-secondary);">Email</th>
+                        <th style="padding: 1rem; text-align: left; font-weight: 600; color: var(--ts-secondary);">Student ID</th>
+                        <th style="padding: 1rem; text-align: left; font-weight: 600; color: var(--ts-secondary);">Role</th>
+                        <th style="padding: 1rem; text-align: center; font-weight: 600; color: var(--ts-secondary);">Groups</th>
+                        <th style="padding: 1rem; text-align: center; font-weight: 600; color: var(--ts-secondary);">Status</th>
+                        <th style="padding: 1rem; text-align: center; font-weight: 600; color: var(--ts-secondary);">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Model)
+                    {
+                        <tr style="border-bottom: 1px solid var(--ts-border); &:hover { background: var(--ts-surface-container); }">
+                            <td style="padding: 1rem;">
+                                <div class="ts-flex ts-items-center ts-gap-md">
+                                    <div class="ts-avatar">
+                                        @(string.IsNullOrEmpty(user.FullName) ? "U" : user.FullName.Substring(0, 1).ToUpper())
+                                    </div>
+                                    <div>
+                                        <div class="ts-label-md">@user.FullName</div>
+                                        <div class="ts-body-sm ts-text-secondary">@user.CreatedAt.ToString("MMM dd, yyyy")</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td style="padding: 1rem;">
+                                <div class="ts-body-sm">@user.Email</div>
+                            </td>
+                            <td style="padding: 1rem;">
+                                <div class="ts-body-sm">@user.StudentId</div>
+                            </td>
+                            <td style="padding: 1rem;">
+                                <span style="display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; text-transform: uppercase;
+                                      @(user.Role == "Admin" ? "background: rgba(220, 53, 69, 0.1); color: var(--ts-danger);" :
+                                        user.Role == "Professor" ? "background: rgba(13,110,253,0.1); color: var(--ts-primary);" :
+                                        "background: rgba(25,135,84,0.1); color: var(--ts-success);")">
+                                    @user.Role
+                                </span>
+                            </td>
+                            <td style="padding: 1rem; text-align: center;">
+                                <span class="ts-label-md">@user.GroupCount</span>
+                            </td>
+                            <td style="padding: 1rem; text-align: center;">
+                                @if (user.IsActive)
+                                {
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; color: var(--ts-success); font-size: 12px; font-weight: 600;">
+                                        <span class="material-symbols-outlined" style="font-size: 16px;">check_circle</span>
+                                        Active
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; color: var(--ts-secondary); font-size: 12px; font-weight: 600;">
+                                        <span class="material-symbols-outlined" style="font-size: 16px;">block</span>
+                                        Inactive
+                                    </span>
+                                }
+                            </td>
+                            <td style="padding: 1rem; text-align: center;">
+                                <a asp-action="ManageUser" asp-route-id="@user.Id" class="ts-btn ts-btn-sm ts-btn-secondary" title="View Details">
+                                    <span class="material-symbols-outlined" style="font-size: 16px;">edit</span>
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div style="padding: 2rem; text-align: center; color: var(--ts-secondary);">
+                <span class="material-symbols-outlined" style="font-size: 48px; opacity: 0.3; display: block; margin-bottom: 1rem;">search_off</span>
+                <p class="ts-body-md">No users found matching your criteria.</p>
+            </div>
+        }
+    </div>
+</div>

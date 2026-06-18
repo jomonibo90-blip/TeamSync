@@ -1,0 +1,99 @@
+@model AdminDashboardViewModel
+@{
+    ViewData["Title"] = "Admin Dashboard";
+}
+
+<div class="ts-page-header ts-mb-lg">
+    <h1 class="ts-headline-lg-mobile md:ts-headline-lg">Admin Dashboard</h1>
+    <p class="ts-body-lg ts-text-secondary">System overview and user management</p>
+</div>
+
+<!-- Stats Grid -->
+<div class="ts-dashboard-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <div class="ts-dashboard-card">
+        <div class="ts-dashboard-card-body">
+            <div class="ts-flex ts-items-center ts-justify-between">
+                <div>
+                    <div class="ts-label-sm ts-text-secondary">Total Users</div>
+                    <div class="ts-headline-sm" style="color: var(--ts-primary);">@Model.TotalUsers</div>
+                </div>
+                <span class="material-symbols-outlined" style="font-size: 32px; color: var(--ts-primary); opacity: 0.3;">person_outline</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="ts-dashboard-card">
+        <div class="ts-dashboard-card-body">
+            <div class="ts-flex ts-items-center ts-justify-between">
+                <div>
+                    <div class="ts-label-sm ts-text-secondary">Professors</div>
+                    <div class="ts-headline-sm" style="color: var(--ts-primary);">@Model.TotalProfessors</div>
+                </div>
+                <span class="material-symbols-outlined" style="font-size: 32px; color: var(--ts-primary); opacity: 0.3;">school</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="ts-dashboard-card">
+        <div class="ts-dashboard-card-body">
+            <div class="ts-flex ts-items-center ts-justify-between">
+                <div>
+                    <div class="ts-label-sm ts-text-secondary">Students</div>
+                    <div class="ts-headline-sm" style="color: var(--ts-success);">@Model.TotalStudents</div>
+                </div>
+                <span class="material-symbols-outlined" style="font-size: 32px; color: var(--ts-success); opacity: 0.3;">groups</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="ts-dashboard-card">
+        <div class="ts-dashboard-card-body">
+            <div class="ts-flex ts-items-center ts-justify-between">
+                <div>
+                    <div class="ts-label-sm ts-text-secondary">Active Groups</div>
+                    <div class="ts-headline-sm" style="color: var(--ts-warning);">@Model.ActiveGroups / @Model.TotalGroups</div>
+                </div>
+                <span class="material-symbols-outlined" style="font-size: 32px; color: var(--ts-warning); opacity: 0.3;">folder_open</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="ts-dashboard-card" style="margin-bottom: 2rem;">
+    <div class="ts-dashboard-card-header">
+        <h3 class="ts-title-lg">Quick Actions</h3>
+    </div>
+    <div class="ts-dashboard-card-body">
+        <div class="ts-flex ts-gap-md" style="flex-wrap: wrap;">
+            <a asp-action="Enroll" class="ts-btn ts-btn-primary">
+                <span class="material-symbols-outlined" style="font-size: 18px;">person_add</span>
+                Enroll New User
+            </a>
+            <a asp-action="Users" class="ts-btn ts-btn-secondary">
+                <span class="material-symbols-outlined" style="font-size: 18px;">groups</span>
+                Manage Users
+            </a>
+            <a asp-controller="Groups" asp-action="Index" class="ts-btn ts-btn-secondary">
+                <span class="material-symbols-outlined" style="font-size: 18px;">folder</span>
+                View All Groups
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Help Info -->
+<div class="ts-dashboard-card" style="background: rgba(13,110,253,0.05); border-left: 4px solid var(--ts-primary);">
+    <div class="ts-dashboard-card-body">
+        <div class="ts-flex ts-items-start ts-gap-md">
+            <span class="material-symbols-outlined ts-text-primary" style="font-size: 24px;">info</span>
+            <div>
+                <div class="ts-label-md ts-text-primary ts-mb-xs">Admin Overview</div>
+                <div class="ts-body-sm ts-text-secondary">
+                    As an admin, you have full control over the TeamSync system. You can enroll new users, manage existing accounts, deactivate users, and monitor system analytics. 
+                    Use the "Manage Users" section to view detailed information about any user and their group memberships.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

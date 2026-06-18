@@ -1,0 +1,174 @@
+@model ManageUserViewModel
+@{
+    ViewData["Title"] = $"Manage User - {Model.FullName}";
+}
+
+<div class="ts-page-header ts-flex ts-justify-between ts-items-center" style="flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+    <div>
+        <a asp-action="Users" class="ts-btn ts-btn-secondary ts-btn-sm" style="margin-bottom: 1rem;">
+            <span class="material-symbols-outlined" style="font-size: 18px;">arrow_back</span>
+            Back to Users
+        </a>
+        <h1 class="ts-headline-lg-mobile md:ts-headline-lg">@Model.FullName</h1>
+        <p class="ts-body-lg ts-text-secondary">@Model.Email</p>
+    </div>
+</div>
+
+<div class="ts-dashboard-grid">
+    <!-- Main Content -->
+    <div class="ts-col-span-2">
+        <!-- User Information Card -->
+        <div class="ts-dashboard-card" style="margin-bottom: 1.5rem;">
+            <div class="ts-dashboard-card-header">
+                <h3 class="ts-title-lg">User Information</h3>
+            </div>
+            <div class="ts-dashboard-card-body">
+                <div class="ts-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+                    <div>
+                        <span class="ts-label-sm ts-text-secondary">Full Name</span>
+                        <div class="ts-body-md">@Model.FullName</div>
+                    </div>
+                    <div>
+                        <span class="ts-label-sm ts-text-secondary">Email</span>
+                        <div class="ts-body-md">@Model.Email</div>
+                    </div>
+                    <div>
+                        <span class="ts-label-sm ts-text-secondary">Student/Employee ID</span>
+                        <div class="ts-body-md">@Model.StudentId</div>
+                    </div>
+                    <div>
+                        <span class="ts-label-sm ts-text-secondary">Role</span>
+                        <div class="ts-body-md">
+                            <span style="display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; text-transform: uppercase;
+                                  @(Model.Role == "Admin" ? "background: rgba(220, 53, 69, 0.1); color: var(--ts-danger);" :
+                                    Model.Role == "Professor" ? "background: rgba(13,110,253,0.1); color: var(--ts-primary);" :
+                                    "background: rgba(25,135,84,0.1); color: var(--ts-success);")">
+                                @Model.Role
+                            </span>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="ts-label-sm ts-text-secondary">Joined</span>
+                        <div class="ts-body-md">@Model.CreatedAt.ToString("MMMM dd, yyyy")</div>
+                    </div>
+                    <div>
+                        <span class="ts-label-sm ts-text-secondary">Status</span>
+                        <div class="ts-body-md">
+                            @if (Model.IsActive)
+                            {
+                                <span style="display: inline-flex; align-items: center; gap: 4px; color: var(--ts-success); font-weight: 600;">
+                                    <span class="material-symbols-outlined" style="font-size: 18px;">check_circle</span>
+                                    Active
+                                </span>
+                            }
+                            else
+                            {
+                                <span style="display: inline-flex; align-items: center; gap: 4px; color: var(--ts-secondary); font-weight: 600;">
+                                    <span class="material-symbols-outlined" style="font-size: 18px;">block</span>
+                                    Inactive
+                                </span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Groups Card -->
+        <div class="ts-dashboard-card">
+            <div class="ts-dashboard-card-header">
+                <h3 class="ts-title-lg">Group Memberships (@Model.Groups.Count)</h3>
+            </div>
+            <div class="ts-dashboard-card-body">
+                @if (Model.Groups.Any())
+                {
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid var(--ts-border); background: var(--ts-surface-container);">
+                                    <th style="padding: 1rem; text-align: left; font-weight: 600; color: var(--ts-secondary);">Group Name</th>
+                                    <th style="padding: 1rem; text-align: left; font-weight: 600; color: var(--ts-secondary);">Role</th>
+                                    <th style="padding: 1rem; text-align: left; font-weight: 600; color: var(--ts-secondary);">Joined</th>
+                                    <th style="padding: 1rem; text-align: center; font-weight: 600; color: var(--ts-secondary);">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var group in Model.Groups)
+                                {
+                                    <tr style="border-bottom: 1px solid var(--ts-border);">
+                                        <td style="padding: 1rem;">
+                                            <a asp-controller="Groups" asp-action="Details" asp-route-id="@group.GroupId" class="ts-label-md ts-text-primary" style="text-decoration: none;">
+                                                @group.GroupName
+                                            </a>
+                                        </td>
+                                        <td style="padding: 1rem;">
+                                            <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase;
+                                                  @(group.Role == "Professor" ? "background: rgba(13,110,253,0.1); color: var(--ts-primary);" :
+                                                    group.Role == "Lead" ? "background: rgba(25,135,84,0.1); color: var(--ts-success);" :
+                                                    "background: var(--ts-surface-container-high); color: var(--ts-secondary);")">
+                                                @group.Role
+                                            </span>
+                                        </td>
+                                        <td style="padding: 1rem;">
+                                            <span class="ts-body-sm ts-text-secondary">@group.JoinedAt.ToString("MMM dd, yyyy")</span>
+                                        </td>
+                                        <td style="padding: 1rem; text-align: center;">
+                                            <form asp-action="RemoveUserFromGroup" asp-route-userId="@Model.Id" asp-route-groupId="@group.GroupId" method="post" style="display: inline;" onsubmit="return confirm('Remove this user from the group?');">
+                                                <button type="submit" class="ts-btn ts-btn-sm ts-btn-danger" title="Remove from group">
+                                                    <span class="material-symbols-outlined" style="font-size: 16px;">person_remove</span>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div style="padding: 2rem; text-align: center; color: var(--ts-secondary);">
+                        <span class="material-symbols-outlined" style="font-size: 48px; opacity: 0.3; display: block; margin-bottom: 1rem;">folder_open</span>
+                        <p class="ts-body-md">This user is not a member of any groups yet.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div>
+        <!-- Account Actions Card -->
+        <div class="ts-dashboard-card">
+            <div class="ts-dashboard-card-header">
+                <h3 class="ts-title-lg">Account Actions</h3>
+            </div>
+            <div class="ts-dashboard-card-body">
+                @if (Model.IsActive)
+                {
+                    <form asp-action="DeactivateUser" asp-route-id="@Model.Id" method="post" onsubmit="return confirm('Deactivate this user? They will no longer be able to log in.');">
+                        <button type="submit" class="ts-btn ts-btn-danger ts-btn-full" style="margin-bottom: 0.5rem;">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">block</span>
+                            Deactivate User
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <form asp-action="ReactivateUser" asp-route-id="@Model.Id" method="post">
+                        <button type="submit" class="ts-btn ts-btn-success ts-btn-full" style="margin-bottom: 0.5rem;">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">check_circle</span>
+                            Reactivate User
+                        </button>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.ts-btn-full {
+    width: 100%;
+}
+</style>

@@ -16,6 +16,7 @@
  <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - TeamSync</title>
+    <meta name="description" content="TeamSync - Team accountability, simplified. Student collaboration and project management platform." />
 
  <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -88,6 +89,18 @@
          <span class="material-symbols-outlined">analytics</span>
         <span>Reports</span>
 </a>
+            @if (User?.IsInRole("Admin") ?? false)
+            {
+                <hr style="border: none; border-top: 1px solid var(--ts-border); margin: 1rem 0;" />
+                <a href="@Url.Action("Dashboard", "Admin")" class="ts-nav-item @(IsActive("Admin", "Dashboard") ? "active" : "")">
+                    <span class="material-symbols-outlined @(IsActive("Admin", "Dashboard") ? "icon-fill" : "")">admin_panel_settings</span>
+                    <span>Admin Panel</span>
+                </a>
+                <a href="@Url.Action("Users", "Admin")" class="ts-nav-item @(IsActive("Admin", "Users") ? "active" : "")">
+                    <span class="material-symbols-outlined @(IsActive("Admin", "Users") ? "icon-fill" : "")">people</span>
+                    <span>Manage Users</span>
+                </a>
+            }
   </div>
       @if (User?.Identity?.IsAuthenticated ?? false)
         {
