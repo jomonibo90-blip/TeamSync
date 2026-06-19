@@ -432,3 +432,9 @@ FodyWeavers.xsd
 *.md
 !README.md
 
+# Make project documentation under TeamSync/TeamSync/ available to contributors
+# (negation re-includes these files even though '*.md' is ignored above)
+!TeamSync/TeamSync/*.md
+!TeamSync/TeamSync/**/*.md
+!TeamSync/*.md
+
