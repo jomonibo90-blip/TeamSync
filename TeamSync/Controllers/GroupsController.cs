@@ -734,18 +734,21 @@ public class GroupsController : Controller
 
         if (group == null) return NotFound();
 
-        // Only the professor who created the group or admin can delete
+        // Only a professor member of this group can archive it
+        var currentMember = group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
+        bool isProfessor = currentMember?.Role == "Professor" || User.IsInRole("Professor");
         bool isAdmin = User.IsInRole("Admin");
-        bool isCreator = group.CreatedById == currentUser.Id;
-        bool canDelete = isAdmin || (isCreator && (User.IsInRole("Professor") || User.IsInRole("Admin")));
+
+        // Professor must be a member AND have professor role, OR be admin
+        bool canDelete = isAdmin || (isProfessor && currentMember?.Role == "Professor");
 
         if (!canDelete)
         {
-            TempData["ErrorMessage"] = "You don't have permission to delete this group.";
+            TempData["ErrorMessage"] = "You don't have permission to delete this group. Only professors who are members of this group can archive it.";
             return RedirectToAction(nameof(Details), new { id = group.Id });
         }
 
-        // Archive the group instead of hard delete (professors/creators)
+        // Archive the group instead of hard delete (professors/admins only)
         group.IsActive = false;
         group.ArchivedAt = DateTime.UtcNow;
         _context.Groups.Update(group);
@@ -767,6 +770,13 @@ public class GroupsController : Controller
             .FirstOrDefaultAsync(g => g.Id == id);
 
         if (group == null) return NotFound();
+
+        // Only allow purging archived groups
+        if (group.IsActive)
+        {
+            TempData["ErrorMessage"] = "Cannot purge an active group. Archive it first.";
+            return RedirectToAction(nameof(Details), new { id = group.Id });
+        }
 
         _context.Groups.Remove(group);
         await _context.SaveChangesAsync();
