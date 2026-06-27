@@ -778,11 +778,36 @@ public class GroupsController : Controller
             return RedirectToAction(nameof(Details), new { id = group.Id });
         }
 
-        _context.Groups.Remove(group);
-        await _context.SaveChangesAsync();
+        try
+        {
+            // Delete related requests first to avoid cascade delete constraints
+            var removalRequests = await _context.RemovalRequests
+                .Where(rr => rr.GroupId == id)
+                .ToListAsync();
+            _context.RemovalRequests.RemoveRange(removalRequests);
 
-        TempData["SuccessMessage"] = "Group permanently deleted.";
-        return RedirectToAction(nameof(Index));
+            var addMemberRequests = await _context.AddMemberRequests
+                .Where(amr => amr.GroupId == id)
+                .ToListAsync();
+            _context.AddMemberRequests.RemoveRange(addMemberRequests);
+
+            var joinRequests = await _context.JoinRequests
+                .Where(jr => jr.GroupId == id)
+                .ToListAsync();
+            _context.JoinRequests.RemoveRange(joinRequests);
+
+            // Now remove the group (cascades to members and tasks)
+            _context.Groups.Remove(group);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Group permanently deleted.";
+            return RedirectToAction(nameof(Index));
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = $"Error deleting group: {ex.Message}";
+            return RedirectToAction(nameof(Details), new { id = id });
+        }
     }
 
     [HttpGet]
