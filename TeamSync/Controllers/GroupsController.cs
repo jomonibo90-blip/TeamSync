@@ -525,6 +525,13 @@ public class GroupsController : Controller
 
         if (group == null) return NotFound();
 
+        // Prevent modifications on archived groups
+        if (!group.IsActive)
+        {
+            TempData["ErrorMessage"] = "Cannot modify members in archived groups.";
+            return RedirectToAction(nameof(Details), new { id = groupId });
+        }
+
         var memberToRemove = await _context.GroupMembers
             .FirstOrDefaultAsync(m => m.GroupId == groupId && m.UserId == userId);
 
@@ -780,23 +787,54 @@ public class GroupsController : Controller
 
         try
         {
-            // Delete related requests first to avoid cascade delete constraints
+            // Delete in order to avoid cascade delete constraint violations
+            // 1. Delete removal requests first (has NoAction on GroupMemberId)
             var removalRequests = await _context.RemovalRequests
                 .Where(rr => rr.GroupId == id)
                 .ToListAsync();
             _context.RemovalRequests.RemoveRange(removalRequests);
 
+            // 2. Delete add member requests
             var addMemberRequests = await _context.AddMemberRequests
                 .Where(amr => amr.GroupId == id)
                 .ToListAsync();
             _context.AddMemberRequests.RemoveRange(addMemberRequests);
 
+            // 3. Delete join requests
             var joinRequests = await _context.JoinRequests
                 .Where(jr => jr.GroupId == id)
                 .ToListAsync();
             _context.JoinRequests.RemoveRange(joinRequests);
 
-            // Now remove the group (cascades to members and tasks)
+            // 4. Save changes to clear request tables
+            await _context.SaveChangesAsync();
+
+            // 5. Delete contributions (related to tasks)
+            var tasksInGroup = await _context.Tasks
+                .Where(t => t.GroupId == id)
+                .ToListAsync();
+
+            foreach (var task in tasksInGroup)
+            {
+                var contributions = await _context.Contributions
+                    .Where(c => c.TaskId == task.Id)
+                    .ToListAsync();
+                _context.Contributions.RemoveRange(contributions);
+            }
+
+            // 6. Save to clear contributions
+            await _context.SaveChangesAsync();
+
+            // 7. Delete group members
+            var groupMembers = await _context.GroupMembers
+                .Where(gm => gm.GroupId == id)
+                .ToListAsync();
+            _context.GroupMembers.RemoveRange(groupMembers);
+
+            // 8. Save to clear group members
+            await _context.SaveChangesAsync();
+
+            // 9. Now remove the group
             _context.Groups.Remove(group);
             await _context.SaveChangesAsync();
 
@@ -855,6 +893,13 @@ public class GroupsController : Controller
             .FirstOrDefaultAsync(g => g.Id == groupId);
 
         if (group == null) return NotFound();
+
+        // Prevent modifications on archived groups
+        if (!group.IsActive)
+        {
+            TempData["ErrorMessage"] = "Cannot modify member roles in archived groups.";
+            return RedirectToAction(nameof(Details), new { id = groupId });
+        }
 
         // Only professor or admin can promote to lead
         var currentMember = group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);

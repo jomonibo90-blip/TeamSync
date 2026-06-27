@@ -257,7 +257,7 @@
                                     </span>
                                     
                                     @* Action buttons *@
-                                    @if (canManageMembers && member.Role != "Professor")
+                                    @if (canManageMembers && member.Role != "Professor" && Model.IsActive)
                                     {
                                         <div style="display: flex; gap: 0.5rem;">
                                             @* Promote to Lead (only if not already Lead) *@
