@@ -109,12 +109,17 @@
    <div class="ts-avatar">
   @{
       var initials = User.Identity?.Name?.Substring(0, 1).ToUpper() ?? "U";
+      var userRole = "Student";
+      if (User.IsInRole("Admin"))
+          userRole = "Admin";
+      else if (User.IsInRole("Professor"))
+          userRole = "Professor";
           }
               @initials
   </div>
          <div class="ts-user-details">
 <span class="ts-label-md">@User.Identity?.Name</span>
-          <span class="ts-body-sm ts-text-secondary">Student</span>
+          <span class="ts-body-sm ts-text-secondary">@userRole</span>
                </div>
   </div>
    </div>

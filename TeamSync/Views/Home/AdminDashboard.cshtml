@@ -1,0 +1,97 @@
+@model List<TeamSync.ViewModels.GroupListViewModel>
+@{
+    ViewData["Title"] = "Administrator Dashboard";
+}
+
+<div class="ts-page-header ts-flex ts-justify-between ts-items-center" style="flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1 class="ts-display-lg ts-text-primary" style="margin-bottom: 0.5rem;">Administrator Dashboard</h1>
+        <p class="ts-body-lg ts-text-secondary">Complete system oversight. <em style="font-weight: 600;">Full project visibility.</em></p>
+    </div>
+    <div class="ts-flex ts-gap-md">
+        <a href="@Url.Action("Create", "Groups")" class="ts-btn ts-btn-primary">
+            <span class="material-symbols-outlined" style="font-size: 18px;">add</span> New Project
+        </a>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="ts-dashboard-grid" style="margin-bottom: 2rem;">
+    <!-- Card 1 -->
+    <div class="ts-dashboard-card" style="padding: 1.5rem;">
+        <div class="ts-flex ts-justify-between ts-mb-sm">
+            <span class="ts-label-sm ts-text-secondary" style="text-transform: uppercase;">Total Projects</span>
+            <span class="material-symbols-outlined ts-text-primary">groups</span>
+        </div>
+        <div class="ts-display-lg" style="margin-bottom: 0.5rem;">@Model.Count</div>
+        <div class="ts-body-sm ts-text-secondary">@Model.Count(g => g.IsActive) active, @Model.Count(g => !g.IsActive) archived</div>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="ts-dashboard-card" style="padding: 1.5rem;">
+        <div class="ts-flex ts-justify-between ts-mb-sm">
+            <span class="ts-label-sm ts-text-secondary" style="text-transform: uppercase;">Total Participants</span>
+            <span class="material-symbols-outlined ts-text-secondary">school</span>
+        </div>
+        <div class="ts-display-lg" style="margin-bottom: 0.5rem;">@Model.Sum(g => g.MemberCount)</div>
+        <div class="ts-body-sm ts-text-secondary">Across all projects</div>
+    </div>
+</div>
+
+<!-- All Projects Matrix -->
+<div class="ts-dashboard-card">
+    <div class="ts-dashboard-card-header">
+        <h3 class="ts-title-lg">
+            <span class="material-symbols-outlined ts-text-primary" style="font-size: 20px;">folder_shared</span>
+            All Projects
+        </h3>
+    </div>
+    <div class="ts-dashboard-card-body" style="padding: 0;">
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead style="background: var(--ts-surface-container-low);">
+                    <tr style="border-bottom: 1px solid var(--ts-border);">
+                        <th style="padding: 1rem 1.5rem;" class="ts-label-sm ts-text-secondary">PROJECT</th>
+                        <th style="padding: 1rem 1.5rem;" class="ts-label-sm ts-text-secondary">CREATOR</th>
+                        <th style="padding: 1rem 1.5rem;" class="ts-label-sm ts-text-secondary">MEMBERS</th>
+                        <th style="padding: 1rem 1.5rem; text-align: right;" class="ts-label-sm ts-text-secondary">STATUS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="4" style="padding: 2rem; text-align: center; color: var(--ts-text-secondary);">
+                                No projects exist yet.
+                            </td>
+                        </tr>
+                    }
+                    @foreach (var group in Model)
+                    {
+                        <tr style="border-bottom: 1px solid var(--ts-border);">
+                            <td style="padding: 1rem 1.5rem;">
+                                <a href="@Url.Action("Details", "Groups", new { id = group.Id })" class="ts-label-md" style="text-decoration: none; color: var(--ts-primary);">@group.Name</a>
+                            </td>
+                            <td style="padding: 1rem 1.5rem;" class="ts-body-md">@group.UserRole</td>
+                            <td style="padding: 1rem 1.5rem;" class="ts-body-md">@group.MemberCount</td>
+                            <td style="padding: 1rem 1.5rem; text-align: right;">
+                                @if (group.IsActive)
+                                {
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; color: var(--ts-success); font-size: 14px;">
+                                        <span class="material-symbols-outlined" style="font-size: 16px;">check_circle</span> Active
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; color: var(--ts-text-secondary); font-size: 14px;">
+                                        <span class="material-symbols-outlined" style="font-size: 16px;">archive</span> Archived
+                                    </span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

@@ -181,7 +181,7 @@ public class GroupsController : Controller
             IsActive = group.IsActive,
             ArchivedAt = group.ArchivedAt,
             CreatedAt = group.CreatedAt,
-            CurrentUserRole = currentMember?.Role ?? "Admin",
+            CurrentUserRole = currentMember?.Role ?? (User.IsInRole("Admin") ? "Admin" : "Member"),
             Members = group.Members
                 .OrderByDescending(m => m.Role == "Professor") // Professors first
                 .ThenByDescending(m => m.Role == "Lead")       // Then Leads

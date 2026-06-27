@@ -61,7 +61,7 @@ public class HomeController : Controller
                 UserRole = g.CreatedById == user.Id ? "Professor" : "Admin"
             }).ToList();
 
-            return View("ProfessorDashboard", groupViewModels);
+            return View("AdminDashboard", groupViewModels);
         }
         else if (isProfessor)
         {
