@@ -268,16 +268,17 @@ public class GroupsController : Controller
             return View(model);
         }
 
-        bool isProfessor = await _userManager.IsInRoleAsync(user, "Professor");
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessorUser = await _userManager.IsInRoleAsync(user, "Professor");
 
-        // Professors can join directly, students need approval
-        if (isProfessor)
+        // Professors who have a valid join code are added immediately. Admins also add immediately.
+        if (isProfessorUser || isAdmin)
         {
             var groupMember = new GroupMember
             {
                 GroupId = group.Id,
                 UserId = user.Id,
-                Role = "Professor",
+                Role = isProfessorUser ? "Professor" : "Member",
                 JoinedAt = DateTime.UtcNow,
                 IsActive = true
             };
@@ -289,7 +290,7 @@ public class GroupsController : Controller
         }
         else
         {
-            // Create a join request for professor approval
+            // Non-professors (students) create a join request for professor approval
             var joinRequest = new JoinRequest
             {
                 GroupId = group.Id,
@@ -364,13 +365,32 @@ public class GroupsController : Controller
             return RedirectToAction(nameof(Details), new { id = model.GroupId });
         }
 
-        bool isCurrentUserProfessor = currentMember?.Role == "Professor" || User.IsInRole("Admin");
+        bool isCurrentUserProfessorOrAdmin = currentMember?.Role == "Professor" || User.IsInRole("Admin");
+        bool isUserToAddProfessor = await _userManager.IsInRoleAsync(userToAdd, "Professor");
 
-        // If professor or admin, add directly. Otherwise, create a request
-        if (isCurrentUserProfessor)
+        // Professors may only be added directly by Admin. All others create an AddMemberRequest.
+        if (isUserToAddProfessor && !User.IsInRole("Admin"))
         {
-            bool isUserToAddProfessor = await _userManager.IsInRoleAsync(userToAdd, "Professor");
+            var request = new AddMemberRequest
+            {
+                GroupId = group.Id,
+                UserId = userToAdd.Id,
+                Email = userToAdd.Email,
+                RequestedByUserId = currentUser.Id,
+                Status = "Pending",
+                CreatedAt = DateTime.UtcNow
+            };
 
+            _context.AddMemberRequests.Add(request);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Member add request sent to professor for approval.";
+            return RedirectToAction(nameof(Details), new { id = group.Id });
+        }
+
+        // If current user is Professor or Admin adding a non-Professor, or Admin adding a Professor, add directly
+        if (isCurrentUserProfessorOrAdmin)
+        {
             var groupMember = new GroupMember
             {
                 GroupId = group.Id,
@@ -388,7 +408,7 @@ public class GroupsController : Controller
         }
         else
         {
-            // Create an add member request for professor approval
+            // Leads (or others with permission but not professor/admin) create add requests
             var request = new AddMemberRequest
             {
                 GroupId = group.Id,
