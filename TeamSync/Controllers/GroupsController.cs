@@ -139,11 +139,7 @@ public class GroupsController : Controller
 
         var group = await _context.Groups
             .Include(g => g.Members)
-                .ThenInclude(m => m.User)
-            .Include(g => g.Tasks)
-                .ThenInclude(t => t.AssignedTo)
-            .Include(g => g.Tasks)
-                .ThenInclude(t => t.CreatedBy)
+            .ThenInclude(m => m.User)
             .FirstOrDefaultAsync(g => g.Id == id);
 
         if (group == null) return NotFound();
@@ -193,7 +189,7 @@ public class GroupsController : Controller
                 .Select(m => new GroupMemberViewModel
             {
                 UserId = m.UserId,
-                FullName = $"{m.User?.FirstName ?? ""} {m.User?.LastName ?? ""}".Trim(),
+                FullName = $"{m.User?.FirstName} {m.User?.LastName}",
                 Email = m.User?.Email ?? string.Empty,
                 Role = m.Role,
                 JoinedAt = m.JoinedAt
@@ -201,8 +197,8 @@ public class GroupsController : Controller
             PendingRemovalRequests = pendingRequests.Select(rr => new RemovalRequestViewModel
             {
                 Id = rr.Id,
-                UserFullName = $"{rr.User?.FirstName ?? ""} {rr.User?.LastName ?? ""}".Trim(),
-                RequestedByFullName = $"{rr.RequestedBy?.FirstName ?? ""} {rr.RequestedBy?.LastName ?? ""}".Trim(),
+                UserFullName = $"{rr.User?.FirstName} {rr.User?.LastName}",
+                RequestedByFullName = $"{rr.RequestedBy?.FirstName} {rr.RequestedBy?.LastName}",
                 Reason = rr.Reason,
                 Status = rr.Status,
                 CreatedAt = rr.CreatedAt,
@@ -212,44 +208,18 @@ public class GroupsController : Controller
             {
                 Id = amr.Id,
                 Email = amr.Email,
-                RequestedByFullName = $"{amr.RequestedBy?.FirstName ?? ""} {amr.RequestedBy?.LastName ?? ""}".Trim(),
+                RequestedByFullName = $"{amr.RequestedBy?.FirstName} {amr.RequestedBy?.LastName}",
                 Status = amr.Status,
                 CreatedAt = amr.CreatedAt
             }).ToList(),
             PendingJoinRequests = pendingJoinRequests.Select(jr => new JoinRequestViewModel
             {
                 Id = jr.Id,
-                UserFullName = $"{jr.User?.FirstName ?? ""} {jr.User?.LastName ?? ""}".Trim(),
+                UserFullName = $"{jr.User?.FirstName} {jr.User?.LastName}",
                 Email = jr.User?.Email ?? string.Empty,
                 Status = jr.Status,
                 CreatedAt = jr.CreatedAt
-            }).ToList(),
-            ActiveTasks = group.Tasks
-                .Where(t => t.Status != "Requested")
-                .OrderBy(t => t.DueDate ?? DateTime.MaxValue)
-                .Select(t => new TeamSync.ViewModels.TaskListItemViewModel
-                {
-                    Id = t.Id,
-                    Title = t.Title,
-                    Status = t.Status,
-                    AssignedToName = t.AssignedTo != null ? $"{t.AssignedTo?.FirstName ?? ""} {t.AssignedTo?.LastName ?? ""}".Trim() : null,
-                    CreatedByName = t.CreatedBy != null ? $"{t.CreatedBy?.FirstName ?? ""} {t.CreatedBy?.LastName ?? ""}".Trim() : null,
-                    DueDate = t.DueDate,
-                    Priority = t.Priority
-                }).ToList(),
-            RequestedTasks = group.Tasks
-                .Where(t => t.Status == "Requested")
-                .OrderBy(t => t.CreatedAt)
-                .Select(t => new TeamSync.ViewModels.TaskListItemViewModel
-                {
-                    Id = t.Id,
-                    Title = t.Title,
-                    Status = t.Status,
-                    AssignedToName = t.AssignedTo != null ? $"{t.AssignedTo?.FirstName ?? ""} {t.AssignedTo?.LastName ?? ""}".Trim() : null,
-                    CreatedByName = t.CreatedBy != null ? $"{t.CreatedBy?.FirstName ?? ""} {t.CreatedBy?.LastName ?? ""}".Trim() : null,
-                    DueDate = t.DueDate,
-                    Priority = t.Priority
-                }).ToList()
+            }).ToList()
         };
 
         return View(viewModel);

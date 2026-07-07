@@ -42,9 +42,6 @@ public class GroupDetailsViewModel
     public List<RemovalRequestViewModel> PendingRemovalRequests { get; set; } = new();
     public List<AddMemberRequestViewModel> PendingAddRequests { get; set; } = new();
     public List<JoinRequestViewModel> PendingJoinRequests { get; set; } = new();
-    // Task lists
-    public List<TeamSync.ViewModels.TaskListItemViewModel> ActiveTasks { get; set; } = new();
-    public List<TeamSync.ViewModels.TaskListItemViewModel> RequestedTasks { get; set; } = new();
 }
 
 public class GroupMemberViewModel

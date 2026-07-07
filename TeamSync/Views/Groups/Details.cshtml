@@ -32,9 +32,6 @@
                 <a asp-action="Edit" asp-route-id="@Model.Id" class="ts-btn ts-btn-secondary" style="padding: 0.5rem;" title="Edit Group">
                     <span class="material-symbols-outlined" style="font-size: 20px;">settings</span>
                 </a>
-                <a asp-controller="Tasks" asp-action="Create" asp-route-groupId="@Model.Id" class="ts-btn ts-btn-primary" style="margin-left:8px;">
-                    <span class="material-symbols-outlined" style="font-size:18px;">add_task</span> Add Task
-                </a>
             }
             else
             {
@@ -56,12 +53,6 @@
         }
         else
         {
-            @if (isStudent && Model.IsActive)
-            {
-                <a asp-controller="Tasks" asp-action="RequestTask" asp-route-groupId="@Model.Id" class="ts-btn ts-btn-secondary" style="margin-right:8px;">
-                    <span class="material-symbols-outlined" style="font-size:18px;">task_alt</span> Request Task
-                </a>
-            }
             <button class="ts-btn ts-btn-secondary">
                 <span class="material-symbols-outlined" style="font-size: 18px;">chat</span> Message Group
             </button>
@@ -225,46 +216,6 @@
                                 <span class="material-symbols-outlined" style="font-size: 16px;">cancel</span> Reject
                             </button>
                         </form>
-                    </div>
-                </div>
-            }
-        </div>
-    </div>
-}
-
-@* Requested Tasks (visible to Professors/Leads/Admin) *@
-@if ((Model.CurrentUserRole == "Professor" || Model.CurrentUserRole == "Lead" || User.IsInRole("Admin")) && Model.RequestedTasks.Any())
-{
-    <div class="ts-dashboard-card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--ts-info); background: rgba(13,110,253,0.03);">
-        <div class="ts-dashboard-card-header">
-            <h3 class="ts-title-lg" style="color: var(--ts-info);">
-                <span class="material-symbols-outlined ts-text-info" style="font-size: 20px;">pending</span>
-                Requested Tasks (@Model.RequestedTasks.Count)
-            </h3>
-        </div>
-        <div class="ts-dashboard-card-body">
-            @foreach (var task in Model.RequestedTasks)
-            {
-                <div style="padding: 1rem; margin-bottom: 1rem; background: var(--ts-surface); border-radius: var(--ts-radius-md); border-left: 3px solid var(--ts-info);">
-                    <div class="ts-flex ts-justify-between ts-items-start ts-mb-sm">
-                        <div>
-                            <div class="ts-label-md">@task.Title</div>
-                            <div class="ts-body-sm ts-text-secondary ts-mt-xs">Requested by @(task.CreatedByName ?? "Unknown")</div>
-                        </div>
-                        <div style="display:flex; gap:0.5rem; align-items:center;">
-                            <form asp-controller="Tasks" asp-action="ApproveRequest" asp-route-taskId="@task.Id" method="post" style="display:inline;">
-                                @Html.AntiForgeryToken()
-                                <button type="submit" class="ts-btn ts-btn-sm ts-btn-success">
-                                    <span class="material-symbols-outlined" style="font-size: 16px;">check_circle</span> Approve
-                                </button>
-                            </form>
-                            <form asp-controller="Tasks" asp-action="RejectRequest" asp-route-taskId="@task.Id" method="post" style="display:inline;" onsubmit="return confirm('Reject this task request?');">
-                                @Html.AntiForgeryToken()
-                                <button type="submit" class="ts-btn ts-btn-sm ts-btn-secondary">
-                                    <span class="material-symbols-outlined" style="font-size: 16px;">cancel</span> Reject
-                                </button>
-                            </form>
-                        </div>
                     </div>
                 </div>
             }
@@ -503,7 +454,7 @@ function openLeaveModal() {
     document.getElementById('leaveGroupModal').style.display = 'flex';
 
     // Set current user ID if available
-    const userIdFromPage = '@(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "")';
+    const userIdFromPage = '@User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value';
     if (userIdFromPage) {
         document.getElementById('leaveUserId').value = userIdFromPage;
     }
@@ -511,7 +462,7 @@ function openLeaveModal() {
     // Check if user is professor and if they're the only one
     const isProfessor = @(isProfessor ? "true" : "false");
     if (isProfessor) {
-        const professorCount = @(Model.Members.Count(m => m.Role == "Professor"));
+        const professorCount = @Model.Members.Count(m => m.Role == "Professor");
         const warningDiv = document.getElementById('professorWarning');
         if (professorCount === 1 && warningDiv) {
             warningDiv.style.display = 'block';
