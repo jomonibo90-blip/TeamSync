@@ -1,0 +1,95 @@
+@model List<TeamSync.ViewModels.TaskListItemViewModel>
+@{
+    ViewData["Title"] = "All Tasks";
+}
+
+<h2>Tasks</h2>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="ts-alert" style="background: rgba(25,135,84,0.1); color: var(--ts-success); border: 1px solid rgba(25,135,84,0.2);">
+        @TempData["SuccessMessage"]
+    </div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="ts-alert ts-alert-error">
+        @TempData["ErrorMessage"]
+    </div>
+}
+
+@if (!Model.Any())
+{
+    <div class="ts-empty">No tasks found.</div>
+}
+else
+{
+    <div class="table-responsive ts-table-wrapper">
+        <table class="ts-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Project</th>
+                    <th>Assigned To</th>
+                    <th>Created By</th>
+                    <th>Status</th>
+                    <th>Due</th>
+                    <th>Priority</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in Model)
+                {
+                    <tr>
+                        <td>
+                            <a asp-controller="Tasks" asp-action="Details" asp-route-id="@t.Id" class="ts-link">@t.Title</a>
+                        </td>
+                        <td>@(t.GroupName ?? "-")</td>
+                        <td>@(t.AssignedToName ?? "Unassigned")</td>
+                        <td>@(t.CreatedByName ?? "Unknown")</td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(t.Status))
+                            {
+                                var statusClass = t.Status switch
+                                {
+                                    "Pending" => "ts-status-pending",
+                                    "Requested" => "ts-status-requested",
+                                    "Rejected" => "ts-status-rejected",
+                                    "Completed" => "ts-status-completed",
+                                    _ => "ts-status-pending"
+                                };
+                                <span class="ts-status @statusClass">@t.Status</span>
+                            }
+                        </td>
+                        <td>@(t.DueDate?.ToString("yyyy-MM-dd") ?? "-")</td>
+                        <td>
+                            @if (t.Priority == 3)
+                            {
+                                <span class="ts-badge ts-priority-high">High</span>
+                            }
+                            else if (t.Priority == 2)
+                            {
+                                <span class="ts-badge ts-priority-medium">Medium</span>
+                            }
+                            else
+                            {
+                                <span class="ts-badge ts-priority-low">Low</span>
+                            }
+                        </td>
+                        <td class="ts-actions">
+                            @if (t.Id > 0)
+                            {
+                                <a asp-controller="Tasks" asp-action="Details" asp-route-id="@t.Id" class="ts-link">Open</a>
+                            }
+                            else
+                            {
+                                <span class="ts-text-secondary">Unavailable</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

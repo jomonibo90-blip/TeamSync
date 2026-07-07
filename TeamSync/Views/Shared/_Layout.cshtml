@@ -53,8 +53,8 @@
      <span class="material-symbols-outlined @(IsActive("Groups") ? "icon-fill" : "")">folder_shared</span>
               <span>Projects</span>
    </a>
-  <a href="#" class="ts-nav-item">
-           <span class="material-symbols-outlined">assignment</span>
+  <a href="@Url.Action("Index", "Tasks")" class="ts-nav-item @(IsActive("Tasks") ? "active" : "")">
+           <span class="material-symbols-outlined @(IsActive("Tasks") ? "icon-fill" : "")">assignment</span>
           <span>Tasks</span>
 </a>
        <a href="#" class="ts-nav-item">
@@ -81,8 +81,8 @@
     <span class="material-symbols-outlined @(IsActive("Groups") ? "icon-fill" : "")">folder_shared</span>
     <span>Projects</span>
             </a>
-            <a href="#" class="ts-nav-item">
-     <span class="material-symbols-outlined">assignment</span>
+            <a href="@Url.Action("Index", "Tasks")" class="ts-nav-item @(IsActive("Tasks") ? "active" : "")">
+     <span class="material-symbols-outlined @(IsActive("Tasks") ? "icon-fill" : "")">assignment</span>
       <span>Tasks</span>
        </a>
             <a href="#" class="ts-nav-item">

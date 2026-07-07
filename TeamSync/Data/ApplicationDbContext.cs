@@ -35,11 +35,12 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
             .HasForeignKey(gm => gm.GroupId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // When a Group is deleted, set Task.GroupId to NULL rather than cascade-delete tasks
         modelBuilder.Entity<Models.Group>()
             .HasMany(g => g.Tasks)
             .WithOne(t => t.Group)
             .HasForeignKey(t => t.GroupId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.SetNull);
 
         // Configure GroupMember relationships
         modelBuilder.Entity<Models.GroupMember>()

@@ -48,13 +48,26 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
-    app.UseHttpsRedirection();
 }
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
 
 app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Debug middleware: log 404s to help track down missing routes
+app.Use(async (context, next) =>
+{
+    await next();
+    if (context.Response.StatusCode == 404)
+    {
+        var logger = app.Logger;
+        logger.LogWarning("404 Not Found for request {Method} {Path}{QueryString}", context.Request.Method, context.Request.Path, context.Request.QueryString);
+    }
+});
 
 app.MapStaticAssets();
 

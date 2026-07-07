@@ -1,0 +1,101 @@
+@model TeamSync.ViewModels.TaskEditViewModel
+@{
+    ViewData["Title"] = "Edit Task";
+}
+
+<h2>Edit Task</h2>
+
+<form asp-action="Edit" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <input type="hidden" asp-for="GroupId" />
+
+    <div class="ts-form-group">
+        <label asp-for="Title" class="ts-label">Title</label>
+        <div class="ts-input-wrapper">
+            <input asp-for="Title" class="ts-input" />
+        </div>
+        <span asp-validation-for="Title" class="ts-validation-error"></span>
+    </div>
+
+    <div class="ts-form-group">
+        <label asp-for="Description" class="ts-label">Description</label>
+        <textarea asp-for="Description" class="ts-input" rows="4"></textarea>
+        <span asp-validation-for="Description" class="ts-validation-error"></span>
+    </div>
+
+    <div class="ts-form-group">
+        <label asp-for="AssignedToId" class="ts-label">Assign To (optional)</label>
+        <div class="ts-input-wrapper">
+            <select asp-for="AssignedToId" class="ts-input">
+                <option value="">-- Unassigned --</option>
+                @if (ViewBag.Members != null)
+                {
+                    foreach (var u in (List<TeamSync.Models.User>)ViewBag.Members)
+                    {
+                        if (Model.AssignedToId == u.Id)
+                        {
+                            <option value="@u.Id" selected="selected">@u.FirstName @u.LastName (@u.Email)</option>
+                        }
+                        else
+                        {
+                            <option value="@u.Id">@u.FirstName @u.LastName (@u.Email)</option>
+                        }
+                    }
+                }
+            </select>
+        </div>
+        <span asp-validation-for="AssignedToId" class="ts-validation-error"></span>
+    </div>
+
+    <div class="ts-form-group">
+        <label asp-for="DueDate" class="ts-label">Due Date</label>
+        <div class="ts-input-wrapper">
+            <input asp-for="DueDate" type="date" class="ts-input" />
+        </div>
+        <span asp-validation-for="DueDate" class="ts-validation-error"></span>
+    </div>
+
+    <div class="ts-form-group">
+        <label asp-for="Priority" class="ts-label">Priority</label>
+        <div class="ts-input-wrapper">
+            <select asp-for="Priority" class="ts-input">
+                @if (Model.Priority == 1)
+                {
+                    <option value="1" selected="selected">Low</option>
+                }
+                else
+                {
+                    <option value="1">Low</option>
+                }
+
+                @if (Model.Priority == 2)
+                {
+                    <option value="2" selected="selected">Medium</option>
+                }
+                else
+                {
+                    <option value="2">Medium</option>
+                }
+
+                @if (Model.Priority == 3)
+                {
+                    <option value="3" selected="selected">High</option>
+                }
+                else
+                {
+                    <option value="3">High</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    <div class="ts-mt-lg">
+        <button type="submit" class="ts-btn ts-btn-primary">Save Changes</button>
+        <a asp-action="Details" asp-controller="Tasks" asp-route-id="@Model.Id" class="ts-btn ts-btn-secondary" style="margin-left:8px;">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

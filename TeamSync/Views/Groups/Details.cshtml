@@ -32,6 +32,11 @@
                 <a asp-action="Edit" asp-route-id="@Model.Id" class="ts-btn ts-btn-secondary" style="padding: 0.5rem;" title="Edit Group">
                     <span class="material-symbols-outlined" style="font-size: 20px;">settings</span>
                 </a>
+
+                @* Task actions *@
+                <a asp-controller="Tasks" asp-action="Create" asp-route-groupId="@Model.Id" class="ts-btn ts-btn-secondary" style="margin-left:8px;">
+                    <span class="material-symbols-outlined" style="font-size:18px;">task</span> Create Task
+                </a>
             }
             else
             {
@@ -223,6 +228,83 @@
     </div>
 }
 
+@* Tasks section: simplified (no tracking/approval buttons) *@
+@if (Model.ActiveTasks.Any())
+{
+    <div class="ts-dashboard-card" style="margin-bottom:1.5rem;">
+        <div class="ts-dashboard-card-header">
+            <h3 class="ts-title-lg">Active Tasks (@Model.ActiveTasks.Count)</h3>
+        </div>
+        <div class="ts-dashboard-card-body">
+            @foreach (var t in Model.ActiveTasks)
+            {
+                <div style="padding:1rem; margin-bottom:1rem; background:var(--ts-surface); border-radius:var(--ts-radius-md);">
+                    <div class="ts-flex ts-justify-between ts-items-start">
+                        <div>
+                            <strong>@t.Title</strong>
+                            <div class="ts-body-sm ts-text-secondary">Assigned: @(t.AssignedToName ?? "Unassigned")</div>
+                        </div>
+                        <div class="ts-flex ts-items-center ts-gap-md">
+                            <div class="ts-text-secondary">Due: @t.DueDate?.ToString("yyyy-MM-dd")</div>
+                            @if (t.Id > 0)
+                            {
+                                <a asp-controller="Tasks" asp-action="Details" asp-route-id="@t.Id" class="ts-link" style="margin-left:12px;">Open</a>
+                            }
+                            else
+                            {
+                                <span class="ts-text-secondary" style="margin-left:12px;">Unavailable</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@* Requested tasks section remains for professor/lead approval of student requests *@
+@if (Model.RequestedTasks.Any() && (Model.CurrentUserRole == "Professor" || User.IsInRole("Admin") || Model.CurrentUserRole == "Lead"))
+{
+    <div class="ts-dashboard-card" style="margin-bottom:1.5rem; border-left:4px solid var(--ts-info); background:rgba(13,110,253,0.03);">
+        <div class="ts-dashboard-card-header">
+            <h3 class="ts-title-lg">Requested Tasks (@Model.RequestedTasks.Count)</h3>
+        </div>
+        <div class="ts-dashboard-card-body">
+            @foreach (var t in Model.RequestedTasks)
+            {
+                <div style="padding:1rem; margin-bottom:1rem; background:var(--ts-surface); border-radius:var(--ts-radius-md);">
+                    <div class="ts-flex ts-justify-between ts-items-start">
+                        <div>
+                            <strong>@t.Title</strong>
+                            <div class="ts-body-sm ts-text-secondary">Requested by: @(t.CreatedByName ?? "Unknown")</div>
+                        </div>
+                        <div class="ts-flex ts-gap-md">
+                            @if (t.Id > 0)
+                            {
+                                <a asp-controller="Tasks" asp-action="Details" asp-route-id="@t.Id" class="ts-link" style="margin-right:8px">Open</a>
+                            }
+                            else
+                            {
+                                <span class="ts-text-secondary" style="margin-right:8px">Unavailable</span>
+                            }
+                            <form asp-controller="Tasks" asp-action="ApproveRequest" method="post" style="display:inline;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="taskId" value="@t.Id" />
+                                <button type="submit" class="ts-btn ts-btn-sm ts-btn-success">Approve</button>
+                            </form>
+                            <form asp-controller="Tasks" asp-action="RejectRequest" method="post" style="display:inline;" onsubmit="return confirm('Reject request?');">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="taskId" value="@t.Id" />
+                                <button type="submit" class="ts-btn ts-btn-sm ts-btn-secondary">Reject</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
 <div class="ts-dashboard-grid">
     <!-- Main Content Area -->
     <div class="ts-col-span-2">
@@ -271,6 +353,7 @@
                                                 </form>
                                             }
                                             
+
                                             @* Remove button *@
                                             <button class="ts-btn ts-btn-sm ts-btn-danger" title="Remove Member" onclick="openRemoveModal('@member.UserId', '@member.FullName')">
                                                 <span class="material-symbols-outlined" style="font-size: 16px;">person_remove</span>

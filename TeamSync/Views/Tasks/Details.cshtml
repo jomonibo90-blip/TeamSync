@@ -1,0 +1,52 @@
+@model TeamSync.ViewModels.TaskListItemViewModel
+@{
+    ViewData["Title"] = Model.Title;
+}
+
+<div class="ts-card">
+    <div class="ts-card-header">
+        <h2 class="ts-title-lg">@Model.Title</h2>
+    </div>
+    <div class="ts-card-body">
+        <div class="ts-mb-md">
+            <strong>Project:</strong>
+            @if (Model.GroupId.HasValue && !string.IsNullOrEmpty(Model.GroupName))
+            {
+                <a asp-controller="Groups" asp-action="Details" asp-route-id="@Model.GroupId.Value" class="ts-link">@Model.GroupName</a>
+            }
+            else
+            {
+                <span>-</span>
+            }
+        </div>
+        <div class="ts-mb-md">
+            <strong>Assigned To:</strong> @(Model.AssignedToName ?? "Unassigned")
+        </div>
+        <div class="ts-mb-md">
+            <strong>Created By:</strong> @(Model.CreatedByName ?? "Unknown")
+        </div>
+        <div class="ts-mb-md">
+            <strong>Status:</strong> <span class="ts-status ts-status-pending">@Model.Status</span>
+        </div>
+        <div class="ts-mb-md">
+            <strong>Due:</strong> @(Model.DueDate?.ToString("yyyy-MM-dd") ?? "-")
+        </div>
+        <div class="ts-mb-md">
+            <strong>Priority:</strong>
+            @if (Model.Priority == 3) { <span class="ts-badge ts-priority-high">High</span> }
+            else if (Model.Priority == 2) { <span class="ts-badge ts-priority-medium">Medium</span> }
+            else { <span class="ts-badge ts-priority-low">Low</span> }
+        </div>
+        @if (!string.IsNullOrEmpty(Model.Description))
+        {
+            <div class="ts-mb-md">
+                <strong>Description:</strong>
+                <div class="ts-body-md ts-text-secondary">@Model.Description</div>
+            </div>
+        }
+
+        <div class="ts-mt-md">
+            <a asp-controller="Tasks" asp-action="Index" class="ts-btn ts-btn-secondary">Back to Tasks</a>
+        </div>
+    </div>
+</div>

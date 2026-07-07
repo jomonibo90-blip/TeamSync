@@ -43,8 +43,8 @@
 | S2.3 | Add members to group with approval | Feature | Jeffrey Omonibo | ✅ Complete | AddMemberRequest workflow, professor approval, direct addition for professors |
 | S2.4 | Student removal and leave workflow | Feature | Jeffrey Omonibo | ✅ Complete | Lead removal requests, student leave requests, professor approval, RemovalRequest model |
 | S2.5 | Admin user management dashboard | Feature | Jeffrey Omonibo | ✅ Complete | Admin dashboard with KPIs, user list, role assignment, group enrollment |
-| S2.6 | Task assignment functionality | Feature | Liu Jianting | 🔄 Partial | Task creation ready, assignment and tracking in progress |
-| S2.7 | Task tracking and status updates | Feature | Liu Jianting | 🔄 Partial | Status management framework ready, full tracking in Sprint 2 continuation |
+| S2.6 | Task assignment functionality | Feature | Liu Jianting | 🔄 Partial | Task creation and assignment UI implemented; further polishing planned |
+| S2.7 | Task tracking and status updates | Feature | Liu Jianting | ⏸️ Deferred | Deferred to a later sprint — tracking/status updates will be implemented in a follow-up sprint |
 | S2.8 | Database migrations for new entities | Database | Liu Jianting | ✅ Complete | RemovalRequest, JoinRequest, AddMemberRequest tables created with relationships |
 | S2.9 | UI views for group and member management | UI/Frontend | Raman Kumari | ✅ Complete | Groups/Index, Groups/Details, Groups/Create, Groups/Edit, Groups/Join views |
 | S2.10 | Admin management views | UI/Frontend | Raman Kumari | ✅ Complete | Admin/Dashboard, Admin/Users, Admin/ManageUser, Admin/Enroll views |
@@ -69,19 +69,12 @@
 
 ### Completed ✅
 - **Sprint 1**: 8/8 items complete (100%)
-- **Sprint 2**: 11/11 items complete or in active development (95%+)
+- **Sprint 2**: Items complete or in active development (status reflects deferred work)
 
 ### Build Status
 - ✅ **Build**: PASSING
 - ✅ **Compilation**: NO ERRORS
 - ✅ **Tests**: Ready for demonstration
-
-### Demo Readiness (2 Days)
-- ✅ All Sprint 1 features working and documented
-- ✅ Early Sprint 2 features available to showcase
-- ✅ 5 test accounts ready
-- ✅ Professional UI with consistent styling
-- ✅ Comprehensive documentation
 
 ---
 

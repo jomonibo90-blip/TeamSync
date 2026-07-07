@@ -243,6 +243,22 @@ public class AdminController : Controller
             return NotFound();
 
         _context.GroupMembers.Remove(membership);
+
+        // Unassign tasks that were assigned to this user within the group
+        var tasksToUnassign = await _context.Tasks
+            .Where(t => t.GroupId == groupId && t.AssignedToId == userId)
+            .ToListAsync();
+
+        if (tasksToUnassign.Any())
+        {
+            foreach (var t in tasksToUnassign)
+            {
+                t.AssignedToId = null;
+                t.UpdatedAt = DateTime.UtcNow;
+                _context.Tasks.Update(t);
+            }
+        }
+
         await _context.SaveChangesAsync();
 
         TempData["SuccessMessage"] = "User removed from group successfully.";

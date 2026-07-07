@@ -994,3 +994,132 @@ border-radius: 9999px;
     margin: 0;
     color: var(--ts-secondary);
 }
+
+/* ==========================================
+   TABLES - Improved styling & responsiveness
+   ========================================== */
+
+/* Responsive wrapper to allow horizontal scrolling on small screens */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    background: transparent;
+    border-radius: var(--ts-radius-lg);
+}
+
+/* Base table styles */
+.ts-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--ts-surface);
+    border: 1px solid var(--ts-border);
+    border-radius: var(--ts-radius-lg);
+    overflow: hidden;
+    font-size: 14px;
+}
+
+.ts-table thead th {
+    text-align: left;
+    padding: 12px 16px;
+    background-color: var(--ts-surface-container-low);
+    color: var(--ts-on-surface-variant);
+    font-weight: 700;
+    border-bottom: 1px solid var(--ts-border);
+    white-space: nowrap;
+}
+
+.ts-table tbody td {
+    padding: 12px 16px;
+    vertical-align: middle;
+    border-bottom: 1px solid rgba(0,0,0,0.03);
+    color: var(--ts-on-surface-variant);
+    white-space: nowrap;
+}
+
+.ts-table tbody tr:hover {
+    background-color: var(--ts-surface-container-lowest);
+}
+
+.ts-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Link styles inside table to match design */
+.ts-table a.ts-link {
+    color: var(--ts-primary);
+    font-weight: 600;
+}
+
+/* Small muted text inside table */
+.ts-table .ts-muted {
+    color: var(--ts-secondary);
+    font-size: 13px;
+}
+
+/* Priority badges */
+.ts-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: none;
+}
+.ts-priority-high { background: rgba(220,53,69,0.08); color: #dc3545; border: 1px solid rgba(220,53,69,0.12); }
+.ts-priority-medium { background: rgba(255,193,7,0.06); color: #d39e00; border: 1px solid rgba(255,193,7,0.08); }
+.ts-priority-low { background: rgba(25,135,84,0.06); color: #198754; border: 1px solid rgba(25,135,84,0.08); }
+
+/* Status label styles */
+.ts-status {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.ts-status-pending { background: rgba(13,110,253,0.06); color: var(--ts-primary); border: 1px solid rgba(13,110,253,0.08); }
+.ts-status-requested { background: rgba(13,110,253,0.04); color: var(--ts-primary); border: 1px solid rgba(13,110,253,0.06); }
+.ts-status-rejected { background: rgba(186,26,26,0.06); color: var(--ts-error); border: 1px solid rgba(186,26,26,0.08); }
+.ts-status-completed { background: rgba(25,135,84,0.06); color: var(--ts-success); border: 1px solid rgba(25,135,84,0.08); }
+
+/* Accessibility: high-contrast focus for table rows */
+.ts-table tbody tr:focus-within,
+.ts-table tbody tr:focus {
+    outline: 3px solid rgba(0,87,205,0.12);
+    outline-offset: -3px;
+}
+
+/* Mobile adjustments: allow horizontal scroll and slightly reduced padding */
+@media (max-width: 640px) {
+    .ts-table thead th,
+    .ts-table tbody td {
+        padding: 10px 12px;
+    }
+
+    /* Reduce font size on very small screens for better fitting */
+    .ts-table {
+        font-size: 13px;
+    }
+}
+
+/* Optional stacked card layout for very small screens (uncomment if you want stacked rows instead of scroll)
+@media (max-width: 480px) {
+    .ts-table thead { display: none; }
+    .ts-table tbody td { display: block; width: 100%; }
+    .ts-table tbody tr { display: block; margin-bottom: 0.75rem; border-bottom: 1px solid var(--ts-border); }
+    .ts-table tbody td::before { content: attr(data-label); display: inline-block; font-weight: 700; width: 110px; }
+}
+*/
+
+/* Small utility to align a right-side small action column */
+.ts-table .ts-actions {
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* Make tables visually consistent with cards */
+.ts-table-wrapper {
+    background: transparent;
+    padding: 0.5rem 0;
+}

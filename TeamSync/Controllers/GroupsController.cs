@@ -137,6 +137,16 @@ public class GroupsController : Controller
         var user = await _userManager.GetUserAsync(User);
         if (user == null) return Challenge();
 
+        if (id <= 0)
+        {
+            // Invalid id requested — redirect to Index with friendly message instead of 404
+            // Log for diagnostics
+            // Note: ILogger not available here; use Console as fallback or add logger to controller if needed.
+            Console.WriteLine($"Invalid Group Details request: id={id}, user={user?.Id}");
+            TempData["ErrorMessage"] = "Invalid group requested.";
+            return RedirectToAction(nameof(Index));
+        }
+
         var group = await _context.Groups
             .Include(g => g.Members)
             .ThenInclude(m => m.User)
@@ -170,6 +180,13 @@ public class GroupsController : Controller
         var pendingJoinRequests = await _context.JoinRequests
             .Where(jr => jr.GroupId == id && jr.Status == "Pending")
             .Include(jr => jr.User)
+            .ToListAsync();
+
+        // Load tasks for this group
+        var tasks = await _context.Tasks
+            .Where(t => t.GroupId == id)
+            .Include(t => t.AssignedTo)
+            .Include(t => t.CreatedBy)
             .ToListAsync();
 
         var viewModel = new GroupDetailsViewModel
@@ -219,6 +236,34 @@ public class GroupsController : Controller
                 Email = jr.User?.Email ?? string.Empty,
                 Status = jr.Status,
                 CreatedAt = jr.CreatedAt
+            }).ToList(),
+            ActiveTasks = tasks.Where(t => t.Status != "Requested" && t.Status != "Rejected").Select(t => new TaskListItemViewModel
+            {
+                Id = t.Id,
+                GroupId = t.GroupId,
+                GroupName = group.Name,
+                Title = t.Title,
+                Status = t.Status,
+                AssignedToId = t.AssignedToId,
+                AssignedToName = t.AssignedTo != null ? $"{t.AssignedTo.FirstName} {t.AssignedTo.LastName}" : null,
+                CreatedById = t.CreatedById,
+                CreatedByName = t.CreatedBy != null ? $"{t.CreatedBy.FirstName} {t.CreatedBy.LastName}" : null,
+                DueDate = t.DueDate,
+                Priority = t.Priority
+            }).ToList(),
+            RequestedTasks = tasks.Where(t => t.Status == "Requested").Select(t => new TaskListItemViewModel
+            {
+                Id = t.Id,
+                GroupId = t.GroupId,
+                GroupName = group.Name,
+                Title = t.Title,
+                Status = t.Status,
+                AssignedToId = t.AssignedToId,
+                AssignedToName = t.AssignedTo != null ? $"{t.AssignedTo.FirstName} {t.AssignedTo.LastName}" : null,
+                CreatedById = t.CreatedById,
+                CreatedByName = t.CreatedBy != null ? $"{t.CreatedBy.FirstName} {t.CreatedBy.LastName}" : null,
+                DueDate = t.DueDate,
+                Priority = t.Priority
             }).ToList()
         };
 
@@ -571,6 +616,21 @@ public class GroupsController : Controller
         {
             // Direct removal (no approval needed)
             _context.GroupMembers.Remove(memberToRemove);
+
+            // Unassign any tasks in this group assigned to the removed user
+            var assignedTasks = await _context.Tasks
+                .Where(t => t.GroupId == groupId && t.AssignedToId == userId)
+                .ToListAsync();
+            if (assignedTasks.Any())
+            {
+                foreach (var at in assignedTasks)
+                {
+                    at.AssignedToId = null;
+                    at.UpdatedAt = DateTime.UtcNow;
+                    _context.Tasks.Update(at);
+                }
+            }
+
             await _context.SaveChangesAsync();
 
             // After removal, if no members remain, archive the group
@@ -596,6 +656,21 @@ public class GroupsController : Controller
             {
                 // No professor in group: auto-approve student's leave request
                 _context.GroupMembers.Remove(memberToRemove);
+
+                // Unassign tasks assigned to this user in the group
+                var assignedTasksSelf = await _context.Tasks
+                    .Where(t => t.GroupId == groupId && t.AssignedToId == userId)
+                    .ToListAsync();
+                if (assignedTasksSelf.Any())
+                {
+                    foreach (var at in assignedTasksSelf)
+                    {
+                        at.AssignedToId = null;
+                        at.UpdatedAt = DateTime.UtcNow;
+                        _context.Tasks.Update(at);
+                    }
+                }
+
                 await _context.SaveChangesAsync();
 
                 // Check if this was the last member
@@ -682,6 +757,20 @@ public class GroupsController : Controller
         if (memberToRemove != null)
         {
             _context.GroupMembers.Remove(memberToRemove);
+
+            // Unassign tasks assigned to this member in the group
+            var assignedTasksApproved = await _context.Tasks
+                .Where(t => t.GroupId == removalRequest.GroupId && t.AssignedToId == memberToRemove.UserId)
+                .ToListAsync();
+            if (assignedTasksApproved.Any())
+            {
+                foreach (var at in assignedTasksApproved)
+                {
+                    at.AssignedToId = null;
+                    at.UpdatedAt = DateTime.UtcNow;
+                    _context.Tasks.Update(at);
+                }
+            }
         }
 
         _context.RemovalRequests.Update(removalRequest);

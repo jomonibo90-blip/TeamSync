@@ -42,6 +42,10 @@ public class GroupDetailsViewModel
     public List<RemovalRequestViewModel> PendingRemovalRequests { get; set; } = new();
     public List<AddMemberRequestViewModel> PendingAddRequests { get; set; } = new();
     public List<JoinRequestViewModel> PendingJoinRequests { get; set; } = new();
+
+    // Tasks shown on the Group Details page
+    public List<TaskListItemViewModel> ActiveTasks { get; set; } = new();
+    public List<TaskListItemViewModel> RequestedTasks { get; set; } = new();
 }
 
 public class GroupMemberViewModel
