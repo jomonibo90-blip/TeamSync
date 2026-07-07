@@ -43,8 +43,8 @@
 | S2.3 | Add members to group with approval | Feature | Jeffrey Omonibo | ✅ Complete | AddMemberRequest workflow, professor approval, direct addition for professors |
 | S2.4 | Student removal and leave workflow | Feature | Jeffrey Omonibo | ✅ Complete | Lead removal requests, student leave requests, professor approval, RemovalRequest model |
 | S2.5 | Admin user management dashboard | Feature | Jeffrey Omonibo | ✅ Complete | Admin dashboard with KPIs, user list, role assignment, group enrollment |
-| S2.6 | Task assignment functionality | Feature | Jeffrey Omonibo | ✅ Complete | Task creation, editing, viewing, and student request workflow implemented |
-| S2.7 | Task tracking and status updates | Feature | Liu Jianting | ⏸️ Deferred | Task status tracking (In Progress, Completed, Ready for Review) with approval workflow deferred to next phase |
+| S2.6 | Task assignment functionality | Feature | Jeffrey Omonibo | ✅ Complete | Task creation, editing, viewing, student request workflow, and approval scheduling implemented |
+| S2.7 | Task tracking and status updates | Feature | Liu Jianting | ⏸️ Deferred | Status tracking (In Progress, Completed, Ready for Review), completion approvals, and lead/professor task deletion/archive rules moved to next phase |
 | S2.8 | Database migrations for new entities | Database | Liu Jianting | ✅ Complete | RemovalRequest, JoinRequest, AddMemberRequest tables created with relationships |
 | S2.9 | UI views for group and member management | UI/Frontend | Raman Kumari | ✅ Complete | Groups/Index, Groups/Details, Groups/Create, Groups/Edit, Groups/Join views |
 | S2.10 | Admin management views | UI/Frontend | Raman Kumari | ✅ Complete | Admin/Dashboard, Admin/Users, Admin/ManageUser, Admin/Enroll views |

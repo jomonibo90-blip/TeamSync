@@ -240,7 +240,7 @@ public class TasksController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ApproveRequest(int taskId)
+    public async Task<IActionResult> ApproveRequest(int taskId, DateTime? dueDate, string? assignedToId)
     {
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
@@ -269,12 +269,29 @@ public class TasksController : Controller
             return RedirectToAction("Details", "Groups", new { id = task.GroupId });
         }
 
+        var finalAssignedToId = string.IsNullOrWhiteSpace(assignedToId) ? task.CreatedById : assignedToId;
+        var assignedIsMember = group.Members.Any(m => m.UserId == finalAssignedToId);
+        if (!assignedIsMember)
+        {
+            TempData["ErrorMessage"] = "Assigned user must be an active member of the group.";
+            return RedirectToAction("Details", "Groups", new { id = task.GroupId });
+        }
+
+        var todayUtc = DateTime.UtcNow.Date;
+        if (dueDate.HasValue && dueDate.Value.Date < todayUtc)
+        {
+            TempData["ErrorMessage"] = "Due date cannot be in the past.";
+            return RedirectToAction("Details", "Groups", new { id = task.GroupId });
+        }
+
+        task.AssignedToId = finalAssignedToId;
+        task.DueDate = (dueDate?.Date ?? todayUtc.AddDays(7));
         task.Status = "Pending";
         task.UpdatedAt = DateTime.UtcNow;
         _context.Tasks.Update(task);
         await _context.SaveChangesAsync();
 
-        TempData["SuccessMessage"] = "Task request approved.";
+        TempData["SuccessMessage"] = "Task request approved and scheduled.";
         return RedirectToAction("Details", "Groups", new { id = task.GroupId });
     }
 

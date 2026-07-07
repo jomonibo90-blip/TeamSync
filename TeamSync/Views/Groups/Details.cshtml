@@ -284,7 +284,7 @@
                             <strong>@t.Title</strong>
                             <div class="ts-body-sm ts-text-secondary">Requested by: @(t.CreatedByName ?? "Unknown")</div>
                         </div>
-                        <div class="ts-flex ts-gap-md">
+                        <div class="ts-flex ts-gap-md" style="align-items:flex-start;">
                             @if (t.Id > 0)
                             {
                                 <a asp-controller="Tasks" asp-action="Details" asp-route-id="@t.Id" class="ts-link" style="margin-right:8px">Open</a>
@@ -293,9 +293,18 @@
                             {
                                 <span class="ts-text-secondary" style="margin-right:8px">Unavailable</span>
                             }
-                            <form asp-controller="Tasks" asp-action="ApproveRequest" method="post" style="display:inline;">
+                            <form asp-controller="Tasks" asp-action="ApproveRequest" method="post" style="display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="taskId" value="@t.Id" />
+                                <label class="ts-label-sm" style="margin:0;">Due</label>
+                                <input type="date" name="dueDate" value="@DateTime.UtcNow.AddDays(7).ToString("yyyy-MM-dd")" class="ts-input" style="max-width:170px;" required />
+                                <select name="assignedToId" class="ts-input" style="max-width:220px;">
+                                    <option value="">Requester (default)</option>
+                                    @foreach (var member in Model.Members)
+                                    {
+                                        <option value="@member.UserId">@member.FullName (@member.Role)</option>
+                                    }
+                                </select>
                                 <button type="submit" class="ts-btn ts-btn-sm ts-btn-success">Approve</button>
                             </form>
                             <form asp-controller="Tasks" asp-action="RejectRequest" method="post" style="display:inline;" onsubmit="return confirm('Reject request?');">

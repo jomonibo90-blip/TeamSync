@@ -8,12 +8,13 @@ This document outlines the remaining work for completing the task management sys
 
 ### Task Assignment System
 - ✅ Task model created with all necessary properties
-- ✅ TasksController with full CRUD operations
+- ✅ TasksController assignment/request workflow implemented (create, edit, view, request, approve/reject request)
 - ✅ Task creation by Professors/Leads for groups
 - ✅ Task editing (title, description, assignee, due date, priority)
 - ✅ Task viewing with role-based access control
 - ✅ Student task request workflow (RequestTask action)
 - ✅ Task request approval/rejection by Prof/Lead/Admin
+- ✅ Request approval scheduling: approver sets due date and can override assignee (defaults to requester)
 - ✅ ViewModels: TaskListItemViewModel, TaskCreateViewModel, TaskRequestViewModel, TaskEditViewModel
 - ✅ Views: Tasks/Index.cshtml, Tasks/Details.cshtml, Tasks/Edit.cshtml, Tasks/Request.cshtml
 - ✅ UI Button for students to request tasks in Group Details view
@@ -24,6 +25,24 @@ This document outlines the remaining work for completing the task management sys
 ---
 
 ## ❌ TODO - Task Tracking Phase (NEXT PHASE)
+
+### 0. Task Deletion / Archival Governance (Lead/Professor)
+
+**Scope owner:** Task tracking/status collaborator
+
+Add lifecycle-safe task removal rules (not assignment scope):
+
+- Implement `Delete`/`Archive` action(s) for tasks
+- Only allow **Lead/Professor/Admin** (and optionally creator based on policy)
+- Block deletion for locked/finalized states, or convert to soft-delete/archive
+- Record audit metadata (who deleted/archived, when, reason)
+- Ensure deleted/archived tasks are excluded from active lists but still available for accountability reporting
+
+Suggested policy:
+- Prefer **soft archive** over hard delete for accountability history
+- Hard delete only for invalid/duplicate requests and admin-approved cleanup
+
+---
 
 ### 1. Task Status Update Functionality
 
