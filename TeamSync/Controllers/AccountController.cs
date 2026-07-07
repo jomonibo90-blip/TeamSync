@@ -27,7 +27,7 @@ public class AccountController : Controller
         return View();
     }
 
- [HttpPost]
+    [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(RegisterViewModel model)
     {
@@ -35,37 +35,37 @@ public class AccountController : Controller
         {
             var user = new User
             {
-            UserName = model.Email,
-       Email = model.Email,
-FirstName = model.FirstName,
-      LastName = model.LastName,
-       StudentId = model.StudentId
- };
+                UserName = model.Email,
+                Email = model.Email,
+                FirstName = model.FirstName,
+                LastName = model.LastName,
+                StudentId = model.StudentId
+            };
 
-        var result = await _userManager.CreateAsync(user, model.Password);
+            var result = await _userManager.CreateAsync(user, model.Password);
 
-        if (result.Succeeded)
+            if (result.Succeeded)
             {
-     _logger.LogInformation("User {Email} registered successfully.", user.Email);
+                _logger.LogInformation("User {Email} registered successfully.", user.Email);
 
-    // Assign default Student role
-     await _userManager.AddToRoleAsync(user, "Student");
+                // Assign default Student role
+                await _userManager.AddToRoleAsync(user, "Student");
 
-    await _signInManager.SignInAsync(user, isPersistent: false);
-       return RedirectToAction("Index", "Home");
+                await _signInManager.SignInAsync(user, isPersistent: false);
+                return RedirectToAction("Index", "Home");
             }
 
-          foreach (var error in result.Errors)
-       {
-   ModelState.AddModelError(string.Empty, error.Description);
-}
+            foreach (var error in result.Errors)
+            {
+                ModelState.AddModelError(string.Empty, error.Description);
+            }
         }
 
-return View(model);
+        return View(model);
     }
 
     [HttpGet]
-  public IActionResult Login(string? returnUrl = null)
+    public IActionResult Login(string? returnUrl = null)
     {
         ViewData["ReturnUrl"] = returnUrl;
         return View();
@@ -79,25 +79,25 @@ return View(model);
 
         if (ModelState.IsValid)
         {
-        var result = await _signInManager.PasswordSignInAsync(
-    model.Email,
-          model.Password,
-    model.RememberMe,
-         lockoutOnFailure: true);
+            var result = await _signInManager.PasswordSignInAsync(
+        model.Email,
+              model.Password,
+        model.RememberMe,
+             lockoutOnFailure: true);
 
-   if (result.Succeeded)
-  {
-       _logger.LogInformation("User {Email} logged in successfully.", model.Email);
-         return LocalRedirect(returnUrl ?? "/");
-         }
+            if (result.Succeeded)
+            {
+                _logger.LogInformation("User {Email} logged in successfully.", model.Email);
+                return LocalRedirect(returnUrl ?? "/");
+            }
 
-        if (result.IsLockedOut)
-{
-        _logger.LogWarning("User {Email} account locked out.", model.Email);
+            if (result.IsLockedOut)
+            {
+                _logger.LogWarning("User {Email} account locked out.", model.Email);
                 return RedirectToAction(nameof(Lockout));
-   }
+            }
 
-     ModelState.AddModelError(string.Empty, "Invalid login attempt.");
+            ModelState.AddModelError(string.Empty, "Invalid login attempt.");
         }
 
         return View(model);
