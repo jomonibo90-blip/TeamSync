@@ -269,14 +269,6 @@ public class TasksController : Controller
             return RedirectToAction("Details", "Groups", new { id = task.GroupId });
         }
 
-        var finalAssignedToId = string.IsNullOrWhiteSpace(assignedToId) ? task.CreatedById : assignedToId;
-        var assignedIsMember = group.Members.Any(m => m.UserId == finalAssignedToId);
-        if (!assignedIsMember)
-        {
-            TempData["ErrorMessage"] = "Assigned user must be an active member of the group.";
-            return RedirectToAction("Details", "Groups", new { id = task.GroupId });
-        }
-
         var todayUtc = DateTime.UtcNow.Date;
         if (dueDate.HasValue && dueDate.Value.Date < todayUtc)
         {
@@ -284,14 +276,49 @@ public class TasksController : Controller
             return RedirectToAction("Details", "Groups", new { id = task.GroupId });
         }
 
-        task.AssignedToId = finalAssignedToId;
+        // If approver explicitly provided an assignee, validate membership
+        if (!string.IsNullOrWhiteSpace(assignedToId))
+        {
+            var assignedIsMemberExplicit = group.Members.Any(m => m.UserId == assignedToId);
+            if (!assignedIsMemberExplicit)
+            {
+                TempData["ErrorMessage"] = "Assigned user must be an active member of the group.";
+                return RedirectToAction("Details", "Groups", new { id = task.GroupId });
+            }
+
+            task.AssignedToId = assignedToId;
+        }
+        else
+        {
+            // No explicit assignee: default to requester if still a member, otherwise leave unassigned and warn
+            var requesterId = task.CreatedById;
+            var requesterIsMember = !string.IsNullOrEmpty(requesterId) && group.Members.Any(m => m.UserId == requesterId);
+            if (requesterIsMember)
+            {
+                task.AssignedToId = requesterId;
+            }
+            else
+            {
+                // leave unassigned but surface a warning so approver knows requester left
+                task.AssignedToId = null;
+                TempData["WarningMessage"] = "Requester is no longer a member. Task approved but left unassigned — please assign a member.";
+            }
+        }
+
         task.DueDate = (dueDate?.Date ?? todayUtc.AddDays(7));
         task.Status = "Pending";
         task.UpdatedAt = DateTime.UtcNow;
+
         _context.Tasks.Update(task);
         await _context.SaveChangesAsync();
 
-        TempData["SuccessMessage"] = "Task request approved and scheduled.";
+        _logger.LogInformation("Task request {TaskId} approved by {ApproverId} - AssignedTo: {AssignedToId} DueDate: {DueDate}", task.Id, currentUser.Id, task.AssignedToId ?? "Unassigned", task.DueDate);
+
+        if (TempData["WarningMessage"] == null)
+            TempData["SuccessMessage"] = "Task request approved and scheduled.";
+        else
+            TempData["SuccessMessage"] = "Task request approved.";
+
         return RedirectToAction("Details", "Groups", new { id = task.GroupId });
     }
 

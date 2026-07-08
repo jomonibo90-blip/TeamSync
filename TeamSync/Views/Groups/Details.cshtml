@@ -276,6 +276,16 @@
             <h3 class="ts-title-lg">Requested Tasks (@Model.RequestedTasks.Count)</h3>
         </div>
         <div class="ts-dashboard-card-body">
+            @* Show inline messages specific to approval actions *@
+            @if (TempData["ErrorMessage"] != null)
+            {
+                <div class="ts-alert ts-alert-error">@TempData["ErrorMessage"]</div>
+            }
+            @if (TempData["WarningMessage"] != null)
+            {
+                <div class="ts-alert" style="background: rgba(255,193,7,0.1); color: var(--ts-warning); border: 1px solid rgba(255,193,7,0.2);">@TempData["WarningMessage"]</div>
+            }
+
             @foreach (var t in Model.RequestedTasks)
             {
                 <div style="padding:1rem; margin-bottom:1rem; background:var(--ts-surface); border-radius:var(--ts-radius-md);">
@@ -293,20 +303,30 @@
                             {
                                 <span class="ts-text-secondary" style="margin-right:8px">Unavailable</span>
                             }
+
                             <form asp-controller="Tasks" asp-action="ApproveRequest" method="post" style="display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="taskId" value="@t.Id" />
+
                                 <label class="ts-label-sm" style="margin:0;">Due</label>
                                 <input type="date" name="dueDate" value="@DateTime.UtcNow.AddDays(7).ToString("yyyy-MM-dd")" class="ts-input" style="max-width:170px;" required />
+
                                 <select name="assignedToId" class="ts-input" style="max-width:220px;">
-                                    <option value="">Requester (default)</option>
+                                    @* Preselect requester when possible *@
+                                    @if (!string.IsNullOrEmpty(t.CreatedById))
+                                    {
+                                        <option value="@t.CreatedById">@(t.CreatedByName ?? "Requester") (Requester)</option>
+                                    }
+                                    <option value="">Unassigned / choose member</option>
                                     @foreach (var member in Model.Members)
                                     {
                                         <option value="@member.UserId">@member.FullName (@member.Role)</option>
                                     }
                                 </select>
+
                                 <button type="submit" class="ts-btn ts-btn-sm ts-btn-success">Approve</button>
                             </form>
+
                             <form asp-controller="Tasks" asp-action="RejectRequest" method="post" style="display:inline;" onsubmit="return confirm('Reject request?');">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="taskId" value="@t.Id" />
