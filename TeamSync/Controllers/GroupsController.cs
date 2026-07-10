@@ -139,9 +139,6 @@ public class GroupsController : Controller
 
         if (id <= 0)
         {
-            // Invalid id requested — redirect to Index with friendly message instead of 404
-            // Log for diagnostics
-            // Note: ILogger not available here; use Console as fallback or add logger to controller if needed.
             Console.WriteLine($"Invalid Group Details request: id={id}, user={user?.Id}");
             TempData["ErrorMessage"] = "Invalid group requested.";
             return RedirectToAction(nameof(Index));
@@ -156,38 +153,39 @@ public class GroupsController : Controller
 
         var currentMember = group.Members.FirstOrDefault(m => m.UserId == user.Id);
 
-        // Admins can see everything. Professors/Students must be a member.
         bool isObserver = User.IsInRole("Admin");
         if (currentMember == null && !isObserver)
         {
             return Forbid();
         }
 
-        // Load pending removal requests for this group
         var pendingRequests = await _context.RemovalRequests
             .Where(rr => rr.GroupId == id && rr.Status == "Pending")
             .Include(rr => rr.User)
             .Include(rr => rr.RequestedBy)
             .ToListAsync();
 
-        // Load pending add member requests for this group
         var pendingAddRequests = await _context.AddMemberRequests
             .Where(amr => amr.GroupId == id && amr.Status == "Pending")
             .Include(amr => amr.RequestedBy)
             .ToListAsync();
 
-        // Load pending join requests for this group
         var pendingJoinRequests = await _context.JoinRequests
             .Where(jr => jr.GroupId == id && jr.Status == "Pending")
             .Include(jr => jr.User)
             .ToListAsync();
 
-        // Load tasks for this group
         var tasks = await _context.Tasks
             .Where(t => t.GroupId == id)
             .Include(t => t.AssignedTo)
             .Include(t => t.CreatedBy)
             .ToListAsync();
+
+        // Determine professor/global role for current user
+        bool isAdminUser = User.IsInRole("Admin");
+        bool isProfessorUser = await _userManager.IsInRoleAsync(user, "Professor");
+        var currentMemberRole = currentMember?.Role;
+        bool isLead = currentMemberRole == "Lead";
 
         var viewModel = new GroupDetailsViewModel
         {
@@ -200,9 +198,9 @@ public class GroupsController : Controller
             CreatedAt = group.CreatedAt,
             CurrentUserRole = currentMember?.Role ?? (User.IsInRole("Admin") ? "Admin" : "Member"),
             Members = group.Members
-                .OrderByDescending(m => m.Role == "Professor") // Professors first
-                .ThenByDescending(m => m.Role == "Lead")       // Then Leads
-                .ThenBy(m => m.JoinedAt)                       // Then chronologically
+                .OrderByDescending(m => m.Role == "Professor")
+                .ThenByDescending(m => m.Role == "Lead")
+                .ThenBy(m => m.JoinedAt)
                 .Select(m => new GroupMemberViewModel
             {
                 UserId = m.UserId,
@@ -249,7 +247,12 @@ public class GroupsController : Controller
                 CreatedById = t.CreatedById,
                 CreatedByName = t.CreatedBy != null ? $"{t.CreatedBy.FirstName} {t.CreatedBy.LastName}" : null,
                 DueDate = t.DueDate,
-                Priority = t.Priority
+                Priority = t.Priority,
+                ReviewRequestedById = t.ReviewRequestedById,
+                ReviewRequestedAt = t.ReviewRequestedAt,
+                CompletionApprovedById = t.CompletionApprovedById,
+                CompletionApprovedAt = t.CompletionApprovedAt,
+                CanApprove = (t.CreatedById == user.Id) || isAdminUser || isProfessorUser || isLead
             }).ToList(),
             RequestedTasks = tasks.Where(t => t.Status == "Requested").Select(t => new TaskListItemViewModel
             {
@@ -266,6 +269,9 @@ public class GroupsController : Controller
                 Priority = t.Priority
             }).ToList()
         };
+
+        // Expose current user id to the view for card-level action visibility
+        ViewBag.CurrentUserId = user.Id;
 
         return View(viewModel);
     }

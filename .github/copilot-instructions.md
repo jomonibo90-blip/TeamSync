@@ -15,6 +15,7 @@
 
 ## Commit Message Guidelines
 - Use conventional commits format for commit messages (e.g., `feat:`, `fix:`).
+- Avoid using the word 'copilot' in commit messages for this repository; use neutral wording such as 'repository instructions' instead.
 - Include detailed descriptions of what was added or changed in each commit.
 
 ## Student Removal Workflow

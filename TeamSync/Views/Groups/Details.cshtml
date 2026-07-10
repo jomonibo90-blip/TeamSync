@@ -244,14 +244,55 @@
         <div class="ts-dashboard-card-body">
             @foreach (var t in Model.ActiveTasks)
             {
-                <div style="padding:1rem; margin-bottom:1rem; background:var(--ts-surface); border-radius:var(--ts-radius-md);">
-                    <div class="ts-flex ts-justify-between ts-items-start">
-                        <div>
-                            <strong>@t.Title</strong>
-                            <div class="ts-body-sm ts-text-secondary">Assigned: @(t.AssignedToName ?? "Unassigned")</div>
+                <div class="ts-requested-task-item">
+                    <div class="ts-requested-task-row">
+                        <div class="ts-requested-task-meta">
+                            <div>
+                                <strong>@t.Title</strong>
+                                <div class="ts-body-sm ts-text-secondary">Assigned: @(t.AssignedToName ?? "Unassigned")</div>
+                            </div>
                         </div>
+
                         <div class="ts-flex ts-items-center ts-gap-md">
                             <div class="ts-text-secondary">Due: @t.DueDate?.ToString("yyyy-MM-dd")</div>
+
+                            @{ var currentUserId = (ViewBag.CurrentUserId as string) ?? string.Empty; }
+
+                            @if (!string.IsNullOrEmpty(currentUserId) && currentUserId == t.AssignedToId)
+                            {
+                                if (t.Status == "Pending")
+                                {
+                                    <form asp-controller="Tasks" asp-action="SetInProgress" method="post" class="js-disable-on-submit" style="display:inline-block; margin-left:8px;">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@t.Id" />
+                                        <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Start</button>
+                                    </form>
+                                }
+                                else if (t.Status == "InProgress")
+                                {
+                                    <form asp-controller="Tasks" asp-action="RequestReview" method="post" class="js-disable-on-submit" style="display:inline-block; margin-left:8px;">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@t.Id" />
+                                        <button type="submit" class="ts-btn ts-btn-sm ts-btn-secondary">Request Review</button>
+                                    </form>
+                                }
+                            }
+
+                            @* Card-level approver actions for review requests *@
+                            @if (t.Status == "ReviewRequested" && t.CanApprove)
+                            {
+                                <form asp-controller="Tasks" asp-action="ApproveCompletion" method="post" class="js-disable-on-submit" style="display:inline-block; margin-left:8px;">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@t.Id" />
+                                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-success">Approve</button>
+                                </form>
+                                <form asp-controller="Tasks" asp-action="RejectCompletion" method="post" class="js-disable-on-submit" style="display:inline-block; margin-left:4px;" onsubmit="return confirm('Reject completion?');">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@t.Id" />
+                                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-secondary">Reject</button>
+                                </form>
+                            }
+
                             @if (t.Id > 0)
                             {
                                 <a asp-controller="Tasks" asp-action="Details" asp-route-id="@t.Id" class="ts-link" style="margin-left:12px;">Open</a>
@@ -271,7 +312,7 @@
 @* Requested tasks section remains for professor/lead approval of student requests *@
 @if (Model.RequestedTasks.Any() && (Model.CurrentUserRole == "Professor" || User.IsInRole("Admin") || Model.CurrentUserRole == "Lead"))
 {
-    <div class="ts-dashboard-card" style="margin-bottom:1.5rem; border-left:4px solid var(--ts-info); background:rgba(13,110,253,0.03);">
+    <div class="ts-dashboard-card ts-requested-tasks-card">
         <div class="ts-dashboard-card-header">
             <h3 class="ts-title-lg">Requested Tasks (@Model.RequestedTasks.Count)</h3>
         </div>
@@ -283,36 +324,37 @@
             }
             @if (TempData["WarningMessage"] != null)
             {
-                <div class="ts-alert" style="background: rgba(255,193,7,0.1); color: var(--ts-warning); border: 1px solid rgba(255,193,7,0.2);">@TempData["WarningMessage"]</div>
+                <div class="ts-alert ts-requested-warning">@TempData["WarningMessage"]</div>
             }
 
             @foreach (var t in Model.RequestedTasks)
             {
-                <div style="padding:1rem; margin-bottom:1rem; background:var(--ts-surface); border-radius:var(--ts-radius-md);">
-                    <div class="ts-flex ts-justify-between ts-items-start">
-                        <div>
-                            <strong>@t.Title</strong>
+                <div class="ts-requested-task-item">
+                    <div class="ts-requested-task-row">
+                        <div class="ts-requested-task-meta">
+                            <div>
+                                <strong class="ts-requested-task-title">@t.Title</strong>
+                                @if (t.Id > 0)
+                                {
+                                    <a asp-controller="Tasks" asp-action="Details" asp-route-id="@t.Id" class="ts-link ts-requested-open-link">Open</a>
+                                }
+                                else
+                                {
+                                    <span class="ts-text-secondary ts-requested-open-link">Unavailable</span>
+                                }
+                            </div>
                             <div class="ts-body-sm ts-text-secondary">Requested by: @(t.CreatedByName ?? "Unknown")</div>
                         </div>
-                        <div class="ts-flex ts-gap-md" style="align-items:flex-start;">
-                            @if (t.Id > 0)
-                            {
-                                <a asp-controller="Tasks" asp-action="Details" asp-route-id="@t.Id" class="ts-link" style="margin-right:8px">Open</a>
-                            }
-                            else
-                            {
-                                <span class="ts-text-secondary" style="margin-right:8px">Unavailable</span>
-                            }
 
-                            <form asp-controller="Tasks" asp-action="ApproveRequest" method="post" style="display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <div class="ts-requested-task-actions">
+                            <form asp-controller="Tasks" asp-action="ApproveRequest" method="post" class="ts-requested-approve-form">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="taskId" value="@t.Id" />
 
-                                <label class="ts-label-sm" style="margin:0;">Due</label>
-                                <input type="date" name="dueDate" value="@DateTime.UtcNow.AddDays(7).ToString("yyyy-MM-dd")" class="ts-input" style="max-width:170px;" required />
+                                <label class="ts-label-sm ts-requested-field-label">Due</label>
+                                <input type="date" name="dueDate" value="@DateTime.UtcNow.AddDays(7).ToString("yyyy-MM-dd")" class="ts-input ts-requested-due-input" required />
 
-                                <select name="assignedToId" class="ts-input" style="max-width:220px;">
-                                    @* Preselect requester when possible *@
+                                <select name="assignedToId" class="ts-input ts-requested-assignee-select">
                                     @if (!string.IsNullOrEmpty(t.CreatedById))
                                     {
                                         <option value="@t.CreatedById">@(t.CreatedByName ?? "Requester") (Requester)</option>
@@ -327,7 +369,7 @@
                                 <button type="submit" class="ts-btn ts-btn-sm ts-btn-success">Approve</button>
                             </form>
 
-                            <form asp-controller="Tasks" asp-action="RejectRequest" method="post" style="display:inline;" onsubmit="return confirm('Reject request?');">
+                            <form asp-controller="Tasks" asp-action="RejectRequest" method="post" class="ts-requested-reject-form" onsubmit="return confirm('Reject request?');">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="taskId" value="@t.Id" />
                                 <button type="submit" class="ts-btn ts-btn-sm ts-btn-secondary">Reject</button>
@@ -601,3 +643,16 @@ document.addEventListener('click', function(event) {
     if (event.target === leaveModal) leaveModal.style.display = 'none';
 });
 </script>
+
+@section Scripts {
+    <script>
+        // Disable submit buttons and show loading state to prevent double submits
+        document.addEventListener('submit', function (e) {
+            var form = e.target;
+            if (form.classList && form.classList.contains('js-disable-on-submit')) {
+                var btns = form.querySelectorAll('button[type=submit]');
+                btns.forEach(function (b) { b.disabled = true; b.dataset.origHtml = b.innerHTML; b.innerHTML = 'Processing...'; });
+            }
+        });
+    </script>
+}

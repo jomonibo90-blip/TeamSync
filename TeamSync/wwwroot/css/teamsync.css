@@ -1123,3 +1123,291 @@ border-radius: 9999px;
     background: transparent;
     padding: 0.5rem 0;
 }
+
+/* Task Management UI (assignment scope) */
+.ts-task-page-header,
+.ts-task-detail-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.ts-task-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.ts-filter-chip-row {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--ts-border);
+    padding-bottom: 0.75rem;
+}
+
+.ts-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid var(--ts-border);
+    color: var(--ts-on-surface-variant);
+    text-decoration: none;
+    font-weight: 600;
+    background: var(--ts-surface);
+}
+
+.ts-filter-chip.active {
+    color: var(--ts-primary);
+    border-color: rgba(13, 110, 253, 0.35);
+    background: rgba(13, 110, 253, 0.12);
+}
+
+.ts-task-list {
+    display: grid;
+    gap: 0.9rem;
+}
+
+.ts-task-item {
+    background: var(--ts-surface);
+    border: 1px solid var(--ts-border);
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+.ts-task-item-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.8rem;
+    margin-bottom: 0.6rem;
+}
+
+.ts-task-title {
+    margin: 0;
+    font-size: 1.45rem;
+    line-height: 1.2;
+}
+
+.ts-task-title-wrap {
+    min-width: 0;
+}
+
+.ts-task-desc {
+    margin: 0.45rem 0 0;
+    color: var(--ts-on-surface-variant);
+    font-size: 0.95rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ts-task-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.ts-task-date {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--ts-on-surface-variant);
+    font-size: 0.95rem;
+}
+
+.ts-task-date-overdue {
+    color: var(--ts-error);
+    font-weight: 600;
+}
+
+.ts-task-item-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.ts-task-assignee,
+.ts-task-links {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.ts-avatar-sm {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ts-surface-container-high);
+    color: var(--ts-on-surface-variant);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.ts-task-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 1rem;
+}
+
+.ts-task-details-list {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.ts-task-detail-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.25rem 0;
+}
+
+@media (max-width: 900px) {
+    .ts-task-detail-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .ts-task-title {
+        font-size: 1.1rem;
+    }
+
+    .ts-task-item {
+        padding: 0.85rem;
+    }
+}
+
+/* Requested task approvals UI cleanup */
+.ts-requested-tasks-card {
+    margin-bottom: 1.5rem;
+    border-left: 4px solid var(--ts-info);
+    background: rgba(13,110,253,0.03);
+}
+
+.ts-requested-warning {
+    background: rgba(255,193,7,0.1);
+    color: var(--ts-warning);
+    border: 1px solid rgba(255,193,7,0.2);
+}
+
+.ts-requested-task-item {
+    padding: 1rem;
+    margin-bottom: 0.9rem;
+    background: var(--ts-surface);
+    border-radius: var(--ts-radius-md);
+    border: 1px solid var(--ts-border);
+}
+
+.ts-requested-task-item:last-child {
+    margin-bottom: 0;
+}
+
+.ts-requested-task-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.ts-requested-task-meta {
+    min-width: 0;
+}
+
+.ts-requested-task-title-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.2rem;
+    flex-wrap: wrap;
+}
+
+.ts-requested-task-title {
+    display: block;
+    margin: 0;
+}
+
+.ts-requested-task-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.65rem;
+    flex-wrap: nowrap;
+}
+
+.ts-requested-open-link {
+    white-space: nowrap;
+}
+
+.ts-requested-approve-form {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
+}
+
+.ts-requested-field-label {
+    margin: 0;
+    white-space: nowrap;
+}
+
+.ts-requested-due-input {
+    width: 170px;
+    max-width: 170px;
+}
+
+.ts-requested-assignee-select {
+    width: 250px;
+    max-width: 250px;
+}
+
+.ts-requested-reject-form {
+    display: inline-flex;
+}
+
+@media (max-width: 1100px) {
+    .ts-requested-task-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .ts-requested-task-actions {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .ts-requested-approve-form {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+}
+
+@media (max-width: 700px) {
+    .ts-requested-due-input,
+    .ts-requested-assignee-select {
+        width: 100%;
+        max-width: none;
+    }
+
+    .ts-requested-reject-form {
+        width: 100%;
+    }
+
+    .ts-requested-reject-form .ts-btn {
+        width: 100%;
+    }
+}

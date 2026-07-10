@@ -10,9 +10,16 @@ public class Task
     public string CreatedById { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? DueDate { get; set; }
-    public string Status { get; set; } = "Pending"; // Pending, In Progress, Completed, Overdue
+    public string Status { get; set; } = "Pending"; // Pending, In Progress, ReviewRequested, Completed, Rejected, Requested
     public int Priority { get; set; } = 1; // 1=Low, 2=Medium, 3=High
     public DateTime? UpdatedAt { get; set; }
+
+    // Review / completion workflow
+    public string? ReviewRequestedById { get; set; }
+    public DateTime? ReviewRequestedAt { get; set; }
+
+    public string? CompletionApprovedById { get; set; }
+    public DateTime? CompletionApprovedAt { get; set; }
 
     // Navigation properties
     public Group? Group { get; set; }

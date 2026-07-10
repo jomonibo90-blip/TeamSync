@@ -1,0 +1,44 @@
+@model TeamSync.ViewModels.TaskGroupSelectionViewModel
+@{
+    var isCreate = string.Equals(Model.Mode, "create", StringComparison.OrdinalIgnoreCase);
+    ViewData["Title"] = isCreate ? "Select Group for New Task" : "Select Group to Request Task";
+}
+
+<div class="ts-task-page-header">
+    <div>
+        <h1 class="ts-headline-lg-mobile md:ts-headline-lg">@ViewData["Title"]</h1>
+        <p class="ts-body-lg ts-text-secondary">
+            @(isCreate
+                ? "Choose a project/group where you want to create the task."
+                : "Choose a project/group where you want to submit a task request.")
+        </p>
+    </div>
+    <div class="ts-task-actions">
+        <a asp-controller="Tasks" asp-action="Index" class="ts-btn ts-btn-secondary">Back</a>
+    </div>
+</div>
+
+<div class="ts-task-list">
+    @foreach (var g in Model.Groups)
+    {
+        <article class="ts-task-item">
+            <div class="ts-task-item-top">
+                <div class="ts-task-title-wrap">
+                    <h3 class="ts-task-title">@g.GroupName</h3>
+                    @if (!string.IsNullOrWhiteSpace(g.GroupDescription))
+                    {
+                        <p class="ts-task-desc">@g.GroupDescription</p>
+                    }
+                </div>
+                @if (isCreate)
+                {
+                    <a asp-controller="Tasks" asp-action="Create" asp-route-groupId="@g.GroupId" class="ts-btn ts-btn-primary">Select</a>
+                }
+                else
+                {
+                    <a asp-controller="Tasks" asp-action="RequestTask" asp-route-groupId="@g.GroupId" class="ts-btn ts-btn-primary">Select</a>
+                }
+            </div>
+        </article>
+    }
+</div>

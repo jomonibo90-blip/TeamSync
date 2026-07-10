@@ -24,16 +24,20 @@ public class TasksController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(string? status)
     {
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
 
         bool isAdmin = User.IsInRole("Admin");
         bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        bool isLeadInAnyGroup = await _context.GroupMembers
+            .AnyAsync(gm => gm.UserId == currentUser.Id && gm.Role == "Lead" && gm.Group != null && gm.Group.IsActive);
+        bool isMemberInAnyGroup = await _context.GroupMembers
+            .AnyAsync(gm => gm.UserId == currentUser.Id && gm.Role == "Member" && gm.Group != null && gm.Group.IsActive);
 
         var query = _context.Tasks
-            .Include(t => t.Group)
+            .Include(t => t.Group).ThenInclude(g => g.Members)
             .Include(t => t.AssignedTo)
             .Include(t => t.CreatedBy)
             .AsQueryable();
@@ -48,6 +52,12 @@ public class TasksController : Controller
                 .ToListAsync();
 
             query = query.Where(t => t.AssignedToId == currentUser.Id || (t.GroupId.HasValue && groupIds.Contains(t.GroupId.Value)));
+        }
+
+        var activeStatus = string.IsNullOrWhiteSpace(status) ? "All" : status.Trim();
+        if (!activeStatus.Equals("All", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(t => t.Status == activeStatus);
         }
 
         var tasks = await query.OrderByDescending(t => t.CreatedAt).ToListAsync();
@@ -65,8 +75,23 @@ public class TasksController : Controller
             CreatedByName = t.CreatedBy != null ? $"{t.CreatedBy.FirstName} {t.CreatedBy.LastName}" : null,
             DueDate = t.DueDate,
             Priority = t.Priority,
-            Description = t.Description
+            Description = t.Description,
+
+            // workflow fields for UI
+            ReviewRequestedById = t.ReviewRequestedById,
+            ReviewRequestedAt = t.ReviewRequestedAt,
+            CompletionApprovedById = t.CompletionApprovedById,
+            CompletionApprovedAt = t.CompletionApprovedAt,
+
+            // compute CanApprove for current user
+            CanApprove = (t.CreatedById == currentUser.Id) || isAdmin || isProfessor || (t.Group != null && t.Group.Members.Any(m => m.UserId == currentUser.Id && m.Role == "Lead"))
         }).ToList();
+
+        var canCreateTask = isAdmin || isProfessor || isLeadInAnyGroup;
+        ViewBag.ActiveStatus = activeStatus;
+        ViewBag.CanCreateTask = canCreateTask;
+        ViewBag.CanRequestTask = !canCreateTask && isMemberInAnyGroup;
+        ViewBag.CurrentUserId = currentUser.Id; // used by view to show card-level actions
 
         return View(vm);
     }
@@ -404,8 +429,30 @@ public class TasksController : Controller
             CreatedById = task.CreatedById,
             CreatedByName = task.CreatedBy != null ? $"{task.CreatedBy.FirstName} {task.CreatedBy.LastName}" : null,
             DueDate = task.DueDate,
-            Priority = task.Priority
+            Priority = task.Priority,
+            ReviewRequestedById = task.ReviewRequestedById,
+            ReviewRequestedAt = task.ReviewRequestedAt,
+            CompletionApprovedById = task.CompletionApprovedById,
+            CompletionApprovedAt = task.CompletionApprovedAt
         };
+
+        // Resolve names for review/completion actors if present
+        if (!string.IsNullOrEmpty(vm.ReviewRequestedById))
+        {
+            var user = await _context.Users.FindAsync(vm.ReviewRequestedById);
+            if (user != null) vm.ReviewRequestedByName = $"{user.FirstName} {user.LastName}";
+        }
+        if (!string.IsNullOrEmpty(vm.CompletionApprovedById))
+        {
+            var user = await _context.Users.FindAsync(vm.CompletionApprovedById);
+            if (user != null) vm.CompletionApprovedByName = $"{user.FirstName} {user.LastName}";
+        }
+
+        // Flags for UI actions
+        ViewBag.IsAssigned = task.AssignedToId == currentUser.Id;
+        var currentMember = task.Group?.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
+        bool isLead = currentMember?.Role == "Lead";
+        ViewBag.CanApproveCompletion = currentUser.Id == task.CreatedById || isAdmin || isProfessor || isLead;
 
         return View(vm);
     }
@@ -496,6 +543,211 @@ public class TasksController : Controller
         await _context.SaveChangesAsync();
 
         TempData["SuccessMessage"] = "Task updated successfully.";
+        return RedirectToAction("Details", new { id = task.Id });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> SelectGroup(string mode = "create")
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var normalizedMode = (mode ?? string.Empty).Trim().ToLowerInvariant();
+        if (normalizedMode != "create" && normalizedMode != "request")
+            return BadRequest("Invalid mode.");
+
+        var activeGroupsQuery = _context.Groups
+            .Include(g => g.Members)
+            .Where(g => g.IsActive)
+            .AsQueryable();
+
+        List<TaskGroupSelectionItemViewModel> groups;
+
+        if (normalizedMode == "create")
+        {
+            bool isAdmin = User.IsInRole("Admin");
+            bool isProfessorGlobal = await _userManager.IsInRoleAsync(currentUser, "Professor");
+
+            if (!isAdmin && !isProfessorGlobal)
+            {
+                activeGroupsQuery = activeGroupsQuery
+                    .Where(g => g.Members.Any(m => m.UserId == currentUser.Id && (m.Role == "Lead" || m.Role == "Professor")));
+            }
+
+            groups = await activeGroupsQuery
+                .Select(g => new TaskGroupSelectionItemViewModel
+                {
+                    GroupId = g.Id,
+                    GroupName = g.Name,
+                    GroupDescription = g.Description
+                })
+                .ToListAsync();
+        }
+        else
+        {
+            groups = await activeGroupsQuery
+                .Where(g => g.Members.Any(m => m.UserId == currentUser.Id && m.Role == "Member"))
+                .Select(g => new TaskGroupSelectionItemViewModel
+                {
+                    GroupId = g.Id,
+                    GroupName = g.Name,
+                    GroupDescription = g.Description
+                })
+                .ToListAsync();
+        }
+
+        if (!groups.Any())
+        {
+            TempData["ErrorMessage"] = normalizedMode == "create"
+                ? "No active groups available where you can create tasks."
+                : "No active groups available where you can request tasks.";
+            return RedirectToAction("Index");
+        }
+
+        if (groups.Count == 1)
+        {
+            var groupId = groups[0].GroupId;
+            return normalizedMode == "create"
+                ? RedirectToAction("Create", new { groupId })
+                : RedirectToAction("RequestTask", new { groupId });
+        }
+
+        var vm = new TaskGroupSelectionViewModel
+        {
+            Mode = normalizedMode,
+            Groups = groups.OrderBy(g => g.GroupName).ToList()
+        };
+
+        return View(vm);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetInProgress(int id)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var task = await _context.Tasks.Include(t => t.Group).FirstOrDefaultAsync(t => t.Id == id);
+        if (task == null) return NotFound();
+        if (task.AssignedToId != currentUser.Id) return Forbid();
+
+        if (task.Status == "Completed")
+        {
+            TempData["ErrorMessage"] = "Task is already completed.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        task.Status = "InProgress";
+        task.UpdatedAt = DateTime.UtcNow;
+
+        _context.Tasks.Update(task);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Task started.";
+        return RedirectToAction("Details", new { id = task.Id });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RequestReview(int id)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var task = await _context.Tasks.Include(t => t.Group).FirstOrDefaultAsync(t => t.Id == id);
+        if (task == null) return NotFound();
+        if (task.AssignedToId != currentUser.Id) return Forbid();
+
+        if (task.Status != "InProgress")
+        {
+            TempData["ErrorMessage"] = "Task must be in progress to request review.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        task.Status = "ReviewRequested";
+        task.ReviewRequestedById = currentUser.Id;
+        task.ReviewRequestedAt = DateTime.UtcNow;
+        task.UpdatedAt = DateTime.UtcNow;
+
+        _context.Tasks.Update(task);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Review requested.";
+        return RedirectToAction("Details", new { id = task.Id });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApproveCompletion(int id)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var task = await _context.Tasks.Include(t => t.Group).ThenInclude(g => g.Members).FirstOrDefaultAsync(t => t.Id == id);
+        if (task == null) return NotFound();
+
+        // Only creator or professor/admin/lead in group can approve completion
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        var currentMember = task.Group?.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
+        bool isLead = currentMember?.Role == "Lead";
+
+        if (!(currentUser.Id == task.CreatedById || isAdmin || isProfessor || isLead))
+            return Forbid();
+
+        if (task.Status != "ReviewRequested")
+        {
+            TempData["ErrorMessage"] = "No review pending for this task.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        task.Status = "Completed";
+        task.CompletionApprovedById = currentUser.Id;
+        task.CompletionApprovedAt = DateTime.UtcNow;
+        task.UpdatedAt = DateTime.UtcNow;
+
+        _context.Tasks.Update(task);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Task marked as completed.";
+        return RedirectToAction("Details", new { id = task.Id });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RejectCompletion(int id)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var task = await _context.Tasks.Include(t => t.Group).ThenInclude(g => g.Members).FirstOrDefaultAsync(t => t.Id == id);
+        if (task == null) return NotFound();
+
+        // Only creator or professor/admin/lead can reject
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        var currentMember = task.Group?.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
+        bool isLead = currentMember?.Role == "Lead";
+
+        if (!(currentUser.Id == task.CreatedById || isAdmin || isProfessor || isLead))
+            return Forbid();
+
+        if (task.Status != "ReviewRequested")
+        {
+            TempData["ErrorMessage"] = "No review pending for this task.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        task.Status = "InProgress";
+        task.ReviewRequestedById = null;
+        task.ReviewRequestedAt = null;
+        task.UpdatedAt = DateTime.UtcNow;
+
+        _context.Tasks.Update(task);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Review rejected; task set back to In Progress.";
         return RedirectToAction("Details", new { id = task.Id });
     }
 }

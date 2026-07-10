@@ -1,52 +1,140 @@
 @model TeamSync.ViewModels.TaskListItemViewModel
 @{
     ViewData["Title"] = Model.Title;
+
+    var statusClass = Model.Status switch
+    {
+        "Requested" => "ts-status-requested",
+        "Rejected" => "ts-status-rejected",
+        "Completed" => "ts-status-completed",
+        "InProgress" => "ts-status-pending",
+        "ReviewRequested" => "ts-status-pending",
+        _ => "ts-status-pending"
+    };
+
+    var isAssigned = (ViewBag.IsAssigned as bool?) ?? false;
+    var canApprove = (ViewBag.CanApproveCompletion as bool?) ?? false;
 }
 
-<div class="ts-card">
-    <div class="ts-card-header">
-        <h2 class="ts-title-lg">@Model.Title</h2>
+<div class="ts-task-detail-header">
+    <div>
+        <h1 class="ts-headline-lg-mobile md:ts-headline-lg">@Model.Title</h1>
+        <p class="ts-body-sm ts-text-secondary">Task details and assignment metadata</p>
     </div>
-    <div class="ts-card-body">
-        <div class="ts-mb-md">
-            <strong>Project:</strong>
-            @if (Model.GroupId.HasValue && !string.IsNullOrEmpty(Model.GroupName))
+    <div class="ts-task-actions">
+        <a asp-controller="Tasks" asp-action="Edit" asp-route-id="@Model.Id" class="ts-btn ts-btn-secondary">
+            <span class="material-symbols-outlined" style="font-size:18px;">edit</span> Edit
+        </a>
+        <a asp-controller="Tasks" asp-action="Index" class="ts-btn ts-btn-primary">Back to Tasks</a>
+    </div>
+</div>
+
+<div class="ts-task-detail-grid">
+    <section class="ts-card">
+        <div class="ts-card-header">
+            <h3 class="ts-title-lg">Description</h3>
+        </div>
+        <div class="ts-card-body">
+            @if (!string.IsNullOrWhiteSpace(Model.Description))
             {
-                <a asp-controller="Groups" asp-action="Details" asp-route-id="@Model.GroupId.Value" class="ts-link">@Model.GroupName</a>
+                <div class="ts-body-md ts-text-secondary">@Model.Description</div>
             }
             else
             {
-                <span>-</span>
+                <div class="ts-body-sm ts-text-secondary">No description provided.</div>
             }
-        </div>
-        <div class="ts-mb-md">
-            <strong>Assigned To:</strong> @(Model.AssignedToName ?? "Unassigned")
-        </div>
-        <div class="ts-mb-md">
-            <strong>Created By:</strong> @(Model.CreatedByName ?? "Unknown")
-        </div>
-        <div class="ts-mb-md">
-            <strong>Status:</strong> <span class="ts-status ts-status-pending">@Model.Status</span>
-        </div>
-        <div class="ts-mb-md">
-            <strong>Due:</strong> @(Model.DueDate?.ToString("yyyy-MM-dd") ?? "-")
-        </div>
-        <div class="ts-mb-md">
-            <strong>Priority:</strong>
-            @if (Model.Priority == 3) { <span class="ts-badge ts-priority-high">High</span> }
-            else if (Model.Priority == 2) { <span class="ts-badge ts-priority-medium">Medium</span> }
-            else { <span class="ts-badge ts-priority-low">Low</span> }
-        </div>
-        @if (!string.IsNullOrEmpty(Model.Description))
-        {
-            <div class="ts-mb-md">
-                <strong>Description:</strong>
-                <div class="ts-body-md ts-text-secondary">@Model.Description</div>
-            </div>
-        }
 
-        <div class="ts-mt-md">
-            <a asp-controller="Tasks" asp-action="Index" class="ts-btn ts-btn-secondary">Back to Tasks</a>
+            @* Action area for assigned users and approvers *@
+            <div class="ts-mt-md">
+                @if (isAssigned && Model.Status == "Pending")
+                {
+                    <form asp-action="SetInProgress" method="post" style="display:inline-block; margin-right:0.5rem;">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <button type="submit" class="ts-btn ts-btn-primary">Start Task</button>
+                    </form>
+                }
+
+                @if (isAssigned && Model.Status == "InProgress")
+                {
+                    <form asp-action="RequestReview" method="post" style="display:inline-block; margin-right:0.5rem;">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <button type="submit" class="ts-btn ts-btn-secondary">Request Review</button>
+                    </form>
+                }
+
+                @if (Model.Status == "ReviewRequested")
+                {
+                    <div class="ts-mt-sm ts-body-sm">Review requested by: <strong>@(Model.ReviewRequestedByName ?? "Unknown")</strong> @if(Model.ReviewRequestedAt.HasValue){ <span class="ts-text-secondary">(@Model.ReviewRequestedAt.Value.ToLocalTime().ToString("MMM dd, yyyy HH:mm"))</span> }</div>
+
+                    @if (canApprove)
+                    {
+                        <form asp-action="ApproveCompletion" method="post" style="display:inline-block; margin-right:0.5rem;">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@Model.Id" />
+                            <button type="submit" class="ts-btn ts-btn-success">Approve Completion</button>
+                        </form>
+                        <form asp-action="RejectCompletion" method="post" style="display:inline-block; margin-right:0.5rem;" onsubmit="return confirm('Reject completion?');">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@Model.Id" />
+                            <button type="submit" class="ts-btn ts-btn-secondary">Reject</button>
+                        </form>
+                    }
+                }
+            </div>
         </div>
-    </div>
+    </section>
+
+    <section class="ts-card">
+        <div class="ts-card-header">
+            <h3 class="ts-title-lg">Details</h3>
+        </div>
+        <div class="ts-card-body ts-task-details-list">
+            <div class="ts-task-detail-row">
+                <span class="ts-label-sm ts-text-secondary">Project</span>
+                <span>
+                    @if (Model.GroupId.HasValue && !string.IsNullOrEmpty(Model.GroupName))
+                    {
+                        <a asp-controller="Groups" asp-action="Details" asp-route-id="@Model.GroupId.Value" class="ts-link">@Model.GroupName</a>
+                    }
+                    else
+                    {
+                        <span>-</span>
+                    }
+                </span>
+            </div>
+            <div class="ts-task-detail-row">
+                <span class="ts-label-sm ts-text-secondary">Assigned To</span>
+                <span>@(Model.AssignedToName ?? "Unassigned")</span>
+            </div>
+            <div class="ts-task-detail-row">
+                <span class="ts-label-sm ts-text-secondary">Created By</span>
+                <span>@(Model.CreatedByName ?? "Unknown")</span>
+            </div>
+            <div class="ts-task-detail-row">
+                <span class="ts-label-sm ts-text-secondary">Status</span>
+                <span class="ts-status @statusClass">@Model.Status</span>
+            </div>
+            <div class="ts-task-detail-row">
+                <span class="ts-label-sm ts-text-secondary">Due Date</span>
+                <span class="@(Model.DueDate.HasValue && Model.DueDate.Value.Date < DateTime.UtcNow.Date ? "ts-task-date-overdue" : "")">@(Model.DueDate?.ToString("MMM dd, yyyy") ?? "No due date")</span>
+            </div>
+            <div class="ts-task-detail-row">
+                <span class="ts-label-sm ts-text-secondary">Priority</span>
+                @if (Model.Priority == 3)
+                {
+                    <span class="ts-badge ts-priority-high">HIGH</span>
+                }
+                else if (Model.Priority == 2)
+                {
+                    <span class="ts-badge ts-priority-medium">MEDIUM</span>
+                }
+                else
+                {
+                    <span class="ts-badge ts-priority-low">LOW</span>
+                }
+            </div>
+        </div>
+    </section>
 </div>
