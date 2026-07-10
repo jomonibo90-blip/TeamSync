@@ -67,6 +67,9 @@ namespace TeamSync.ViewModels
 
         // UI flags
         public bool CanApprove { get; set; } = false;
+        // Role of the current user for this item
+        public bool IsLeadForCurrentUser { get; set; } = false;
+        public bool IsProfessorForCurrentUser { get; set; } = false;
     }
 
     public class TaskEditViewModel

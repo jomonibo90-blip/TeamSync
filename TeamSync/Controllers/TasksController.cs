@@ -62,31 +62,39 @@ public class TasksController : Controller
 
         var tasks = await query.OrderByDescending(t => t.CreatedAt).ToListAsync();
 
-        var vm = tasks.Select(t => new TaskListItemViewModel
+        var vm = tasks.Select(t =>
         {
-            Id = t.Id,
-            GroupId = t.GroupId,
-            GroupName = t.Group != null ? t.Group.Name : null,
-            Title = t.Title,
-            Status = t.Status,
-            AssignedToId = t.AssignedToId,
-            AssignedToName = t.AssignedTo != null ? $"{t.AssignedTo.FirstName} {t.AssignedTo.LastName}" : null,
-            CreatedById = t.CreatedById,
-            CreatedByName = t.CreatedBy != null ? $"{t.CreatedBy.FirstName} {t.CreatedBy.LastName}" : null,
-            DueDate = t.DueDate,
-            Priority = t.Priority,
-            Description = t.Description,
+            var isLeadForThis = t.Group != null && t.Group.Members.Any(m => m.UserId == currentUser.Id && m.Role == "Lead");
+            var isProfessorForCurrentUser = isProfessor || User.IsInRole("Admin");
 
-            ReviewRequestedById = t.ReviewRequestedById,
-            ReviewRequestedAt = t.ReviewRequestedAt,
+            return new global::TeamSync.ViewModels.TaskListItemViewModel
+            {
+                Id = t.Id,
+                GroupId = t.GroupId,
+                GroupName = t.Group != null ? t.Group.Name : null,
+                Title = t.Title,
+                Status = t.Status,
+                AssignedToId = t.AssignedToId,
+                AssignedToName = t.AssignedTo != null ? $"{t.AssignedTo.FirstName} {t.AssignedTo.LastName}" : null,
+                CreatedById = t.CreatedById,
+                CreatedByName = t.CreatedBy != null ? $"{t.CreatedBy.FirstName} {t.CreatedBy.LastName}" : null,
+                DueDate = t.DueDate,
+                Priority = t.Priority,
+                Description = t.Description,
 
-            LeadApprovedById = t.LeadApprovedById,
-            LeadApprovedAt = t.LeadApprovedAt,
+                // workflow fields for UI
+                ReviewRequestedById = t.ReviewRequestedById,
+                ReviewRequestedAt = t.ReviewRequestedAt,
+                LeadApprovedById = t.LeadApprovedById,
+                LeadApprovedAt = t.LeadApprovedAt,
+                CompletionApprovedById = t.CompletionApprovedById,
+                CompletionApprovedAt = t.CompletionApprovedAt,
 
-            CompletionApprovedById = t.CompletionApprovedById,
-            CompletionApprovedAt = t.CompletionApprovedAt,
-
-            CanApprove = isAdmin || isProfessor || (t.Group != null && t.Group.Members.Any(m => m.UserId == currentUser.Id && m.Role == "Lead"))
+                // compute CanApprove for current user
+                CanApprove = isAdmin || isProfessor || isLeadForThis,
+                IsLeadForCurrentUser = isLeadForThis,
+                IsProfessorForCurrentUser = isProfessorForCurrentUser
+            };
         }).ToList();
 
         var canCreateTask = isAdmin || isProfessor || isLeadInAnyGroup;
@@ -182,7 +190,7 @@ public class TasksController : Controller
             }
         }
 
-        var task = new TeamSync.Models.Task
+        var task = new global::TeamSync.Models.Task
         {
             Title = model.Title,
             Description = model.Description,
@@ -248,7 +256,7 @@ public class TasksController : Controller
         bool isStudent = currentMember.Role == "Member";
         if (!isStudent && !User.IsInRole("Student")) return Forbid();
 
-        var task = new TeamSync.Models.Task
+        var task = new global::TeamSync.Models.Task
         {
             Title = model.Title,
             Description = model.Description,
@@ -418,7 +426,7 @@ public class TasksController : Controller
                 return Forbid();
         }
 
-        var vm = new TaskListItemViewModel
+        var vm = new global::TeamSync.ViewModels.TaskListItemViewModel
         {
             Id = task.Id,
             GroupId = task.GroupId,
@@ -488,7 +496,7 @@ public class TasksController : Controller
         if (!isAdmin && !isProfessor && !isLead && task.CreatedById != currentUser.Id)
             return Forbid();
 
-        var vm = new TeamSync.ViewModels.TaskEditViewModel
+        var vm = new global::TeamSync.ViewModels.TaskEditViewModel
         {
             Id = task.Id,
             GroupId = task.GroupId ?? 0,
@@ -505,7 +513,7 @@ public class TasksController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(TeamSync.ViewModels.TaskEditViewModel model)
+    public async Task<IActionResult> Edit(global::TeamSync.ViewModels.TaskEditViewModel model)
     {
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();

@@ -142,10 +142,11 @@ else
                         @* Approvers can act on ReviewRequested tasks directly from cards *@
                         @if (t.Status == "ReviewRequested" && t.CanApprove)
                         {
+                            var approveLabel = t.IsLeadForCurrentUser && !t.IsProfessorForCurrentUser ? "Lead Approve" : "Finalize";
                             <form asp-action="ApproveCompletion" method="post" class="js-disable-on-submit" style="display:inline-block; margin-left:8px;">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="id" value="@t.Id" />
-                                <button type="submit" class="ts-btn ts-btn-sm ts-btn-success">Approve</button>
+                                <button type="submit" class="ts-btn ts-btn-sm ts-btn-success">@approveLabel</button>
                             </form>
                             <form asp-action="RejectCompletion" method="post" class="js-disable-on-submit" style="display:inline-block; margin-left:4px;" onsubmit="return confirm('Reject completion?');">
                                 @Html.AntiForgeryToken()

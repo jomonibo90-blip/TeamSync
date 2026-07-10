@@ -4,6 +4,15 @@
     bool canManageMembers = Model.CurrentUserRole == "Professor" || Model.CurrentUserRole == "Lead" || User.IsInRole("Admin");
     bool isProfessor = Model.CurrentUserRole == "Professor" || User.IsInRole("Admin");
     bool isStudent = Model.CurrentUserRole == "Member";
+
+    string TaskStatusBadge(string status) => status switch
+    {
+        "LeadApproved" => "ts-badge ts-badge-lead",
+        "ReviewRequested" => "ts-badge ts-badge-review",
+        "Completed" => "ts-badge ts-badge-completed",
+        "InProgress" => "ts-badge ts-badge-inprogress",
+        _ => "ts-badge ts-badge-pending"
+    };
 }
 
 <div class="ts-page-header ts-flex ts-justify-between ts-items-center" style="flex-wrap: wrap; gap: 1rem;">
@@ -279,12 +288,13 @@
                             }
 
                             @* Card-level approver actions for review requests *@
-                            @if (t.Status == "ReviewRequested" && t.CanApprove)
+                            @if (t.Status == "ReviewRequested" || t.Status == "LeadApproved")
                             {
+                                var approveLabel = t.IsLeadForCurrentUser && !t.IsProfessorForCurrentUser ? "Lead Approve" : "Finalize";
                                 <form asp-controller="Tasks" asp-action="ApproveCompletion" method="post" class="js-disable-on-submit" style="display:inline-block; margin-left:8px;">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="id" value="@t.Id" />
-                                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-success">Approve</button>
+                                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-success">@approveLabel</button>
                                 </form>
                                 <form asp-controller="Tasks" asp-action="RejectCompletion" method="post" class="js-disable-on-submit" style="display:inline-block; margin-left:4px;" onsubmit="return confirm('Reject completion?');">
                                     @Html.AntiForgeryToken()
@@ -293,14 +303,7 @@
                                 </form>
                             }
 
-                            @if (t.Id > 0)
-                            {
-                                <a asp-controller="Tasks" asp-action="Details" asp-route-id="@t.Id" class="ts-link" style="margin-left:12px;">Open</a>
-                            }
-                            else
-                            {
-                                <span class="ts-text-secondary" style="margin-left:12px;">Unavailable</span>
-                            }
+                            <a asp-controller="Tasks" asp-action="Details" asp-route-id="@t.Id" class="ts-link" style="margin-left:12px;">Open</a>
                         </div>
                     </div>
                 </div>

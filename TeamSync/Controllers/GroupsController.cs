@@ -235,7 +235,7 @@ public class GroupsController : Controller
                 Status = jr.Status,
                 CreatedAt = jr.CreatedAt
             }).ToList(),
-            ActiveTasks = tasks.Where(t => t.Status != "Requested" && t.Status != "Rejected").Select(t => new TaskListItemViewModel
+            ActiveTasks = tasks.Where(t => t.Status != "Requested" && t.Status != "Rejected").Select(t => new global::TeamSync.ViewModels.TaskListItemViewModel
             {
                 Id = t.Id,
                 GroupId = t.GroupId,
@@ -254,7 +254,9 @@ public class GroupsController : Controller
                 LeadApprovedAt = t.LeadApprovedAt,
                 CompletionApprovedById = t.CompletionApprovedById,
                 CompletionApprovedAt = t.CompletionApprovedAt,
-                CanApprove = isAdminUser || isProfessorUser || isLead
+                CanApprove = isAdminUser || isProfessorUser || isLead,
+                IsLeadForCurrentUser = isLead,
+                IsProfessorForCurrentUser = isProfessorUser
             }).ToList(),
             RequestedTasks = tasks.Where(t => t.Status == "Requested").Select(t => new TaskListItemViewModel
             {
