@@ -1,4 +1,4 @@
-@model List<TeamSync.ViewModels.GroupListViewModel>
+@model TeamSync.ViewModels.StudentDashboardViewModel
 @{
     ViewData["Title"] = "Student Overview";
 }
@@ -9,8 +9,64 @@
 </div>
 
 <div class="ts-dashboard-grid">
-    <!-- Left Column (Projects & Stats) -->
+    <!-- Left Column (Projects & Progress) -->
     <div class="ts-col-span-2" style="display: flex; flex-direction: column; gap: var(--ts-gutter);">
+
+        <!-- Overall Progress Card -->
+        <div class="ts-dashboard-card">
+            <div class="ts-dashboard-card-header">
+                <h3 class="ts-title-lg">
+                    <span class="material-symbols-outlined ts-text-primary" style="font-size: 20px;">show_chart</span>
+                    Overall Progress
+                </h3>
+            </div>
+            <div class="ts-dashboard-card-body">
+                @if (Model.Progress.TotalTasks == 0)
+                {
+                    <p class="ts-body-md ts-text-secondary">No tasks assigned yet. Check back soon!</p>
+                }
+                else
+                {
+                    <!-- Main Progress Bar -->
+                    <div class="ts-mb-lg">
+                        <div class="ts-flex ts-justify-between ts-mb-sm">
+                            <span class="ts-label-md">Overall Completion</span>
+                            <span class="ts-label-md ts-text-primary" style="font-weight: 600;">@Model.Progress.CompletionPercentage.ToString("F1")%</span>
+                        </div>
+                        <div style="height: 10px; background: var(--ts-surface-container-high); border-radius: 5px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);">
+                            <div style="height: 100%; width: @(Model.Progress.CompletionPercentage)%; background: linear-gradient(90deg, #10b981, #06b6d4); transition: width 0.6s ease-out; border-radius: 5px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Task Statistics Grid -->
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
+                        <!-- Completed -->
+                        <div style="padding: 1rem; background: rgba(16,185,129,0.05); border-radius: var(--ts-radius-md); border-left: 4px solid #10b981;">
+                            <div class="ts-label-sm ts-text-secondary">Completed</div>
+                            <div class="ts-display-md" style="color: #10b981; margin-top: 0.5rem;">@Model.Progress.CompletedTasks</div>
+                        </div>
+                        
+                        <!-- In Progress -->
+                        <div style="padding: 1rem; background: rgba(59,130,246,0.05); border-radius: var(--ts-radius-md); border-left: 4px solid #3b82f6;">
+                            <div class="ts-label-sm ts-text-secondary">In Progress</div>
+                            <div class="ts-display-md" style="color: #3b82f6; margin-top: 0.5rem;">@Model.Progress.InProgressTasks</div>
+                        </div>
+                        
+                        <!-- Pending -->
+                        <div style="padding: 1rem; background: rgba(245,158,11,0.05); border-radius: var(--ts-radius-md); border-left: 4px solid #f59e0b;">
+                            <div class="ts-label-sm ts-text-secondary">Pending</div>
+                            <div class="ts-display-md" style="color: #f59e0b; margin-top: 0.5rem;">@Model.Progress.PendingTasks</div>
+                        </div>
+                        
+                        <!-- Total -->
+                        <div style="padding: 1rem; background: var(--ts-surface-container-low); border-radius: var(--ts-radius-md); border-left: 4px solid var(--ts-primary);">
+                            <div class="ts-label-sm ts-text-secondary">Total Tasks</div>
+                            <div class="ts-display-md" style="color: var(--ts-primary); margin-top: 0.5rem;">@Model.Progress.TotalTasks</div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
 
         <!-- Current Projects Card -->
         <div class="ts-dashboard-card">
@@ -23,7 +79,7 @@
             </div>
 
             <div class="ts-dashboard-card-body" style="display:flex; flex-direction:column; gap:1.5rem;">
-                @if (!Model.Any())
+                @if (!Model.Groups.Any())
                 {
                     <div style="text-align: center; color: var(--ts-text-secondary);">
                         You haven't joined any projects yet.
@@ -33,7 +89,7 @@
                     </div>
                 }
 
-                @foreach (var group in Model.Take(3))
+                @foreach (var group in Model.Groups.Take(3))
                 {
                     <div style="border-bottom: 1px solid var(--ts-border); padding-bottom: 1rem; margin-bottom: 1rem;">
                         <div class="ts-flex ts-justify-between ts-items-center ts-mb-sm">
@@ -46,41 +102,112 @@
             </div>
         </div>
 
-        <!-- Contribution Score -->
-        <div class="ts-dashboard-card">
-            <div class="ts-dashboard-card-header">
-                <h3 class="ts-title-lg">
-                    <span class="material-symbols-outlined ts-text-primary" style="font-size: 20px;">insights</span>
-                    Contribution Activity
-                </h3>
-            </div>
-            <div class="ts-dashboard-card-body ts-flex ts-items-center ts-gap-md" style="flex-wrap: wrap;">
-                <div style="text-align: center; margin-right: 2rem;">
-                    <div class="ts-display-lg ts-text-primary">0</div>
-                    <div class="ts-label-sm ts-text-secondary" style="text-transform: uppercase;">Tasks Completed</div>
+        <!-- Per-Project Progress Card -->
+        @if (Model.Progress.GroupProgress.Any())
+        {
+            <div class="ts-dashboard-card">
+                <div class="ts-dashboard-card-header">
+                    <h3 class="ts-title-lg">
+                        <span class="material-symbols-outlined ts-text-primary" style="font-size: 20px;">folder_open</span>
+                        Progress by Project
+                    </h3>
                 </div>
-                <div style="flex: 1; height: 100px; display: flex; align-items: flex-end; gap: 4px; padding: 1rem; border: 1px solid var(--ts-border); border-radius: var(--ts-radius-lg); background: var(--ts-surface-container-low);">
-                    <!-- Fake chart bars for UI purposes until Task Management is fully connected -->
-                    <div style="flex: 1; height: 10%; background: var(--ts-primary); opacity: 0.2; border-radius: 2px 2px 0 0;"></div>
-                    <div style="flex: 1; height: 10%; background: var(--ts-primary); opacity: 0.2; border-radius: 2px 2px 0 0;"></div>
-                    <div style="flex: 1; height: 10%; background: var(--ts-primary); opacity: 0.2; border-radius: 2px 2px 0 0;"></div>
+                <div class="ts-dashboard-card-body">
+                    @foreach (var proj in Model.Progress.GroupProgress.Values.OrderByDescending(x => x.Total))
+                    {
+                        @if (proj.Total > 0)
+                        {
+                            <div style="margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--ts-border);">
+                                <div class="ts-flex ts-justify-between ts-items-baseline ts-mb-sm">
+                                    <a href="@Url.Action("Details", "Groups", new { id = proj.GroupId })" style="text-decoration: none; color: var(--ts-primary); font-weight: 600;">
+                                        @proj.GroupName
+                                    </a>
+                                    <span class="ts-label-sm ts-text-secondary">@proj.Completed / @proj.Total tasks</span>
+                                </div>
+                                
+                                <!-- Progress Bar for Project -->
+                                <div style="height: 8px; background: var(--ts-surface-container-high); border-radius: 4px; overflow: hidden; margin-bottom: 0.5rem; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);">
+                                    <div style="height: 100%; width: @(proj.Percentage)%; background: @GetProgressColor(proj.Percentage); transition: width 0.4s ease-out; border-radius: 4px;"></div>
+                                </div>
+                                
+                                <div class="ts-label-sm ts-text-secondary">
+                                    @proj.Percentage.ToString("F0")% complete
+                                    @if (proj.InProgress > 0)
+                                    {
+                                        <span> • @proj.InProgress in progress</span>
+                                    }
+                                    @if (proj.Pending > 0)
+                                    {
+                                        <span> • @proj.Pending pending</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
                 </div>
             </div>
-        </div>
+        }
     </div>
 
-    <!-- Right Column (Tasks) -->
+    <!-- Right Column (Quick Stats) -->
     <div style="display: flex; flex-direction: column;">
         <div class="ts-dashboard-card" style="height: 100%;">
             <div class="ts-dashboard-card-header">
                 <h3 class="ts-title-lg">
-                    <span class="material-symbols-outlined ts-text-primary" style="font-size: 20px;">checklist</span>
-                    Upcoming Tasks
+                    <span class="material-symbols-outlined ts-text-primary" style="font-size: 20px;">trending_up</span>
+                    Your Activity
                 </h3>
             </div>
-            <div class="ts-dashboard-card-body" style="display: flex; flex-direction:column; gap: 1rem;">
-                <p class="ts-body-sm ts-text-secondary ts-mb-md">Task management is coming in Sprint 2...</p>
+            <div class="ts-dashboard-card-body" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                @if (Model.Progress.TotalTasks == 0)
+                {
+                    <p class="ts-body-md ts-text-secondary">No task activity yet.</p>
+                }
+                else
+                {
+                    <!-- Completion Status -->
+                    <div>
+                        <div class="ts-label-sm ts-text-secondary ts-mb-sm">Completion Status</div>
+                        <div class="ts-display-md ts-text-success">@Model.Progress.CompletionPercentage.ToString("F0")%</div>
+                        <p class="ts-body-sm ts-text-secondary ts-mt-xs">of assigned tasks complete</p>
+                    </div>
+
+                    <!-- Currently Working -->
+                    @if (Model.Progress.InProgressTasks > 0)
+                    {
+                        <div>
+                            <div class="ts-label-sm ts-text-secondary ts-mb-sm">Currently Working</div>
+                            <div class="ts-display-md ts-text-primary">@Model.Progress.InProgressTasks</div>
+                            <p class="ts-body-sm ts-text-secondary ts-mt-xs">task@(Model.Progress.InProgressTasks != 1 ? "s" : "") in progress</p>
+                        </div>
+                    }
+
+                    <!-- Awaiting Attention -->
+                    @if (Model.Progress.PendingTasks > 0)
+                    {
+                        <div>
+                            <div class="ts-label-sm ts-text-secondary ts-mb-sm">Awaiting Your Action</div>
+                            <div class="ts-display-md" style="color: #f59e0b;">@Model.Progress.PendingTasks</div>
+                            <p class="ts-body-sm ts-text-secondary ts-mt-xs">task@(Model.Progress.PendingTasks != 1 ? "s" : "") pending</p>
+                        </div>
+                    }
+
+                    <!-- View All Tasks -->
+                    <a href="@Url.Action("Index", "Tasks")" class="ts-btn ts-btn-primary" style="margin-top: auto; width: 100%;">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">assignment</span> View All Tasks
+                    </a>
+                }
             </div>
         </div>
     </div>
 </div>
+
+@functions {
+    string GetProgressColor(decimal percentage)
+    {
+        if (percentage >= 75) return "#10b981"; // Green
+        if (percentage >= 50) return "#06b6d4"; // Cyan
+        if (percentage >= 25) return "#f59e0b"; // Amber
+        return "#ef4444"; // Red
+    }
+}

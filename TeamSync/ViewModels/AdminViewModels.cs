@@ -75,3 +75,37 @@ public class UserGroupViewModel
     public string Role { get; set; } = string.Empty;
     public DateTime JoinedAt { get; set; }
 }
+
+public class StudentDashboardViewModel
+{
+    public List<GroupListViewModel> Groups { get; set; } = new();
+    public StudentProgressViewModel Progress { get; set; } = new();
+}
+
+public class StudentProgressViewModel
+{
+    public int TotalTasks { get; set; }
+    public int CompletedTasks { get; set; }
+    public int InProgressTasks { get; set; }
+    public int PendingTasks { get; set; }
+    
+    public decimal CompletionPercentage => TotalTasks > 0 
+        ? (CompletedTasks * 100m) / TotalTasks 
+        : 0;
+    
+    public Dictionary<int, GroupProgressViewModel> GroupProgress { get; set; } = new();
+}
+
+public class GroupProgressViewModel
+{
+    public int GroupId { get; set; }
+    public string GroupName { get; set; } = string.Empty;
+    public int Total { get; set; }
+    public int Completed { get; set; }
+    public int InProgress { get; set; }
+    public int Pending { get; set; }
+    
+    public decimal Percentage => Total > 0 
+        ? (Completed * 100m) / Total 
+        : 0;
+}

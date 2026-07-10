@@ -88,6 +88,7 @@ public class HomeController : Controller
         }
         else
         {
+            // Student Dashboard with Progress Tracking
             var memberships = await _context.GroupMembers
                 .Include(gm => gm.Group)
                 .ThenInclude(g => g.Members)
@@ -107,7 +108,51 @@ public class HomeController : Controller
                 UserRole = gm.Role
             }).ToList();
 
-            return View("StudentDashboard", groupViewModels);
+            // Get all tasks assigned to this student
+            var groupIds = memberships.Select(m => m.Group?.Id).Where(id => id.HasValue).Select(id => id.Value).ToList();
+            
+            var allTasks = await _context.Tasks
+                .Where(t => groupIds.Contains(t.GroupId.Value) && t.AssignedToId == user.Id)
+                .ToListAsync();
+
+            var totalTasks = allTasks.Count;
+            var completedTasks = allTasks.Count(t => t.Status == "Completed");
+            var inProgressTasks = allTasks.Count(t => t.Status == "InProgress");
+            var pendingTasks = allTasks.Count(t => t.Status == "Pending");
+
+            // Build per-group progress
+            var groupProgress = new Dictionary<int, GroupProgressViewModel>();
+            foreach (var membership in memberships)
+            {
+                var group = membership.Group;
+                if (group == null) continue;
+
+                var groupTasks = allTasks.Where(t => t.GroupId == group.Id).ToList();
+                groupProgress[group.Id] = new GroupProgressViewModel
+                {
+                    GroupId = group.Id,
+                    GroupName = group.Name,
+                    Total = groupTasks.Count,
+                    Completed = groupTasks.Count(t => t.Status == "Completed"),
+                    InProgress = groupTasks.Count(t => t.Status == "InProgress"),
+                    Pending = groupTasks.Count(t => t.Status == "Pending")
+                };
+            }
+
+            var studentViewModel = new StudentDashboardViewModel
+            {
+                Groups = groupViewModels,
+                Progress = new StudentProgressViewModel
+                {
+                    TotalTasks = totalTasks,
+                    CompletedTasks = completedTasks,
+                    InProgressTasks = inProgressTasks,
+                    PendingTasks = pendingTasks,
+                    GroupProgress = groupProgress
+                }
+            };
+
+            return View("StudentDashboard", studentViewModel);
         }
     }
 
