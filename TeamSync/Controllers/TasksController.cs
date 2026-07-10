@@ -469,7 +469,15 @@ public class TasksController : Controller
         ViewBag.IsAssigned = task.AssignedToId == currentUser.Id;
         var currentMember = task.Group?.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
         bool isLead = currentMember?.Role == "Lead";
-        ViewBag.CanApprove = isProfessor || User.IsInRole("Admin") || isLead;
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+
+        // expose flags on viewmodel for Details view
+        vm.IsLeadForCurrentUser = isLead;
+        vm.IsProfessorForCurrentUser = isProfessor || isAdmin;
+
+        // Can approve completion if admin, professor, or lead
+        ViewBag.CanApproveCompletion = isAdmin || isProfessor || isLead;
 
         return View(vm);
     }
