@@ -235,7 +235,30 @@ public class GroupsController : Controller
                 Status = jr.Status,
                 CreatedAt = jr.CreatedAt
             }).ToList(),
-            ActiveTasks = tasks.Where(t => t.Status != "Requested" && t.Status != "Rejected").Select(t => new global::TeamSync.ViewModels.TaskListItemViewModel
+            ActiveTasks = tasks.Where(t => t.Status != "Requested" && t.Status != "Rejected" && t.Status != "Completed").Select(t => new global::TeamSync.ViewModels.TaskListItemViewModel
+            {
+                Id = t.Id,
+                GroupId = t.GroupId,
+                GroupName = group.Name,
+                Title = t.Title,
+                Status = t.Status,
+                AssignedToId = t.AssignedToId,
+                AssignedToName = t.AssignedTo != null ? $"{t.AssignedTo.FirstName} {t.AssignedTo.LastName}" : null,
+                CreatedById = t.CreatedById,
+                CreatedByName = t.CreatedBy != null ? $"{t.CreatedBy.FirstName} {t.CreatedBy.LastName}" : null,
+                DueDate = t.DueDate,
+                Priority = t.Priority,
+                ReviewRequestedById = t.ReviewRequestedById,
+                ReviewRequestedAt = t.ReviewRequestedAt,
+                LeadApprovedById = t.LeadApprovedById,
+                LeadApprovedAt = t.LeadApprovedAt,
+                CompletionApprovedById = t.CompletionApprovedById,
+                CompletionApprovedAt = t.CompletionApprovedAt,
+                CanApprove = isAdminUser || isProfessorUser || isLead,
+                IsLeadForCurrentUser = isLead,
+                IsProfessorForCurrentUser = isProfessorUser
+            }).ToList(),
+            CompletedTasks = tasks.Where(t => t.Status == "Completed").Select(t => new global::TeamSync.ViewModels.TaskListItemViewModel
             {
                 Id = t.Id,
                 GroupId = t.GroupId,

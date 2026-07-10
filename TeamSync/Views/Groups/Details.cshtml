@@ -312,6 +312,43 @@
     </div>
 }
 
+@* Completed tasks section *@
+@if (Model.CompletedTasks.Any())
+{
+    <div class="ts-dashboard-card" style="margin-bottom:1.5rem; border-left: 4px solid var(--ts-success); background: rgba(25,135,84,0.05);">
+        <div class="ts-dashboard-card-header">
+            <h3 class="ts-title-lg" style="color: var(--ts-success);">
+                <span class="material-symbols-outlined ts-text-success" style="font-size: 20px;">task_alt</span>
+                Completed Tasks (@Model.CompletedTasks.Count)
+            </h3>
+        </div>
+        <div class="ts-dashboard-card-body">
+            @foreach (var t in Model.CompletedTasks)
+            {
+                <div class="ts-requested-task-item">
+                    <div class="ts-requested-task-row">
+                        <div class="ts-requested-task-meta">
+                            <div>
+                                <strong>@t.Title</strong>
+                                <div class="ts-body-sm ts-text-secondary">Assigned: @(t.AssignedToName ?? "Unassigned")</div>
+                            </div>
+                        </div>
+
+                        <div class="ts-flex ts-items-center ts-gap-md">
+                            <div class="ts-text-secondary">Due: @t.DueDate?.ToString("yyyy-MM-dd")</div>
+                            @if (t.CompletionApprovedAt.HasValue)
+                            {
+                                <div class="ts-text-secondary">Completed: @t.CompletionApprovedAt.Value.ToString("MMM dd, yyyy")</div>
+                            }
+                            <a asp-controller="Tasks" asp-action="Details" asp-route-id="@t.Id" class="ts-link" style="margin-left:12px;">Open</a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
 @* Requested tasks section remains for professor/lead approval of student requests *@
 @if (Model.RequestedTasks.Any() && (Model.CurrentUserRole == "Professor" || User.IsInRole("Admin") || Model.CurrentUserRole == "Lead"))
 {

@@ -45,6 +45,7 @@ public class GroupDetailsViewModel
 
     // Tasks shown on the Group Details page
     public List<TaskListItemViewModel> ActiveTasks { get; set; } = new();
+    public List<TaskListItemViewModel> CompletedTasks { get; set; } = new();
     public List<TaskListItemViewModel> RequestedTasks { get; set; } = new();
 }
 
