@@ -469,8 +469,9 @@ public class TasksController : Controller
         ViewBag.IsAssigned = task.AssignedToId == currentUser.Id;
         var currentMember = task.Group?.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
         bool isLead = currentMember?.Role == "Lead";
-        bool isAdmin = User.IsInRole("Admin");
-        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        // reuse previously-declared isAdmin/isProfessor variables (do not redeclare)
+        isAdmin = User.IsInRole("Admin");
+        isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
 
         // expose flags on viewmodel for Details view
         vm.IsLeadForCurrentUser = isLead;
