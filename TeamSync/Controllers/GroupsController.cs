@@ -250,9 +250,11 @@ public class GroupsController : Controller
                 Priority = t.Priority,
                 ReviewRequestedById = t.ReviewRequestedById,
                 ReviewRequestedAt = t.ReviewRequestedAt,
+                LeadApprovedById = t.LeadApprovedById,
+                LeadApprovedAt = t.LeadApprovedAt,
                 CompletionApprovedById = t.CompletionApprovedById,
                 CompletionApprovedAt = t.CompletionApprovedAt,
-                CanApprove = (t.CreatedById == user.Id) || isAdminUser || isProfessorUser || isLead
+                CanApprove = isAdminUser || isProfessorUser || isLead
             }).ToList(),
             RequestedTasks = tasks.Where(t => t.Status == "Requested").Select(t => new TaskListItemViewModel
             {

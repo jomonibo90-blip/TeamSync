@@ -17,6 +17,7 @@
 - Use conventional commits format for commit messages (e.g., `feat:`, `fix:`).
 - Avoid using the word 'copilot' in commit messages for this repository; use neutral wording such as 'repository instructions' instead.
 - Include detailed descriptions of what was added or changed in each commit.
+- Preferred git commit author for this repository: ramankumaree202-collab <ramankumaree202@gmail.com>.
 
 ## Student Removal Workflow
 - Lead removes student → Creates RemovalRequest → Professor approves/rejects.

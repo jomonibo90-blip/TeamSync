@@ -77,14 +77,16 @@ public class TasksController : Controller
             Priority = t.Priority,
             Description = t.Description,
 
-            // workflow fields for UI
             ReviewRequestedById = t.ReviewRequestedById,
             ReviewRequestedAt = t.ReviewRequestedAt,
+
+            LeadApprovedById = t.LeadApprovedById,
+            LeadApprovedAt = t.LeadApprovedAt,
+
             CompletionApprovedById = t.CompletionApprovedById,
             CompletionApprovedAt = t.CompletionApprovedAt,
 
-            // compute CanApprove for current user
-            CanApprove = (t.CreatedById == currentUser.Id) || isAdmin || isProfessor || (t.Group != null && t.Group.Members.Any(m => m.UserId == currentUser.Id && m.Role == "Lead"))
+            CanApprove = isAdmin || isProfessor || (t.Group != null && t.Group.Members.Any(m => m.UserId == currentUser.Id && m.Role == "Lead"))
         }).ToList();
 
         var canCreateTask = isAdmin || isProfessor || isLeadInAnyGroup;
@@ -432,6 +434,8 @@ public class TasksController : Controller
             Priority = task.Priority,
             ReviewRequestedById = task.ReviewRequestedById,
             ReviewRequestedAt = task.ReviewRequestedAt,
+            LeadApprovedById = task.LeadApprovedById,
+            LeadApprovedAt = task.LeadApprovedAt,
             CompletionApprovedById = task.CompletionApprovedById,
             CompletionApprovedAt = task.CompletionApprovedAt
         };
@@ -441,6 +445,11 @@ public class TasksController : Controller
         {
             var user = await _context.Users.FindAsync(vm.ReviewRequestedById);
             if (user != null) vm.ReviewRequestedByName = $"{user.FirstName} {user.LastName}";
+        }
+        if (!string.IsNullOrEmpty(vm.LeadApprovedById))
+        {
+            var user = await _context.Users.FindAsync(vm.LeadApprovedById);
+            if (user != null) vm.LeadApprovedByName = $"{user.FirstName} {user.LastName}";
         }
         if (!string.IsNullOrEmpty(vm.CompletionApprovedById))
         {
@@ -452,7 +461,7 @@ public class TasksController : Controller
         ViewBag.IsAssigned = task.AssignedToId == currentUser.Id;
         var currentMember = task.Group?.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
         bool isLead = currentMember?.Role == "Lead";
-        ViewBag.CanApproveCompletion = currentUser.Id == task.CreatedById || isAdmin || isProfessor || isLead;
+        ViewBag.CanApprove = isProfessor || User.IsInRole("Admin") || isLead;
 
         return View(vm);
     }
@@ -687,31 +696,50 @@ public class TasksController : Controller
         var task = await _context.Tasks.Include(t => t.Group).ThenInclude(g => g.Members).FirstOrDefaultAsync(t => t.Id == id);
         if (task == null) return NotFound();
 
-        // Only creator or professor/admin/lead in group can approve completion
         bool isAdmin = User.IsInRole("Admin");
         bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
         var currentMember = task.Group?.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
         bool isLead = currentMember?.Role == "Lead";
 
-        if (!(currentUser.Id == task.CreatedById || isAdmin || isProfessor || isLead))
-            return Forbid();
-
-        if (task.Status != "ReviewRequested")
+        if (task.Status != "ReviewRequested" && task.Status != "LeadApproved")
         {
             TempData["ErrorMessage"] = "No review pending for this task.";
             return RedirectToAction("Details", new { id = task.Id });
         }
 
-        task.Status = "Completed";
-        task.CompletionApprovedById = currentUser.Id;
-        task.CompletionApprovedAt = DateTime.UtcNow;
-        task.UpdatedAt = DateTime.UtcNow;
+        // Professors/admins finalize completion
+        if (isProfessor || isAdmin)
+        {
+            task.Status = "Completed";
+            task.CompletionApprovedById = currentUser.Id;
+            task.CompletionApprovedAt = DateTime.UtcNow;
+            task.UpdatedAt = DateTime.UtcNow;
 
-        _context.Tasks.Update(task);
-        await _context.SaveChangesAsync();
+            // clear lead approval on finalization? keep record
+            _context.Tasks.Update(task);
+            await _context.SaveChangesAsync();
 
-        TempData["SuccessMessage"] = "Task marked as completed.";
-        return RedirectToAction("Details", new { id = task.Id });
+            TempData["SuccessMessage"] = "Task marked as completed.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        // Leads can mark lead-approval (first step)
+        if (isLead)
+        {
+            task.Status = "LeadApproved";
+            task.LeadApprovedById = currentUser.Id;
+            task.LeadApprovedAt = DateTime.UtcNow;
+            task.UpdatedAt = DateTime.UtcNow;
+
+            _context.Tasks.Update(task);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Task approved by lead. Awaiting professor finalization.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        // Others forbidden
+        return Forbid();
     }
 
     [HttpPost]
@@ -724,30 +752,51 @@ public class TasksController : Controller
         var task = await _context.Tasks.Include(t => t.Group).ThenInclude(g => g.Members).FirstOrDefaultAsync(t => t.Id == id);
         if (task == null) return NotFound();
 
-        // Only creator or professor/admin/lead can reject
         bool isAdmin = User.IsInRole("Admin");
         bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
         var currentMember = task.Group?.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
         bool isLead = currentMember?.Role == "Lead";
 
-        if (!(currentUser.Id == task.CreatedById || isAdmin || isProfessor || isLead))
-            return Forbid();
-
-        if (task.Status != "ReviewRequested")
+        if (task.Status != "ReviewRequested" && task.Status != "LeadApproved")
         {
             TempData["ErrorMessage"] = "No review pending for this task.";
             return RedirectToAction("Details", new { id = task.Id });
         }
 
-        task.Status = "InProgress";
-        task.ReviewRequestedById = null;
-        task.ReviewRequestedAt = null;
-        task.UpdatedAt = DateTime.UtcNow;
+        // If professor/admin rejects, clear lead approval and set back to InProgress
+        if (isProfessor || isAdmin)
+        {
+            task.Status = "InProgress";
+            task.ReviewRequestedById = null;
+            task.ReviewRequestedAt = null;
+            task.LeadApprovedById = null;
+            task.LeadApprovedAt = null;
+            task.UpdatedAt = DateTime.UtcNow;
 
-        _context.Tasks.Update(task);
-        await _context.SaveChangesAsync();
+            _context.Tasks.Update(task);
+            await _context.SaveChangesAsync();
 
-        TempData["SuccessMessage"] = "Review rejected; task set back to In Progress.";
-        return RedirectToAction("Details", new { id = task.Id });
+            TempData["SuccessMessage"] = "Review rejected; task set back to In Progress.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        // If lead rejects, only allow if lead had approved or status is ReviewRequested - revert to InProgress
+        if (isLead)
+        {
+            task.Status = "InProgress";
+            task.ReviewRequestedById = null;
+            task.ReviewRequestedAt = null;
+            task.LeadApprovedById = null;
+            task.LeadApprovedAt = null;
+            task.UpdatedAt = DateTime.UtcNow;
+
+            _context.Tasks.Update(task);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Lead rejected review; task set back to In Progress.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        return Forbid();
     }
 }

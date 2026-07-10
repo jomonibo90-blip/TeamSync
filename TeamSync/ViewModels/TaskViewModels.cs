@@ -55,6 +55,12 @@ namespace TeamSync.ViewModels
         public string? ReviewRequestedByName { get; set; }
         public DateTime? ReviewRequestedAt { get; set; }
 
+        // Lead approval (first step)
+        public string? LeadApprovedById { get; set; }
+        public string? LeadApprovedByName { get; set; }
+        public DateTime? LeadApprovedAt { get; set; }
+
+        // Final approval
         public string? CompletionApprovedById { get; set; }
         public string? CompletionApprovedByName { get; set; }
         public DateTime? CompletionApprovedAt { get; set; }
