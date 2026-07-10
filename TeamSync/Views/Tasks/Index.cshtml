@@ -69,7 +69,7 @@
 }
 
 <div id="taskFilters" class="ts-filter-chip-row">
-    @foreach (var status in new[] { "All", "Requested", "Pending", "Rejected" })
+    @foreach (var status in new[] { "All", "Requested", "Pending", "Completed", "Rejected" })
     {
         var active = string.Equals(activeStatus, status, StringComparison.OrdinalIgnoreCase);
         <a asp-action="Index" asp-route-status="@(status == "All" ? null : status)" class="ts-filter-chip @(active ? "active" : "")">@status</a>
