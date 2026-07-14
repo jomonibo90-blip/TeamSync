@@ -205,10 +205,13 @@
                     <div style="margin-top:0.75rem;">
                         <div class="ts-label-sm ts-text-secondary" style="display:flex; justify-content:space-between; align-items:center;">
                             <span>Contributions</span>
-                            @if (isAssigned || Model.IsLeadForCurrentUser || Model.IsProfessorForCurrentUser)
-                            {
-                                <span class="ts-body-xs ts-text-secondary">You can add a contribution</span>
-                            }
+                            <div style="display:flex; gap:0.5rem; align-items:center;">
+                                @if (isAssigned || Model.IsLeadForCurrentUser || Model.IsProfessorForCurrentUser)
+                                {
+                                    <span class="ts-body-xs ts-text-secondary">You can add a contribution</span>
+                                }
+                                <a asp-action="ExportContributionsCsv" asp-route-taskId="@Model.Id" class="ts-btn ts-btn-xs ts-btn-secondary">Export CSV</a>
+                            </div>
                         </div>
 
                         @* Add contribution form (visible to assignee, lead, professors, admins) *@
@@ -286,9 +289,10 @@
                                                             </div>
                                                         </form>
                                                     </details>
+                                                    <a asp-action="ContributionHistory" asp-route-contributionId="@c.Id" class="ts-btn ts-btn-xs ts-btn-secondary" style="margin-left:0.5rem;">History</a>
                                                 }
-                                            </div>
-                                        </div>
+                                             </div>
+                                         </div>
 
                                         <div class="ts-body-xs ts-text-secondary" style="margin-top:0.25rem;">@c.Description</div>
                                         @if (c.HoursSpent.HasValue)

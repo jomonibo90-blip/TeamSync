@@ -1053,4 +1053,206 @@ public class TasksController : Controller
         TempData["SuccessMessage"] = "User removed from assignees.";
         return RedirectToAction("Details", new { id = taskId });
     }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddContribution(int taskId, string description, decimal? hours, string? notes, string? userId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var task = await _context.Tasks.Include(t => t.Group).ThenInclude(g => g.Members).FirstOrDefaultAsync(t => t.Id == taskId);
+        if (task == null) return NotFound();
+        if (task.Group == null || !task.Group.IsActive) return BadRequest("Cannot add contribution to archived or missing group.");
+
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        var currentMember = task.Group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
+        bool isLead = currentMember?.Role == "Lead";
+        bool isAssigned = task.AssignedToId == currentUser.Id;
+
+        if (!isAdmin && !isProfessor && !isLead && !isAssigned)
+            return Forbid();
+
+        var attributedUserId = string.IsNullOrWhiteSpace(userId) ? (task.AssignedToId ?? currentUser.Id) : userId.Trim();
+
+        var contribution = new Contribution
+        {
+            TaskId = taskId,
+            UserId = attributedUserId,
+            Description = (description ?? string.Empty).Trim(),
+            HoursSpent = hours,
+            Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
+            RecordedById = currentUser.Id,
+            RecordedAt = DateTime.UtcNow,
+            ContributedAt = DateTime.UtcNow
+        };
+
+        _context.Contributions.Add(contribution);
+        await _context.SaveChangesAsync();
+
+        // create audit record
+        var changes = JsonSerializer.Serialize(new { contribution.UserId, contribution.Description, contribution.HoursSpent, contribution.Notes });
+        var history = new ContributionHistory
+        {
+            ContributionId = contribution.Id,
+            Action = "Created",
+            PerformedById = currentUser.Id,
+            PerformedAt = DateTime.UtcNow,
+            Changes = changes
+        };
+        _context.ContributionHistories.Add(history);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Contribution added.";
+        return RedirectToAction("Details", new { id = taskId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditContribution(int contributionId, string description, decimal? hours, string? notes)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var contribution = await _context.Contributions.Include(c => c.Task).FirstOrDefaultAsync(c => c.Id == contributionId);
+        if (contribution == null) return NotFound();
+
+        var task = contribution.Task;
+        if (task == null) return BadRequest();
+
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+
+        if (contribution.RecordedById != currentUser.Id && !isAdmin && !isProfessor)
+            return Forbid();
+
+        var before = JsonSerializer.Serialize(new { contribution.UserId, contribution.Description, contribution.HoursSpent, contribution.Notes });
+
+        contribution.Description = (description ?? string.Empty).Trim();
+        contribution.HoursSpent = hours;
+        contribution.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        contribution.RecordedById = currentUser.Id;
+        contribution.RecordedAt = DateTime.UtcNow;
+
+        _context.Contributions.Update(contribution);
+        await _context.SaveChangesAsync();
+
+        var after = JsonSerializer.Serialize(new { contribution.UserId, contribution.Description, contribution.HoursSpent, contribution.Notes });
+
+        var history = new ContributionHistory
+        {
+            ContributionId = contribution.Id,
+            Action = "Updated",
+            PerformedById = currentUser.Id,
+            PerformedAt = DateTime.UtcNow,
+            Changes = JsonSerializer.Serialize(new { before, after })
+        };
+        _context.ContributionHistories.Add(history);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Contribution updated.";
+        return RedirectToAction("Details", new { id = task.Id });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteContribution(int contributionId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var contribution = await _context.Contributions.Include(c => c.Task).FirstOrDefaultAsync(c => c.Id == contributionId);
+        if (contribution == null) return NotFound();
+
+        var task = contribution.Task;
+        if (task == null) return BadRequest();
+
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+
+        if (contribution.RecordedById != currentUser.Id && !isAdmin && !isProfessor)
+            return Forbid();
+
+        var snapshot = JsonSerializer.Serialize(new { contribution.UserId, contribution.Description, contribution.HoursSpent, contribution.Notes });
+
+        var history = new ContributionHistory
+        {
+            ContributionId = contribution.Id,
+            Action = "Deleted",
+            PerformedById = currentUser.Id,
+            PerformedAt = DateTime.UtcNow,
+            Changes = snapshot
+        };
+
+        _context.ContributionHistories.Add(history);
+        _context.Contributions.Remove(contribution);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Contribution deleted.";
+        return RedirectToAction("Details", new { id = task.Id });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ContributionHistory(int contributionId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var history = await _context.ContributionHistories
+            .Where(h => h.ContributionId == contributionId)
+            .OrderByDescending(h => h.PerformedAt)
+            .ToListAsync();
+
+        if (!history.Any()) return NotFound();
+
+        return View("ContributionHistory", history);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportContributionsCsv(int taskId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var task = await _context.Tasks.Include(t => t.Group).FirstOrDefaultAsync(t => t.Id == taskId);
+        if (task == null) return NotFound();
+        if (task.Group == null) return BadRequest();
+
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        var currentMember = task.Group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
+        bool isLead = currentMember?.Role == "Lead";
+        bool isMember = currentMember != null;
+
+        if (!isAdmin && !isProfessor && !isLead && !isMember && task.AssignedToId != currentUser.Id)
+            return Forbid();
+
+        var contributions = await _context.Contributions
+            .Where(c => c.TaskId == taskId)
+            .Include(c => c.User)
+            .Include(c => c.RecordedBy)
+            .OrderByDescending(c => c.ContributedAt)
+            .ToListAsync();
+
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Id,User,RecordedBy,ContributedAt,Hours,Description,Notes,Source");
+        foreach (var c in contributions)
+        {
+            var line = string.Format("{0},\"{1}\",\"{2}\",{3},{4},\"{5}\",\"{6}\",\"{7}\"",
+                c.Id,
+                (c.User != null ? c.User.FirstName + " " + c.User.LastName : c.UserId),
+                (c.RecordedBy != null ? c.RecordedBy.FirstName + " " + c.RecordedBy.LastName : c.RecordedById ?? ""),
+                c.ContributedAt.ToString("o"),
+                c.HoursSpent?.ToString() ?? "",
+                (c.Description ?? string.Empty).Replace("\"", "\'"),
+                (c.Notes ?? string.Empty).Replace("\"", "\'"),
+                (c.Source ?? string.Empty).Replace("\"", "\'")
+            );
+            csv.AppendLine(line);
+        }
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(csv.ToString());
+        return File(bytes, "text/csv", $"contributions_task_{taskId}.csv");
+    }
 }
