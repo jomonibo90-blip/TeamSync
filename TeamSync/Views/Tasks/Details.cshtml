@@ -65,6 +65,24 @@
                         <input type="hidden" name="id" value="@Model.Id" />
                         <button type="submit" class="ts-btn ts-btn-secondary">Request Review</button>
                     </form>
+
+                    @* Allow assignee to propose completion directly as well *@
+                    <form asp-action="MarkCompleted" method="post" style="display:inline-block; margin-right:0.5rem;">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <button type="submit" class="ts-btn ts-btn-primary">Propose Completion</button>
+                    </form>
+                }
+
+                @* In some cases allow proposing completion from Pending as well (quick complete)
+                   but avoid when already requested or lead-approved *@
+                @if (isAssigned && Model.Status == "Pending")
+                {
+                    <form asp-action="MarkCompleted" method="post" style="display:inline-block; margin-right:0.5rem;">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <button type="submit" class="ts-btn ts-btn-primary">Propose Completion</button>
+                    </form>
                 }
 
                 @if (Model.Status == "ReviewRequested" || Model.Status == "LeadApproved")
@@ -73,19 +91,54 @@
 
                     @if (canApprove)
                     {
+                        <div class="ts-mt-sm" style="margin-bottom:0.5rem;">
+                            <label for="approvalNotes" class="ts-label-sm ts-text-secondary">Approval / Rejection Notes (optional)</label>
+                            <textarea id="approvalNotes" name="approvalNotes" class="ts-input" rows="3" placeholder="Add notes for the record (optional)" style="width:100%; max-width:36rem; margin-top:0.25rem;"></textarea>
+                        </div>
+
                         var approveLabel = Model.IsLeadForCurrentUser && !Model.IsProfessorForCurrentUser ? "Lead Approve" : "Finalize";
                         var approveClass = Model.IsLeadForCurrentUser && !Model.IsProfessorForCurrentUser ? "ts-btn ts-btn-sm ts-btn-warning" : "ts-btn ts-btn-sm ts-btn-success";
 
                         <form asp-action="ApproveCompletion" method="post" style="display:inline-block; margin-right:0.5rem;">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@Model.Id" />
+                            <input type="hidden" name="notes" value="" />
+                            <input type="hidden" name="approvalNotesFromUi" id="approvalNotesForApprove" value="" />
                             <button type="submit" class="@approveClass">@approveLabel</button>
                         </form>
                         <form asp-action="RejectCompletion" method="post" style="display:inline-block; margin-right:0.5rem;" onsubmit="return confirm('Reject completion?');">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@Model.Id" />
+                            <input type="hidden" name="reason" value="" />
+                            <input type="hidden" name="approvalNotesFromUi" id="approvalNotesForReject" value="" />
                             <button type="submit" class="ts-btn ts-btn-secondary">Reject</button>
                         </form>
+
+                        <script>
+                            // copy textarea content into hidden fields before submit
+                            document.addEventListener('DOMContentLoaded', function() {
+                                var ta = document.getElementById('approvalNotes');
+                                var approveHidden = document.getElementById('approvalNotesForApprove');
+                                var rejectHidden = document.getElementById('approvalNotesForReject');
+
+                                if (ta) {
+                                    // update hidden inputs on form submit
+                                    var approveForm = approveHidden?.closest('form');
+                                    var rejectForm = rejectHidden?.closest('form');
+
+                                    if (approveForm) {
+                                        approveForm.addEventListener('submit', function() {
+                                            approveHidden.value = ta.value || '';
+                                        });
+                                    }
+                                    if (rejectForm) {
+                                        rejectForm.addEventListener('submit', function() {
+                                            rejectHidden.value = ta.value || '';
+                                        });
+                                    }
+                                }
+                            });
+                        </script>
                     }
                 }
             </div>
@@ -165,6 +218,10 @@
                 <li style="padding: 0.5rem 0;">
                     <div class="ts-label-sm ts-text-secondary">Finalized</div>
                     <div class="ts-body-sm">By: <strong>@(Model.CompletionApprovedByName ?? "-")</strong> @if (Model.CompletionApprovedAt.HasValue) { <span class="ts-text-secondary">(@Model.CompletionApprovedAt.Value.ToLocalTime().ToString("MMM dd, yyyy HH:mm"))</span> }</div>
+                    @if (!string.IsNullOrWhiteSpace(Model.ApprovalNotes))
+                    {
+                        <div class="ts-body-xs ts-text-secondary" style="margin-top:0.25rem;">Notes: @Model.ApprovalNotes</div>
+                    }
                 </li>
             </ul>
         </div>

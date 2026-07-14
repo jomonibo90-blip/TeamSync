@@ -90,6 +90,7 @@ public class TasksController : Controller
                 LeadApprovedAt = t.LeadApprovedAt,
                 CompletionApprovedById = t.CompletionApprovedById,
                 CompletionApprovedAt = t.CompletionApprovedAt,
+                ApprovalNotes = t.ApprovalNotes,
 
                 // compute CanApprove for current user
                 CanApprove = isAdmin || isProfessor || isLeadForThis,
@@ -471,7 +472,8 @@ public class TasksController : Controller
             LeadApprovedById = task.LeadApprovedById,
             LeadApprovedAt = task.LeadApprovedAt,
             CompletionApprovedById = task.CompletionApprovedById,
-            CompletionApprovedAt = task.CompletionApprovedAt
+            CompletionApprovedAt = task.CompletionApprovedAt,
+            ApprovalNotes = task.ApprovalNotes
         };
 
         // Resolve names for review/completion actors if present
@@ -787,9 +789,46 @@ public class TasksController : Controller
         return RedirectToAction("Details", new { id = task.Id });
     }
 
+    // New: allow an assignee to propose completion from Pending or InProgress
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ApproveCompletion(int id)
+    public async Task<IActionResult> MarkCompleted(int id)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var task = await _context.Tasks.Include(t => t.Group).FirstOrDefaultAsync(t => t.Id == id);
+        if (task == null) return NotFound();
+        if (task.AssignedToId != currentUser.Id) return Forbid();
+
+        if (task.Status == "Completed")
+        {
+            TempData["ErrorMessage"] = "Task is already completed.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        if (task.Status == "ReviewRequested" || task.Status == "LeadApproved")
+        {
+            TempData["ErrorMessage"] = "A review is already pending for this task.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        // mark as review requested so creator/professor can approve
+        task.Status = "ReviewRequested";
+        task.ReviewRequestedById = currentUser.Id;
+        task.ReviewRequestedAt = DateTime.UtcNow;
+        task.UpdatedAt = DateTime.UtcNow;
+
+        _context.Tasks.Update(task);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Completion proposed; awaiting approval.";
+        return RedirectToAction("Details", new { id = task.Id });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApproveCompletion(int id, string? notes)
     {
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
@@ -808,15 +847,30 @@ public class TasksController : Controller
             return RedirectToAction("Details", new { id = task.Id });
         }
 
-        // Professors/admins finalize completion
-        if (isProfessor || isAdmin)
+        // Allow creator to finalize, or professors/admins to override
+        if (task.CreatedById == currentUser.Id || isProfessor || isAdmin)
         {
             task.Status = "Completed";
             task.CompletionApprovedById = currentUser.Id;
             task.CompletionApprovedAt = DateTime.UtcNow;
+            task.ApprovalNotes = string.IsNullOrWhiteSpace(notes) ? task.ApprovalNotes : notes?.Trim();
             task.UpdatedAt = DateTime.UtcNow;
 
-            // clear lead approval on finalization? keep record
+            // create contribution record for the assignee
+            if (!string.IsNullOrEmpty(task.AssignedToId))
+            {
+                var contribution = new Contribution
+                {
+                    UserId = task.AssignedToId,
+                    TaskId = task.Id,
+                    Description = $"Completed task: {task.Title}",
+                    ContributedAt = DateTime.UtcNow,
+                    HoursSpent = 0
+                };
+
+                _context.Contributions.Add(contribution);
+            }
+
             _context.Tasks.Update(task);
             await _context.SaveChangesAsync();
 
@@ -845,7 +899,7 @@ public class TasksController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> RejectCompletion(int id)
+    public async Task<IActionResult> RejectCompletion(int id, string? reason)
     {
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
@@ -872,6 +926,7 @@ public class TasksController : Controller
             task.ReviewRequestedAt = null;
             task.LeadApprovedById = null;
             task.LeadApprovedAt = null;
+            task.ApprovalNotes = string.IsNullOrWhiteSpace(reason) ? task.ApprovalNotes : reason?.Trim();
             task.UpdatedAt = DateTime.UtcNow;
 
             _context.Tasks.Update(task);
@@ -889,6 +944,7 @@ public class TasksController : Controller
             task.ReviewRequestedAt = null;
             task.LeadApprovedById = null;
             task.LeadApprovedAt = null;
+            task.ApprovalNotes = string.IsNullOrWhiteSpace(reason) ? task.ApprovalNotes : reason?.Trim();
             task.UpdatedAt = DateTime.UtcNow;
 
             _context.Tasks.Update(task);

@@ -48,6 +48,9 @@ public class Task
     public string? CompletionApprovedById { get; set; }
     public DateTime? CompletionApprovedAt { get; set; }
 
+    // Approval notes / reason for approval/rejection
+    public string? ApprovalNotes { get; set; }
+
     // Navigation properties
     public ICollection<Contribution> Contributions { get; set; } = new List<Contribution>();
     

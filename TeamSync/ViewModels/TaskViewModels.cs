@@ -68,6 +68,9 @@ namespace TeamSync.ViewModels
         public string? CompletionApprovedByName { get; set; }
         public DateTime? CompletionApprovedAt { get; set; }
 
+        // Approval notes
+        public string? ApprovalNotes { get; set; }
+
         // UI flags
         public bool CanApprove { get; set; } = false;
         // Role of the current user for this item
