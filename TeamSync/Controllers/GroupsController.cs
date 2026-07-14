@@ -181,6 +181,14 @@ public class GroupsController : Controller
             .Include(t => t.CreatedBy)
             .ToListAsync();
 
+        // Contribution summary for the group
+        var groupContributions = await _context.Contributions
+            .Include(c => c.Task)
+            .Where(c => c.Task != null && c.Task.GroupId == id)
+            .ToListAsync();
+        var totalHoursContributed = groupContributions.Sum(c => c.HoursSpent ?? 0m);
+        var contributionsCount = groupContributions.Count;
+
         // Determine professor/global role for current user
         bool isAdminUser = User.IsInRole("Admin");
         bool isProfessorUser = await _userManager.IsInRoleAsync(user, "Professor");
@@ -294,7 +302,11 @@ public class GroupsController : Controller
                 CreatedByName = t.CreatedBy != null ? $"{t.CreatedBy.FirstName} {t.CreatedBy.LastName}" : null,
                 DueDate = t.DueDate,
                 Priority = t.Priority
-            }).ToList()
+            }).ToList(),
+
+            // contribution summary
+            TotalHoursContributed = totalHoursContributed,
+            ContributionsCount = contributionsCount
         };
 
         // Expose current user id to the view for card-level action visibility

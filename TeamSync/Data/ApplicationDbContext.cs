@@ -20,6 +20,9 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
     public DbSet<Models.TaskAssignment> TaskAssignments { get; set; }
     public DbSet<Models.TaskNote> TaskNotes { get; set; }
 
+    // Contribution history audit
+    public DbSet<Models.ContributionHistory> ContributionHistories { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -195,6 +198,16 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
             .WithMany(u => u.TaskNotes)
             .HasForeignKey(tn => tn.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Configure ContributionHistory
+        modelBuilder.Entity<Models.ContributionHistory>()
+            .HasOne(ch => ch.Contribution)
+            .WithMany()
+            .HasForeignKey(ch => ch.ContributionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Models.ContributionHistory>()
+            .HasIndex(ch => ch.ContributionId);
 
         // Add indexes for common queries
         modelBuilder.Entity<Models.Group>()

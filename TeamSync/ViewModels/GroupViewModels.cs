@@ -47,6 +47,10 @@ public class GroupDetailsViewModel
     public List<TaskListItemViewModel> ActiveTasks { get; set; } = new();
     public List<TaskListItemViewModel> CompletedTasks { get; set; } = new();
     public List<TaskListItemViewModel> RequestedTasks { get; set; } = new();
+
+    // Contribution summary (dashboard widget)
+    public decimal TotalHoursContributed { get; set; } = 0m;
+    public int ContributionsCount { get; set; } = 0;
 }
 
 public class GroupMemberViewModel

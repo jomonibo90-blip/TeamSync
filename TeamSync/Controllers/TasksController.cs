@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 using TeamSync.Data;
 using TeamSync.Models;
 using TeamSync.ViewModels;
@@ -1241,5 +1242,153 @@ public class TasksController : Controller
 
         TempData["SuccessMessage"] = "Note deleted.";
         return RedirectToAction("Details", new { id = taskId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddContribution(int taskId, string description, decimal? hours, string? notes, string? source, string? userId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var task = await _context.Tasks.Include(t => t.Group).ThenInclude(g => g.Members).FirstOrDefaultAsync(t => t.Id == taskId);
+        if (task == null) return NotFound();
+        if (task.Group == null || !task.Group.IsActive) return BadRequest("Cannot add contribution to archived or missing group.");
+
+        // Permission: assigned user or lead/prof/admin can add
+        var currentMember = task.Group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        bool isLead = currentMember?.Role == "Lead";
+        bool isAssigned = task.AssignedToId == currentUser.Id;
+
+        if (!isAdmin && !isProfessor && !isLead && !isAssigned)
+            return Forbid();
+
+        var attributedUserId = string.IsNullOrWhiteSpace(userId) ? task.AssignedToId ?? currentUser.Id : userId;
+
+        var contribution = new Models.Contribution
+        {
+            TaskId = task.Id,
+            UserId = attributedUserId ?? string.Empty,
+            Description = description?.Trim() ?? string.Empty,
+            ContributedAt = DateTime.UtcNow,
+            HoursSpent = hours,
+            Source = string.IsNullOrWhiteSpace(source) ? "ManualEntry" : source?.Trim(),
+            Notes = string.IsNullOrWhiteSpace(notes) ? null : notes?.Trim(),
+            RecordedById = currentUser.Id,
+            RecordedAt = DateTime.UtcNow
+        };
+
+        _context.Contributions.Add(contribution);
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogWarning(ex, "Error saving contribution for task {TaskId}", task.Id);
+            TempData["ErrorMessage"] = "Could not save contribution. It may already exist for this user and task.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        // record history
+        var history = new Models.ContributionHistory
+        {
+            ContributionId = contribution.Id,
+            Action = "Created",
+            PerformedById = currentUser.Id,
+            PerformedAt = DateTime.UtcNow,
+            Changes = JsonSerializer.Serialize(new { contribution.Description, contribution.HoursSpent, contribution.Notes, contribution.Source })
+        };
+        _context.ContributionHistories.Add(history);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Contribution recorded.";
+        return RedirectToAction("Details", new { id = task.Id });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditContribution(int contributionId, string description, decimal? hours, string? notes)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var contribution = await _context.Contributions.Include(c => c.Task).FirstOrDefaultAsync(c => c.Id == contributionId);
+        if (contribution == null) return NotFound();
+
+        var task = contribution.Task;
+        if (task == null) return BadRequest();
+
+        // Only RecordedBy, Admin or Professor can edit
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        if (contribution.RecordedById != currentUser.Id && !isAdmin && !isProfessor)
+            return Forbid();
+
+        var before = new { contribution.Description, contribution.HoursSpent, contribution.Notes };
+
+        contribution.Description = description?.Trim() ?? contribution.Description;
+        contribution.HoursSpent = hours;
+        contribution.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes?.Trim();
+        contribution.RecordedById = currentUser.Id;
+        contribution.RecordedAt = DateTime.UtcNow;
+
+        _context.Contributions.Update(contribution);
+        await _context.SaveChangesAsync();
+
+        var after = new { contribution.Description, contribution.HoursSpent, contribution.Notes };
+        var history = new Models.ContributionHistory
+        {
+            ContributionId = contribution.Id,
+            Action = "Updated",
+            PerformedById = currentUser.Id,
+            PerformedAt = DateTime.UtcNow,
+            Changes = JsonSerializer.Serialize(new { before, after })
+        };
+        _context.ContributionHistories.Add(history);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Contribution updated.";
+        return RedirectToAction("Details", new { id = task.Id });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteContribution(int contributionId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var contribution = await _context.Contributions.Include(c => c.Task).FirstOrDefaultAsync(c => c.Id == contributionId);
+        if (contribution == null) return NotFound();
+
+        var task = contribution.Task;
+        if (task == null) return BadRequest();
+
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        if (contribution.RecordedById != currentUser.Id && !isAdmin && !isProfessor)
+            return Forbid();
+
+        var snapshot = new { contribution.Description, contribution.HoursSpent, contribution.Notes };
+
+        _context.Contributions.Remove(contribution);
+        await _context.SaveChangesAsync();
+
+        var history = new Models.ContributionHistory
+        {
+            ContributionId = contributionId,
+            Action = "Deleted",
+            PerformedById = currentUser.Id,
+            PerformedAt = DateTime.UtcNow,
+            Changes = JsonSerializer.Serialize(snapshot)
+        };
+        _context.ContributionHistories.Add(history);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Contribution deleted.";
+        return RedirectToAction("Details", new { id = task.Id });
     }
 }

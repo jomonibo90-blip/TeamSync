@@ -646,6 +646,17 @@
     </div>
 }
 
+<div style="margin-top:1rem; margin-bottom:1rem; display:flex; gap:1rem; align-items:center;">
+    <div style="background:var(--ts-surface); padding:0.75rem 1rem; border-radius:8px; border:1px solid var(--ts-border);">
+        <div class="ts-label-sm ts-text-secondary">Total Hours Contributed</div>
+        <div class="ts-title-md">@Model.TotalHoursContributed</div>
+    </div>
+    <div style="background:var(--ts-surface); padding:0.75rem 1rem; border-radius:8px; border:1px solid var(--ts-border);">
+        <div class="ts-label-sm ts-text-secondary">Contributions</div>
+        <div class="ts-title-md">@Model.ContributionsCount</div>
+    </div>
+</div>
+
 <script>
 function openRemoveModal(userId, memberName) {
     document.getElementById('userId').value = userId;

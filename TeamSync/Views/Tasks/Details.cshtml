@@ -198,23 +198,113 @@
                         <div class="ts-body-xs ts-text-secondary" style="margin-top:0.25rem;">Notes: @Model.ApprovalNotes</div>
                     }
 
-                    @* Contributions list *@
-                    @if (contributions.Any())
-                    {
-                        <div style="margin-top:0.75rem;">
-                            <div class="ts-label-sm ts-text-secondary">Contributions</div>
+                    @* Contributions list and add form *@
+                    <div style="margin-top:0.75rem;">
+                        <div class="ts-label-sm ts-text-secondary" style="display:flex; justify-content:space-between; align-items:center;">
+                            <span>Contributions</span>
+                            @if (isAssigned || Model.IsLeadForCurrentUser || Model.IsProfessorForCurrentUser)
+                            {
+                                <span class="ts-body-xs ts-text-secondary">You can add a contribution</span>
+                            }
+                        </div>
+
+                        @* Add contribution form (visible to assignee, lead, professors, admins) *@
+                        @if (isAssigned || Model.IsLeadForCurrentUser || Model.IsProfessorForCurrentUser)
+                        {
+                            <form asp-action="AddContribution" method="post" style="margin-top:0.5rem; border:1px solid var(--ts-border); padding:0.75rem; border-radius:6px; background:var(--ts-surface-container);">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="taskId" value="@Model.Id" />
+                                <div class="ts-form-group">
+                                    <label class="ts-label-sm">Description</label>
+                                    <textarea name="description" class="ts-input" rows="2" required></textarea>
+                                </div>
+                                <div style="display:flex; gap:0.5rem; margin-top:0.5rem; align-items:center;">
+                                    <div style="width:10rem;">
+                                        <label class="ts-label-sm">Hours</label>
+                                        <input type="number" name="hours" step="0.25" min="0" class="ts-input" />
+                                    </div>
+                                    <div style="flex:1;">
+                                        <label class="ts-label-sm">Notes (optional)</label>
+                                        <input type="text" name="notes" class="ts-input" />
+                                    </div>
+                                    <div style="width:12rem;">
+                                        <label class="ts-label-sm">User (optional)</label>
+                                        <input type="text" name="userId" class="ts-input" placeholder="user id to attribute" />
+                                    </div>
+                                </div>
+                                <div style="margin-top:0.5rem; display:flex; gap:0.5rem;">
+                                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Add Contribution</button>
+                                </div>
+                            </form>
+                        }
+
+                        @if (contributions.Any())
+                        {
                             <ul style="list-style:none; padding:0; margin:0.5rem 0 0 0;">
                                 @foreach (var c in contributions)
                                 {
                                     <li style="padding:0.5rem 0; border-bottom:1px dashed var(--ts-border);">
-                                        <div class="ts-body-sm"><strong>@(c.User?.FirstName ?? "") @(c.User?.LastName ?? "")</strong> • @c.ContributedAt.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</div>
-                                        <div class="ts-body-xs ts-text-secondary">@c.Description @if(c.HoursSpent.HasValue){ <span>• @c.HoursSpent.Value.ToString() hrs</span> }</div>
-                                        @if(!string.IsNullOrWhiteSpace(c.Notes)) { <div class="ts-body-xs">Notes: @c.Notes</div> }
+                                        <div class="ts-body-sm" style="display:flex; justify-content:space-between; align-items:center;">
+                                            <div>
+                                                <strong>@(c.User?.FirstName ?? "") @(c.User?.LastName ?? "")</strong>
+                                                <span class="ts-body-xs ts-text-secondary" style="margin-left:0.5rem;">@c.ContributedAt.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</span>
+                                            </div>
+                                            <div>
+                                                @* Edit/delete options *@
+                                                @if (c.RecordedById == currentUserId || Model.IsProfessorForCurrentUser || User.IsInRole("Admin"))
+                                                {
+                                                    <form asp-action="DeleteContribution" method="post" style="display:inline; margin-left:0.5rem;">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="contributionId" value="@c.Id" />
+                                                        <button type="submit" class="ts-btn ts-btn-xs ts-btn-secondary" onclick="return confirm('Delete contribution?');">Delete</button>
+                                                    </form>
+
+                                                    <details style="display:inline-block; margin-left:0.5rem;">
+                                                        <summary class="ts-btn ts-btn-xs ts-btn-secondary">Edit</summary>
+                                                        <form asp-action="EditContribution" method="post" style="margin-top:0.5rem;">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="contributionId" value="@c.Id" />
+                                                            <div class="ts-form-group">
+                                                                <label class="ts-label-sm">Description</label>
+                                                                <textarea name="description" class="ts-input" rows="2">@c.Description</textarea>
+                                                            </div>
+                                                            <div style="display:flex; gap:0.5rem; margin-top:0.5rem; align-items:center;">
+                                                                <div style="width:10rem;">
+                                                                    <label class="ts-label-sm">Hours</label>
+                                                                    <input type="number" name="hours" step="0.25" min="0" class="ts-input" value="@(c.HoursSpent ?? 0)" />
+                                                                </div>
+                                                                <div style="flex:1;">
+                                                                    <label class="ts-label-sm">Notes (optional)</label>
+                                                                    <input type="text" name="notes" class="ts-input" value="@c.Notes" />
+                                                                </div>
+                                                            </div>
+                                                            <div style="margin-top:0.5rem;">
+                                                                <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Save</button>
+                                                            </div>
+                                                        </form>
+                                                    </details>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <div class="ts-body-xs ts-text-secondary" style="margin-top:0.25rem;">@c.Description</div>
+                                        @if (c.HoursSpent.HasValue)
+                                        {
+                                            <div class="ts-body-xs">Hours: @c.HoursSpent.Value</div>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(c.Notes))
+                                        {
+                                            <div class="ts-body-xs">Notes: @c.Notes</div>
+                                        }
                                     </li>
                                 }
                             </ul>
-                        </div>
-                    }
+                        }
+                        else
+                        {
+                            <div class="ts-body-sm ts-text-secondary" style="margin-top:0.5rem;">No contributions recorded yet.</div>
+                        }
+                    </div>
                 </li>
             </ul>
         </div>
