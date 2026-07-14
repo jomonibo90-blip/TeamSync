@@ -816,4 +816,196 @@ public class TasksController : Controller
 
         return Forbid();
     }
+
+    /// <summary>
+    /// Add a user as an assignee to a task (multi-assign support).
+    /// Only leads can perform this action.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddAssignee(int taskId, string userId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var task = await _context.Tasks
+            .Include(t => t.Group).ThenInclude(g => g.Members)
+            .FirstOrDefaultAsync(t => t.Id == taskId);
+
+        if (task == null) return NotFound();
+        if (task.Group == null || !task.Group.IsActive)
+            return BadRequest("Cannot modify tasks for an archived or missing group.");
+
+        var currentMember = task.Group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        bool isLead = currentMember?.Role == "Lead";
+
+        // Only leads (and admins/professors) can add assignees
+        if (!isAdmin && !isProfessor && !isLead)
+            return Forbid();
+
+        // Verify the user to assign is a group member
+        var targetMember = task.Group.Members.FirstOrDefault(m => m.UserId == userId);
+        if (targetMember == null)
+            return BadRequest("User must be a member of the group.");
+
+        // Check if already assigned
+        var existingAssignment = await _context.TaskAssignments
+            .FirstOrDefaultAsync(ta => ta.TaskId == taskId && ta.AssignedToId == userId && ta.RemovedAt == null);
+
+        if (existingAssignment != null)
+        {
+            TempData["WarningMessage"] = "User is already assigned to this task.";
+            return RedirectToAction("Details", new { id = taskId });
+        }
+
+        var assignment = new TaskAssignment
+        {
+            TaskId = taskId,
+            AssignedToId = userId,
+            AssignedByUserId = currentUser.Id,
+            AssignedAt = DateTime.UtcNow
+        };
+
+        _context.TaskAssignments.Add(assignment);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("User {UserId} added as assignee to task {TaskId} by {AssignedByUserId}", 
+            userId, taskId, currentUser.Id);
+
+        TempData["SuccessMessage"] = "User added as assignee.";
+        return RedirectToAction("Details", new { id = taskId });
+    }
+
+    /// <summary>
+    /// Remove a user from task assignees.
+    /// Only leads can perform this action.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RemoveAssignee(int taskId, string userId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var task = await _context.Tasks
+            .Include(t => t.Group).ThenInclude(g => g.Members)
+            .FirstOrDefaultAsync(t => t.Id == taskId);
+
+        if (task == null) return NotFound();
+        if (task.Group == null || !task.Group.IsActive)
+            return BadRequest("Cannot modify tasks for an archived or missing group.");
+
+        var currentMember = task.Group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        bool isLead = currentMember?.Role == "Lead";
+
+        // Only leads (and admins/professors) can remove assignees
+        if (!isAdmin && !isProfessor && !isLead)
+            return Forbid();
+
+        var assignment = await _context.TaskAssignments
+            .FirstOrDefaultAsync(ta => ta.TaskId == taskId && ta.AssignedToId == userId && ta.RemovedAt == null);
+
+        if (assignment == null)
+        {
+            TempData["ErrorMessage"] = "Assignment not found.";
+            return RedirectToAction("Details", new { id = taskId });
+        }
+
+        assignment.RemovedAt = DateTime.UtcNow;
+        _context.TaskAssignments.Update(assignment);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("User {UserId} removed from task {TaskId} by {RemovedByUserId}", 
+            userId, taskId, currentUser.Id);
+
+        TempData["SuccessMessage"] = "User removed from assignees.";
+        return RedirectToAction("Details", new { id = taskId });
+    }
+
+    /// <summary>
+    /// Add a discussion note/comment to a task.
+    /// Any assignee or lead can post notes.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddNote(int taskId, string content)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            TempData["ErrorMessage"] = "Note content cannot be empty.";
+            return RedirectToAction("Details", new { id = taskId });
+        }
+
+        var task = await _context.Tasks
+            .Include(t => t.Group).ThenInclude(g => g.Members)
+            .Include(t => t.Assignments)
+            .FirstOrDefaultAsync(t => t.Id == taskId);
+
+        if (task == null) return NotFound();
+        if (task.Group == null) return BadRequest("Task's group is missing.");
+
+        var currentMember = task.Group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        bool isLead = currentMember?.Role == "Lead";
+        bool isAssigned = task.Assignments.Any(ta => ta.AssignedToId == currentUser.Id && ta.RemovedAt == null);
+
+        // Only leads, professors, admins, or assigned users can post notes
+        if (!isAdmin && !isProfessor && !isLead && !isAssigned)
+            return Forbid();
+
+        var note = new TaskNote
+        {
+            TaskId = taskId,
+            UserId = currentUser.Id,
+            Content = content.Trim(),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.TaskNotes.Add(note);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Task note added to task {TaskId} by {UserId}", taskId, currentUser.Id);
+
+        TempData["SuccessMessage"] = "Note added successfully.";
+        return RedirectToAction("Details", new { id = taskId });
+    }
+
+    /// <summary>
+    /// Delete a task note.
+    /// Only professors, admins, or the note author can delete.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteNote(int noteId, int taskId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var note = await _context.TaskNotes.FirstOrDefaultAsync(n => n.Id == noteId);
+        if (note == null) return NotFound();
+
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        bool isAuthor = note.UserId == currentUser.Id;
+
+        // Only prof, admin, or author can delete
+        if (!isAdmin && !isProfessor && !isAuthor)
+            return Forbid();
+
+        _context.TaskNotes.Remove(note);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Task note {NoteId} deleted by {UserId}", noteId, currentUser.Id);
+
+        TempData["SuccessMessage"] = "Note deleted.";
+        return RedirectToAction("Details", new { id = taskId });
+    }
 }
