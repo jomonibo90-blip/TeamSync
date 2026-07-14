@@ -15,6 +15,10 @@
 *.md
 !README.md
 
+# Temporary commit tracking files
+COMMIT_MESSAGE_PROGRESS_BAR.txt
+GIT_COMMIT_SUCCESS.txt
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
