@@ -47,4 +47,14 @@ public class Task
 
     // Navigation properties
     public ICollection<Contribution> Contributions { get; set; } = new List<Contribution>();
+    
+    /// <summary>
+    /// Multi-user task assignments. Replaces single AssignedToId pattern.
+    /// </summary>
+    public ICollection<TaskAssignment> Assignments { get; set; } = new List<TaskAssignment>();
+    
+    /// <summary>
+    /// Task discussion notes for team collaboration.
+    /// </summary>
+    public ICollection<TaskNote> Notes { get; set; } = new List<TaskNote>();
 }

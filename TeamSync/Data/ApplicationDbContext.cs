@@ -17,6 +17,8 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
     public DbSet<Models.RemovalRequest> RemovalRequests { get; set; }
     public DbSet<Models.AddMemberRequest> AddMemberRequests { get; set; }
     public DbSet<Models.JoinRequest> JoinRequests { get; set; }
+    public DbSet<Models.TaskAssignment> TaskAssignments { get; set; }
+    public DbSet<Models.TaskNote> TaskNotes { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -149,6 +151,38 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
             .WithMany()
             .HasForeignKey(jr => jr.ApprovedByUserId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // Configure TaskAssignment relationships
+        modelBuilder.Entity<Models.TaskAssignment>()
+            .HasOne(ta => ta.Task)
+            .WithMany(t => t.Assignments)
+            .HasForeignKey(ta => ta.TaskId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Models.TaskAssignment>()
+            .HasOne(ta => ta.AssignedTo)
+            .WithMany(u => u.TaskAssignments)
+            .HasForeignKey(ta => ta.AssignedToId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<Models.TaskAssignment>()
+            .HasOne(ta => ta.AssignedByUser)
+            .WithMany()
+            .HasForeignKey(ta => ta.AssignedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Configure TaskNote relationships
+        modelBuilder.Entity<Models.TaskNote>()
+            .HasOne(tn => tn.Task)
+            .WithMany(t => t.Notes)
+            .HasForeignKey(tn => tn.TaskId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Models.TaskNote>()
+            .HasOne(tn => tn.User)
+            .WithMany(u => u.TaskNotes)
+            .HasForeignKey(tn => tn.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Add indexes for common queries
         modelBuilder.Entity<Models.Group>()
