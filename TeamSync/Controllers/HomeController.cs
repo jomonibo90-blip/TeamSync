@@ -112,13 +112,22 @@ public class HomeController : Controller
             var groupIds = memberships.Select(m => m.Group?.Id).Where(id => id.HasValue).Select(id => id.Value).ToList();
             
             var allTasks = await _context.Tasks
-                .Where(t => groupIds.Contains(t.GroupId.Value) && t.AssignedToId == user.Id)
+                .Where(t => t.GroupId.HasValue && groupIds.Contains(t.GroupId.Value) && t.AssignedToId == user.Id)
                 .ToListAsync();
 
             var totalTasks = allTasks.Count;
             var completedTasks = allTasks.Count(t => t.Status == "Completed");
             var inProgressTasks = allTasks.Count(t => t.Status == "InProgress");
             var pendingTasks = allTasks.Count(t => t.Status == "Pending");
+
+            // Contributions by this user for tasks in these groups
+            var contributionsQuery = _context.Contributions
+                .Include(c => c.Task)
+                .Where(c => c.UserId == user.Id && c.Task != null && c.Task.GroupId.HasValue && groupIds.Contains(c.Task.GroupId.Value));
+
+            var contributionsList = await contributionsQuery.ToListAsync();
+            var totalHours = contributionsList.Where(c => c.HoursSpent.HasValue).Sum(c => c.HoursSpent.Value);
+            var contributionsCount = contributionsList.Count;
 
             // Build per-group progress
             var groupProgress = new Dictionary<int, GroupProgressViewModel>();
@@ -148,6 +157,8 @@ public class HomeController : Controller
                     CompletedTasks = completedTasks,
                     InProgressTasks = inProgressTasks,
                     PendingTasks = pendingTasks,
+                    TotalHoursContributed = totalHours,
+                    ContributionsCount = contributionsCount,
                     GroupProgress = groupProgress
                 }
             };

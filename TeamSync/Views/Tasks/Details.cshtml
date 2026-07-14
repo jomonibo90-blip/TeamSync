@@ -16,6 +16,7 @@
     var canApprove = (ViewBag.CanApproveCompletion as bool?) ?? false;
     var assignments = (ViewBag.TaskAssignments as List<dynamic>) ?? new List<dynamic>();
     var notes = (ViewBag.TaskNotes as List<dynamic>) ?? new List<dynamic>();
+    var contributions = (ViewBag.TaskContributions as List<dynamic>) ?? new List<dynamic>();
     var currentUserId = (ViewBag.CurrentUserId as string) ?? string.Empty;
 }
 
@@ -100,6 +101,8 @@
                                 <input type="hidden" name="id" value="@Model.Id" />
                                 <label for="approveNotes" class="ts-label-sm ts-text-secondary">Approval Notes (optional)</label>
                                 <textarea id="approveNotes" name="notes" class="ts-input" rows="3" placeholder="Add approval notes (optional)" style="width:24rem; max-width:100%;"></textarea>
+                                <label for="approveHours" class="ts-label-sm ts-text-secondary">Hours (optional)</label>
+                                <input id="approveHours" name="hours" type="number" step="0.25" min="0" max="1000" class="ts-input" style="width:8rem;" />
                                 <button type="submit" class="@approveClass">@approveLabel</button>
                             </form>
 
@@ -193,6 +196,24 @@
                     @if (!string.IsNullOrWhiteSpace(Model.ApprovalNotes))
                     {
                         <div class="ts-body-xs ts-text-secondary" style="margin-top:0.25rem;">Notes: @Model.ApprovalNotes</div>
+                    }
+
+                    @* Contributions list *@
+                    @if (contributions.Any())
+                    {
+                        <div style="margin-top:0.75rem;">
+                            <div class="ts-label-sm ts-text-secondary">Contributions</div>
+                            <ul style="list-style:none; padding:0; margin:0.5rem 0 0 0;">
+                                @foreach (var c in contributions)
+                                {
+                                    <li style="padding:0.5rem 0; border-bottom:1px dashed var(--ts-border);">
+                                        <div class="ts-body-sm"><strong>@(c.User?.FirstName ?? "") @(c.User?.LastName ?? "")</strong> • @c.ContributedAt.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</div>
+                                        <div class="ts-body-xs ts-text-secondary">@c.Description @if(c.HoursSpent.HasValue){ <span>• @c.HoursSpent.Value.ToString() hrs</span> }</div>
+                                        @if(!string.IsNullOrWhiteSpace(c.Notes)) { <div class="ts-body-xs">Notes: @c.Notes</div> }
+                                    </li>
+                                }
+                            </ul>
+                        </div>
                     }
                 </li>
             </ul>

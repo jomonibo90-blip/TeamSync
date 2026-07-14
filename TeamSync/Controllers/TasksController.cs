@@ -521,8 +521,16 @@ public class TasksController : Controller
             .OrderByDescending(tn => tn.CreatedAt)
             .ToListAsync();
 
+        // Load contributions for display
+        var contributions = await _context.Contributions
+            .Where(c => c.TaskId == id)
+            .Include(c => c.User)
+            .OrderByDescending(c => c.ContributedAt)
+            .ToListAsync();
+
         ViewBag.TaskAssignments = assignments;
         ViewBag.TaskNotes = notes;
+        ViewBag.TaskContributions = contributions;
         ViewBag.CurrentUserId = currentUser.Id;
 
         return View(vm);
@@ -828,7 +836,7 @@ public class TasksController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ApproveCompletion(int id, string? notes)
+    public async Task<IActionResult> ApproveCompletion(int id, string? notes, decimal? hours)
     {
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
@@ -848,9 +856,16 @@ public class TasksController : Controller
         }
 
         // basic server-side validation for notes
-        if (!string.IsNullOrWhiteSpace(notes) && notes.Length > 1000)
+        if (!string.IsNullOrWhiteSpace(notes) && notes.Length > 2000)
         {
-            TempData["ErrorMessage"] = "Approval notes cannot exceed 1000 characters.";
+            TempData["ErrorMessage"] = "Approval notes cannot exceed 2000 characters.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        // validate hours if provided
+        if (hours.HasValue && (hours < 0 || hours > 1000))
+        {
+            TempData["ErrorMessage"] = "Hours must be between 0 and 1000.";
             return RedirectToAction("Details", new { id = task.Id });
         }
 
@@ -863,19 +878,36 @@ public class TasksController : Controller
             task.ApprovalNotes = string.IsNullOrWhiteSpace(notes) ? task.ApprovalNotes : notes?.Trim();
             task.UpdatedAt = DateTime.UtcNow;
 
-            // create contribution record for the assignee
+            // create contribution record for the assignee if not already recorded
             if (!string.IsNullOrEmpty(task.AssignedToId))
             {
-                var contribution = new Contribution
+                var existing = await _context.Contributions.FirstOrDefaultAsync(c => c.TaskId == task.Id && c.UserId == task.AssignedToId);
+                if (existing == null)
                 {
-                    UserId = task.AssignedToId,
-                    TaskId = task.Id,
-                    Description = $"Completed task: {task.Title}",
-                    ContributedAt = DateTime.UtcNow,
-                    HoursSpent = 0
-                };
+                    var contribution = new Contribution
+                    {
+                        UserId = task.AssignedToId,
+                        TaskId = task.Id,
+                        Description = $"Completed task: {task.Title}",
+                        ContributedAt = DateTime.UtcNow,
+                        HoursSpent = hours,
+                        RecordedById = currentUser.Id,
+                        RecordedAt = DateTime.UtcNow,
+                        Source = "TaskFinalization",
+                        Notes = string.IsNullOrWhiteSpace(notes) ? null : notes?.Trim()
+                    };
 
-                _context.Contributions.Add(contribution);
+                    _context.Contributions.Add(contribution);
+                }
+                else
+                {
+                    // update existing contribution if hours/notes provided
+                    if (hours.HasValue) existing.HoursSpent = hours;
+                    if (!string.IsNullOrWhiteSpace(notes)) existing.Notes = notes?.Trim();
+                    existing.RecordedById = currentUser.Id;
+                    existing.RecordedAt = DateTime.UtcNow;
+                    _context.Contributions.Update(existing);
+                }
             }
 
             // use transaction to ensure task and contribution are saved atomically
@@ -892,6 +924,12 @@ public class TasksController : Controller
                 {
                     TempData["ErrorMessage"] = "The task was updated by another user. Your changes were not saved.";
                     return RedirectToAction("Details", new { id = task.Id });
+                }
+                catch (DbUpdateException dbex)
+                {
+                    // if unique constraint violated on contributions, treat as non-fatal and continue
+                    _logger.LogWarning(dbex, "DB update error when adding contribution for task {TaskId}", task.Id);
+                    TempData["WarningMessage"] = "Contribution already recorded by another process.";
                 }
                 catch (Exception ex)
                 {

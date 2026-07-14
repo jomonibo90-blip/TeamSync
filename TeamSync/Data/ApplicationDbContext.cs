@@ -77,6 +77,18 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
             .HasForeignKey(c => c.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // RecordedBy relationship (user who logged the contribution)
+        modelBuilder.Entity<Models.Contribution>()
+            .HasOne(c => c.RecordedBy)
+            .WithMany()
+            .HasForeignKey(c => c.RecordedById)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Prevent duplicate contributions per task+user
+        modelBuilder.Entity<Models.Contribution>()
+            .HasIndex(c => new { c.TaskId, c.UserId })
+            .IsUnique();
+
         // Configure RemovalRequest relationships
         modelBuilder.Entity<Models.RemovalRequest>()
             .HasOne(rr => rr.GroupMember)

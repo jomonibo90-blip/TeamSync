@@ -88,6 +88,10 @@ public class StudentProgressViewModel
     public int CompletedTasks { get; set; }
     public int InProgressTasks { get; set; }
     public int PendingTasks { get; set; }
+
+    // Contributions
+    public decimal TotalHoursContributed { get; set; }
+    public int ContributionsCount { get; set; }
     
     public decimal CompletionPercentage => TotalTasks > 0 
         ? (CompletedTasks * 100m) / TotalTasks 
