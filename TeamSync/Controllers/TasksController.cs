@@ -847,6 +847,13 @@ public class TasksController : Controller
             return RedirectToAction("Details", new { id = task.Id });
         }
 
+        // basic server-side validation for notes
+        if (!string.IsNullOrWhiteSpace(notes) && notes.Length > 1000)
+        {
+            TempData["ErrorMessage"] = "Approval notes cannot exceed 1000 characters.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
         // Allow creator to finalize, or professors/admins to override
         if (task.CreatedById == currentUser.Id || isProfessor || isAdmin)
         {
@@ -871,8 +878,28 @@ public class TasksController : Controller
                 _context.Contributions.Add(contribution);
             }
 
-            _context.Tasks.Update(task);
-            await _context.SaveChangesAsync();
+            // use transaction to ensure task and contribution are saved atomically
+            using (var transaction = await _context.Database.BeginTransactionAsync())
+            {
+                try
+                {
+                    _context.Tasks.Update(task);
+                    await _context.SaveChangesAsync();
+
+                    await transaction.CommitAsync();
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    TempData["ErrorMessage"] = "The task was updated by another user. Your changes were not saved.";
+                    return RedirectToAction("Details", new { id = task.Id });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error approving task completion");
+                    TempData["ErrorMessage"] = "An error occurred while processing your request. Please try again.";
+                    return RedirectToAction("Details", new { id = task.Id });
+                }
+            }
 
             TempData["SuccessMessage"] = "Task marked as completed.";
             return RedirectToAction("Details", new { id = task.Id });
@@ -918,43 +945,72 @@ public class TasksController : Controller
             return RedirectToAction("Details", new { id = task.Id });
         }
 
-        // If professor/admin rejects, clear lead approval and set back to InProgress
-        if (isProfessor || isAdmin)
+        // basic server-side validation for reason length
+        if (!string.IsNullOrWhiteSpace(reason) && reason.Length > 1000)
         {
-            task.Status = "InProgress";
-            task.ReviewRequestedById = null;
-            task.ReviewRequestedAt = null;
-            task.LeadApprovedById = null;
-            task.LeadApprovedAt = null;
-            task.ApprovalNotes = string.IsNullOrWhiteSpace(reason) ? task.ApprovalNotes : reason?.Trim();
-            task.UpdatedAt = DateTime.UtcNow;
-
-            _context.Tasks.Update(task);
-            await _context.SaveChangesAsync();
-
-            TempData["SuccessMessage"] = "Review rejected; task set back to In Progress.";
+            TempData["ErrorMessage"] = "Rejection reason cannot exceed 1000 characters.";
             return RedirectToAction("Details", new { id = task.Id });
         }
 
-        // If lead rejects, only allow if lead had approved or status is ReviewRequested - revert to InProgress
-        if (isLead)
+        // perform status transition in a transaction to avoid partial updates
+        using (var transaction = await _context.Database.BeginTransactionAsync())
         {
-            task.Status = "InProgress";
-            task.ReviewRequestedById = null;
-            task.ReviewRequestedAt = null;
-            task.LeadApprovedById = null;
-            task.LeadApprovedAt = null;
-            task.ApprovalNotes = string.IsNullOrWhiteSpace(reason) ? task.ApprovalNotes : reason?.Trim();
-            task.UpdatedAt = DateTime.UtcNow;
+            try
+            {
+                // If professor/admin rejects, clear lead approval and set back to InProgress
+                if (isProfessor || isAdmin)
+                {
+                    task.Status = "InProgress";
+                    task.ReviewRequestedById = null;
+                    task.ReviewRequestedAt = null;
+                    task.LeadApprovedById = null;
+                    task.LeadApprovedAt = null;
+                    task.ApprovalNotes = string.IsNullOrWhiteSpace(reason) ? task.ApprovalNotes : reason?.Trim();
+                    task.UpdatedAt = DateTime.UtcNow;
 
-            _context.Tasks.Update(task);
-            await _context.SaveChangesAsync();
+                    _context.Tasks.Update(task);
+                    await _context.SaveChangesAsync();
 
-            TempData["SuccessMessage"] = "Lead rejected review; task set back to In Progress.";
-            return RedirectToAction("Details", new { id = task.Id });
+                    await transaction.CommitAsync();
+
+                    TempData["SuccessMessage"] = "Review rejected; task set back to In Progress.";
+                    return RedirectToAction("Details", new { id = task.Id });
+                }
+
+                // If lead rejects, revert to InProgress
+                if (isLead)
+                {
+                    task.Status = "InProgress";
+                    task.ReviewRequestedById = null;
+                    task.ReviewRequestedAt = null;
+                    task.LeadApprovedById = null;
+                    task.LeadApprovedAt = null;
+                    task.ApprovalNotes = string.IsNullOrWhiteSpace(reason) ? task.ApprovalNotes : reason?.Trim();
+                    task.UpdatedAt = DateTime.UtcNow;
+
+                    _context.Tasks.Update(task);
+                    await _context.SaveChangesAsync();
+
+                    await transaction.CommitAsync();
+
+                    TempData["SuccessMessage"] = "Lead rejected review; task set back to In Progress.";
+                    return RedirectToAction("Details", new { id = task.Id });
+                }
+
+                return Forbid();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                TempData["ErrorMessage"] = "The task was updated by another user. Your changes were not saved.";
+                return RedirectToAction("Details", new { id = task.Id });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error rejecting task completion");
+                TempData["ErrorMessage"] = "An error occurred while processing your request. Please try again.";
+                return RedirectToAction("Details", new { id = task.Id });
+            }
         }
-
-        return Forbid();
     }
 
     /// <summary>

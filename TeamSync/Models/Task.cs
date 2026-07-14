@@ -51,6 +51,10 @@ public class Task
     // Approval notes / reason for approval/rejection
     public string? ApprovalNotes { get; set; }
 
+    // Concurrency token
+    [Timestamp]
+    public byte[]? RowVersion { get; set; }
+
     // Navigation properties
     public ICollection<Contribution> Contributions { get; set; } = new List<Contribution>();
     
