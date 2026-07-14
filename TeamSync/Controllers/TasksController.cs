@@ -480,6 +480,23 @@ public class TasksController : Controller
         // Can approve completion if admin, professor, or lead
         ViewBag.CanApproveCompletion = isAdmin || isProfessor || isLead;
 
+        // Load assignments and notes for multi-assignee & discussion
+        var assignments = await _context.TaskAssignments
+            .Where(ta => ta.TaskId == id && ta.RemovedAt == null)
+            .Include(ta => ta.AssignedTo)
+            .OrderBy(ta => ta.AssignedAt)
+            .ToListAsync();
+
+        var notes = await _context.TaskNotes
+            .Where(tn => tn.TaskId == id)
+            .Include(tn => tn.User)
+            .OrderByDescending(tn => tn.CreatedAt)
+            .ToListAsync();
+
+        ViewBag.TaskAssignments = assignments;
+        ViewBag.TaskNotes = notes;
+        ViewBag.CurrentUserId = currentUser.Id;
+
         return View(vm);
     }
 

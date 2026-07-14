@@ -14,6 +14,9 @@
 
     var isAssigned = (ViewBag.IsAssigned as bool?) ?? false;
     var canApprove = (ViewBag.CanApproveCompletion as bool?) ?? false;
+    var assignments = (ViewBag.TaskAssignments as List<dynamic>) ?? new List<dynamic>();
+    var notes = (ViewBag.TaskNotes as List<dynamic>) ?? new List<dynamic>();
+    var currentUserId = (ViewBag.CurrentUserId as string) ?? string.Empty;
 }
 
 <div class="ts-task-detail-header">
@@ -160,6 +163,109 @@
                     <div class="ts-body-sm">By: <strong>@(Model.CompletionApprovedByName ?? "-")</strong> @if (Model.CompletionApprovedAt.HasValue) { <span class="ts-text-secondary">(@Model.CompletionApprovedAt.Value.ToLocalTime().ToString("MMM dd, yyyy HH:mm"))</span> }</div>
                 </li>
             </ul>
+        </div>
+    </section>
+
+    @* Multi-Assignee Section *@
+    <section class="ts-card">
+        <div class="ts-card-header">
+            <h3 class="ts-title-lg">Team Members</h3>
+        </div>
+        <div class="ts-card-body">
+            @if (assignments.Any())
+            {
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    @foreach (var assignment in assignments)
+                    {
+                        <li style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--ts-border);">
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <div class="ts-avatar" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--ts-primary); color: white; font-weight: bold; font-size: 14px;">
+                                    @(assignment.AssignedTo?.FirstName?.Substring(0, 1).ToUpper() ?? "U")
+                                </div>
+                                <div>
+                                    <div class="ts-body-sm" style="font-weight: 500;">@assignment.AssignedTo?.FirstName @assignment.AssignedTo?.LastName</div>
+                                    <div class="ts-body-xs ts-text-secondary">@assignment.AssignedTo?.Email</div>
+                                </div>
+                            </div>
+                            @if (Model.IsLeadForCurrentUser || Model.IsProfessorForCurrentUser)
+                            {
+                                <form asp-action="RemoveAssignee" method="post" style="display:inline;" onsubmit="return confirm('Remove this assignee?');">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="taskId" value="@Model.Id" />
+                                    <input type="hidden" name="userId" value="@assignment.AssignedToId" />
+                                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-secondary" title="Remove assignee">
+                                        <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
+                                    </button>
+                                </form>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <div class="ts-body-sm ts-text-secondary">No team members assigned yet.</div>
+            }
+        </div>
+    </section>
+
+    @* Task Notes/Discussion Section *@
+    <section class="ts-card">
+        <div class="ts-card-header">
+            <h3 class="ts-title-lg">Discussion</h3>
+        </div>
+        <div class="ts-card-body">
+            @* Add Note Form *@
+            @if (isAssigned || Model.IsLeadForCurrentUser || Model.IsProfessorForCurrentUser)
+            {
+                <form asp-action="AddNote" method="post" style="margin-bottom: 1.5rem;">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="taskId" value="@Model.Id" />
+                    <div class="ts-form-group">
+                        <label for="noteContent" class="ts-label-sm">Add Note</label>
+                        <textarea name="content" id="noteContent" class="ts-input" placeholder="Share your thoughts or updates..." rows="3" style="resize: vertical;"></textarea>
+                    </div>
+                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Post Note</button>
+                </form>
+
+                <hr style="margin: 1rem 0; border: 0; border-top: 1px dashed var(--ts-border);" />
+            }
+
+            @* Notes List *@
+            @if (notes.Any())
+            {
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    @foreach (var note in notes)
+                    {
+                        <div style="padding: 1rem; background: var(--ts-surface-container); border-radius: var(--ts-radius-md); border-left: 3px solid var(--ts-primary);">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                                <div>
+                                    <div class="ts-body-sm" style="font-weight: 500;">
+                                        @note.User?.FirstName @note.User?.LastName
+                                        <span class="ts-body-xs ts-text-secondary" style="margin-left: 0.5rem;">@note.CreatedAt.ToString("MMM dd, yyyy HH:mm")</span>
+                                    </div>
+                                </div>
+                                @if (Model.IsProfessorForCurrentUser || note.UserId == currentUserId)
+                                {
+                                    <form asp-action="DeleteNote" method="post" style="display:inline;" onsubmit="return confirm('Delete this note?');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="noteId" value="@note.Id" />
+                                        <input type="hidden" name="taskId" value="@Model.Id" />
+                                        <button type="submit" class="ts-btn ts-btn-xs ts-btn-secondary" title="Delete note" style="padding: 0.25rem 0.5rem; font-size: 12px;">
+                                            <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
+                                        </button>
+                                    </form>
+                                }
+                            </div>
+                            <div class="ts-body-sm">@note.Content</div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="ts-body-sm ts-text-secondary">No notes yet. Be the first to comment!</div>
+            }
         </div>
     </section>
 </div>
