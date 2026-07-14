@@ -181,7 +181,7 @@ public class TasksController : Controller
         // If model state invalid, ensure ViewBag.Members is populated before returning the view
         if (!ModelState.IsValid)
         {
-            ViewBag.Members = group.Members.Select(m => m.User).Where(u => u != null).ToList();
+            ViewBag.Members = group.Members.Select(m => m.User).OfType<Models.User>().ToList();
             return View(model);
         }
 
@@ -285,7 +285,7 @@ public class TasksController : Controller
         {
             // reload members for the view
             var grp = await _context.Groups.Include(g => g.Members).ThenInclude(m => m.User).FirstOrDefaultAsync(g => g.Id == model.GroupId);
-            ViewBag.Members = grp?.Members.Select(m => m.User).Where(u => u != null).ToList() ?? new List<Models.User>();
+            ViewBag.Members = grp?.Members.Select(m => m.User).OfType<Models.User>().ToList() ?? new List<Models.User>();
             ViewBag.AssignedUserIds = model.AssignedUserIds ?? new List<string>();
             return View(model);
         }
