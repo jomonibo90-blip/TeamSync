@@ -120,6 +120,15 @@ else
                         <span class="material-symbols-outlined" style="font-size:16px;">calendar_month</span>
                         @(t.DueDate?.ToString("MMM dd") ?? "No due date")
                     </span>
+
+                    @* Show Updated timestamp if present *@
+                    @if (t.UpdatedAt.HasValue)
+                    {
+                        <span class="ts-task-date ts-text-secondary" title="Last updated">
+                            <span class="material-symbols-outlined" style="font-size:16px;">schedule</span>
+                            Updated: @(t.UpdatedAt.Value.ToLocalTime().ToString("MMM dd, HH:mm"))
+                        </span>
+                    }
                 </div>
 
                 <div class="ts-task-item-footer">

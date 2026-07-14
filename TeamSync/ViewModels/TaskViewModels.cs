@@ -71,6 +71,9 @@ namespace TeamSync.ViewModels
         // Approval notes
         public string? ApprovalNotes { get; set; }
 
+        // Timestamps
+        public DateTime? UpdatedAt { get; set; }
+
         // UI flags
         public bool CanApprove { get; set; } = false;
         // Role of the current user for this item

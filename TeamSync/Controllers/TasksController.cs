@@ -94,6 +94,8 @@ public class TasksController : Controller
                 CompletionApprovedAt = t.CompletionApprovedAt,
                 ApprovalNotes = t.ApprovalNotes,
 
+                UpdatedAt = t.UpdatedAt,
+
                 // compute CanApprove for current user
                 CanApprove = isAdmin || isProfessor || isLeadForThis,
                 IsLeadForCurrentUser = isLeadForThis,
