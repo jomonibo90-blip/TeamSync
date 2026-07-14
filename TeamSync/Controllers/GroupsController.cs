@@ -79,8 +79,18 @@ public class GroupsController : Controller
     }
 
     [HttpGet]
-    public IActionResult Create()
+    public async Task<IActionResult> Create()
     {
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null) return Challenge();
+
+        // Only students and admins can create groups
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(user, "Professor");
+
+        if (isProfessor && !isAdmin)
+            return Forbid();
+
         return View();
     }
 
@@ -92,6 +102,13 @@ public class GroupsController : Controller
 
         var user = await _userManager.GetUserAsync(User);
         if (user == null) return Challenge();
+
+        // Only students and admins can create groups
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(user, "Professor");
+
+        if (isProfessor && !isAdmin)
+            return Forbid();
 
         var joinCode = GenerateUniqueJoinCode();
 

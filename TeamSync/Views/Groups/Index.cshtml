@@ -1,6 +1,12 @@
 @model IEnumerable<TeamSync.ViewModels.GroupListViewModel>
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<TeamSync.Models.User> UserManager
 @{
     ViewData["Title"] = "Project Groups";
+    var user = await UserManager.GetUserAsync(User);
+    var isProfessor = user != null && await UserManager.IsInRoleAsync(user, "Professor");
+    var isAdmin = User.IsInRole("Admin");
+    var canCreateGroup = !isProfessor || isAdmin;
 }
 
 <div class="ts-page-header ts-flex ts-justify-between ts-items-center" style="flex-wrap: wrap; gap: 1rem;">
@@ -21,9 +27,12 @@
             <a asp-action="Join" class="ts-btn ts-btn-secondary" style="border-color: var(--ts-primary); color: var(--ts-primary);">
                 <span class="material-symbols-outlined" style="font-size: 18px;">login</span> Join
             </a>
-            <a asp-action="Create" class="ts-btn ts-btn-primary">
-                <span class="material-symbols-outlined" style="font-size: 18px;">add</span> New
-            </a>
+            @if (canCreateGroup)
+            {
+                <a asp-action="Create" class="ts-btn ts-btn-primary">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">add</span> New
+                </a>
+            }
         </div>
     </div>
 </div>
@@ -36,9 +45,12 @@
                 <span class="material-symbols-outlined">folder_shared</span>
                 <h3 class="ts-title-lg">No Project Groups Found</h3>
                 <p class="ts-body-md ts-mt-sm">You aren't a member of any groups yet, or none have been created.</p>
-                <a asp-action="Create" class="ts-btn ts-btn-primary ts-mt-lg">
-                    <span class="material-symbols-outlined" style="font-size: 18px;">add</span> Create Your First Group
-                </a>
+                @if (canCreateGroup)
+                {
+                    <a asp-action="Create" class="ts-btn ts-btn-primary ts-mt-lg">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">add</span> Create Your First Group
+                    </a>
+                }
             </div>
         </div>
     }
