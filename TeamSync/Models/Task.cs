@@ -33,7 +33,8 @@ public class Task
     [StringLength(50)]
     public string Status { get; set; } = "Pending";
 
-    public DateTime CreatedAt { get; set; }
+    // Default created timestamp
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
     // Review workflow fields

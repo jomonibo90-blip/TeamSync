@@ -109,7 +109,7 @@ public class HomeController : Controller
             }).ToList();
 
             // Get all tasks assigned to this student
-            var groupIds = memberships.Select(m => m.Group?.Id).Where(id => id.HasValue).Select(id => id.Value).ToList();
+            var groupIds = memberships.Where(m => m.Group != null).Select(m => m.Group!.Id).ToList();
             
             var allTasks = await _context.Tasks
                 .Where(t => t.GroupId.HasValue && groupIds.Contains(t.GroupId.Value) && t.AssignedToId == user.Id)
@@ -126,7 +126,7 @@ public class HomeController : Controller
                 .Where(c => c.UserId == user.Id && c.Task != null && c.Task.GroupId.HasValue && groupIds.Contains(c.Task.GroupId.Value));
 
             var contributionsList = await contributionsQuery.ToListAsync();
-            var totalHours = contributionsList.Where(c => c.HoursSpent.HasValue).Sum(c => c.HoursSpent.Value);
+            var totalHours = contributionsList.Sum(c => c.HoursSpent ?? 0m);
             var contributionsCount = contributionsList.Count;
 
             // Build per-group progress

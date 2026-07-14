@@ -453,7 +453,7 @@ public class GroupsController : Controller
             {
                 GroupId = group.Id,
                 UserId = userToAdd.Id,
-                Email = userToAdd.Email,
+                Email = userToAdd.Email ?? string.Empty,
                 RequestedByUserId = currentUser.Id,
                 Status = "Pending",
                 CreatedAt = DateTime.UtcNow
@@ -491,7 +491,7 @@ public class GroupsController : Controller
             {
                 GroupId = group.Id,
                 UserId = userToAdd.Id,
-                Email = userToAdd.Email,
+                Email = userToAdd.Email ?? string.Empty,
                 RequestedByUserId = currentUser.Id,
                 Status = "Pending",
                 CreatedAt = DateTime.UtcNow

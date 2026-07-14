@@ -10,11 +10,13 @@ public class JoinRequest
     public string UserId { get; set; } = string.Empty;
     public User? User { get; set; }
     
-    public string Status { get; set; } = string.Empty;
+    // Default status is Pending for new requests
+    public string Status { get; set; } = "Pending";
     
     public string? ApprovedByUserId { get; set; }
     public User? ApprovedBy { get; set; }
     
-    public DateTime CreatedAt { get; set; }
+    // Default creation timestamp
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ResolvedAt { get; set; }
 }

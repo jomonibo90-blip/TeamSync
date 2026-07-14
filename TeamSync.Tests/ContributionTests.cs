@@ -5,6 +5,8 @@ using TeamSync.Data;
 using TeamSync.Models;
 using Xunit;
 
+using ModelTask = TeamSync.Models.Task;
+
 namespace TeamSync.Tests
 {
     public class ContributionTests

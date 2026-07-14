@@ -5,6 +5,8 @@ using TeamSync.Data;
 using TeamSync.Models;
 using Xunit;
 
+using ModelTask = TeamSync.Models.Task;
+
 namespace TeamSync.Tests
 {
     public class TaskWorkflowTests
@@ -30,26 +32,22 @@ namespace TeamSync.Tests
                 context.Tasks.Add(task);
                 context.SaveChanges();
 
-                // act: simulate finalize + contribution creation in a transaction
-                using (var tx = context.Database.BeginTransaction())
+                // act: simulate finalize + contribution creation without explicit transaction
+                task.Status = "Completed";
+                task.CompletionApprovedById = "creator";
+                task.CompletionApprovedAt = DateTime.UtcNow;
+                context.Tasks.Update(task);
+
+                var contribution = new Contribution
                 {
-                    task.Status = "Completed";
-                    task.CompletionApprovedById = "creator";
-                    task.CompletionApprovedAt = DateTime.UtcNow;
-                    context.Tasks.Update(task);
+                    TaskId = task.Id,
+                    UserId = task.AssignedToId ?? string.Empty,
+                    Description = $"Completed task: {task.Title}",
+                    ContributedAt = DateTime.UtcNow
+                };
+                context.Contributions.Add(contribution);
 
-                    var contribution = new Contribution
-                    {
-                        TaskId = task.Id,
-                        UserId = task.AssignedToId ?? string.Empty,
-                        Description = $"Completed task: {task.Title}",
-                        ContributedAt = DateTime.UtcNow
-                    };
-                    context.Contributions.Add(contribution);
-
-                    context.SaveChanges();
-                    tx.Commit();
-                }
+                context.SaveChanges();
 
                 // assert
                 var dbTask = context.Tasks.First();

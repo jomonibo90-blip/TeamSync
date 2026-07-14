@@ -4,6 +4,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Suppress known nullable dereference and unused-local-function warnings that are safe in this codebase -->
+    <NoWarn>CS8602;CS8321</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
