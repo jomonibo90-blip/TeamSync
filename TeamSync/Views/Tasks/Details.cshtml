@@ -18,6 +18,9 @@
     var notes = (ViewBag.TaskNotes as List<dynamic>) ?? new List<dynamic>();
     var contributions = (ViewBag.TaskContributions as List<dynamic>) ?? new List<dynamic>();
     var currentUserId = (ViewBag.CurrentUserId as string) ?? string.Empty;
+
+    var notesPage = (ViewBag.NotesPage as int?) ?? 1;
+    var notesTotalPages = (ViewBag.NotesTotalPages as int?) ?? 1;
 }
 
 <div class="ts-task-detail-header">
@@ -389,21 +392,68 @@
                                         <span class="ts-body-xs ts-text-secondary" style="margin-left: 0.5rem;">@note.CreatedAt.ToString("MMM dd, yyyy HH:mm")</span>
                                     </div>
                                 </div>
-                                @if (Model.IsProfessorForCurrentUser || note.UserId == currentUserId)
-                                {
-                                    <form asp-action="DeleteNote" method="post" style="display:inline;" onsubmit="return confirm('Delete this note?');">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="noteId" value="@note.Id" />
-                                        <input type="hidden" name="taskId" value="@Model.Id" />
-                                        <button type="submit" class="ts-btn ts-btn-xs ts-btn-secondary" title="Delete note" style="padding: 0.25rem 0.5rem; font-size: 12px;">
-                                            <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
-                                        </button>
-                                    </form>
-                                }
+                                <div>
+                                    @* Edit/Delete controls for note author or professor/admin *@
+                                    @if (Model.IsProfessorForCurrentUser || note.UserId == currentUserId)
+                                    {
+                                        <form asp-action="DeleteNote" method="post" style="display:inline; margin-left:0.5rem;" onsubmit="return confirm('Delete this note?');">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="noteId" value="@note.Id" />
+                                            <input type="hidden" name="notesPage" value="@notesPage" />
+                                            <button type="submit" class="ts-btn ts-btn-xs ts-btn-secondary" title="Delete note" style="padding: 0.25rem 0.5rem; font-size: 12px;">
+                                                <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
+                                            </button>
+                                        </form>
+
+                                        <details style="display:inline-block; margin-left:0.5rem;">
+                                            <summary class="ts-btn ts-btn-xs ts-btn-secondary">Edit</summary>
+                                            <form asp-action="EditNote" method="post" style="margin-top:0.5rem;">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="noteId" value="@note.Id" />
+                                                <input type="hidden" name="notesPage" value="@notesPage" />
+                                                <div class="ts-form-group">
+                                                    <label class="ts-label-sm">Edit Note</label>
+                                                    <textarea name="content" class="ts-input" rows="3">@note.Content</textarea>
+                                                </div>
+                                                <div style="margin-top:0.5rem; display:flex; gap:0.5rem; justify-content:flex-end;">
+                                                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Save</button>
+                                                </div>
+                                            </form>
+                                        </details>
+                                    }
+                                </div>
                             </div>
                             <div class="ts-body-sm">@note.Content</div>
+                            @if (note.UpdatedAt != null)
+                            {
+                                <div class="ts-body-xs ts-text-secondary" style="margin-top:0.25rem;">Edited @note.UpdatedAt?.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</div>
+                            }
                         </div>
                     }
+
+                    @* Pagination controls *@
+                    <div style="display:flex; gap:0.5rem; align-items:center; justify-content:flex-end; margin-top:0.5rem;">
+                        @{ var prev = notesPage - 1; var next = notesPage + 1; }
+                        @if (notesPage > 1)
+                        {
+                            <a asp-action="Details" asp-route-id="@Model.Id" asp-route-notesPage="@prev" class="ts-btn ts-btn-xs ts-btn-secondary">Previous</a>
+                        }
+                        else
+                        {
+                            <button class="ts-btn ts-btn-xs ts-btn-secondary" disabled>Previous</button>
+                        }
+
+                        <div class="ts-body-xs ts-text-secondary">Page @notesPage of @notesTotalPages</div>
+
+                        @if (notesPage < notesTotalPages)
+                        {
+                            <a asp-action="Details" asp-route-id="@Model.Id" asp-route-notesPage="@next" class="ts-btn ts-btn-xs ts-btn-secondary">Next</a>
+                        }
+                        else
+                        {
+                            <button class="ts-btn ts-btn-xs ts-btn-secondary" disabled>Next</button>
+                        }
+                    </div>
                 </div>
             }
             else

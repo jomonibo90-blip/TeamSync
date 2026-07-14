@@ -309,8 +309,7 @@ public class TasksController : Controller
         bool isProfessorLocal = currentMember?.Role == "Professor" || User.IsInRole("Professor");
         bool isLeadLocal = currentMember?.Role == "Lead";
 
-        if (!isAdminLocal && !isProfessorLocal && !isLeadLocal)
-            return Forbid();
+        if (!isAdminLocal && !isProfessorLocal && !isLeadLocal) return Forbid();
 
         if (task.Status != "Requested")
         {
@@ -404,8 +403,7 @@ public class TasksController : Controller
         bool isProfessorFinal = currentMember?.Role == "Professor" || User.IsInRole("Professor");
         bool isLeadFinal = currentMember?.Role == "Lead";
 
-        if (!isAdminFinal && !isProfessorFinal && !isLeadFinal)
-            return Forbid();
+        if (!isAdminFinal && !isProfessorFinal && !isLeadFinal) return Forbid();
 
         if (task.Status != "Requested")
         {
@@ -423,7 +421,7 @@ public class TasksController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Details(int id)
+    public async Task<IActionResult> Details(int id, int notesPage = 1)
     {
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
@@ -509,17 +507,30 @@ public class TasksController : Controller
         // Can approve completion if admin, professor, or lead
         ViewBag.CanApproveCompletion = isAdmin || isProfessor || isLead;
 
-        // Load assignments and notes for multi-assignee & discussion
+        // Load assignments
         var assignments = await _context.TaskAssignments
             .Where(ta => ta.TaskId == id && ta.RemovedAt == null)
             .Include(ta => ta.AssignedTo)
             .OrderBy(ta => ta.AssignedAt)
             .ToListAsync();
 
-        var notes = await _context.TaskNotes
+        // Pagination for notes
+        const int pageSize = 8;
+        if (notesPage < 1) notesPage = 1;
+
+        var notesQuery = _context.TaskNotes
             .Where(tn => tn.TaskId == id)
             .Include(tn => tn.User)
-            .OrderByDescending(tn => tn.CreatedAt)
+            .OrderByDescending(tn => tn.CreatedAt);
+
+        var totalNotes = await notesQuery.CountAsync();
+        var totalPages = (int)Math.Ceiling(totalNotes / (double)pageSize);
+        if (totalPages == 0) totalPages = 1;
+        if (notesPage > totalPages) notesPage = totalPages;
+
+        var notes = await notesQuery
+            .Skip((notesPage - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
 
         // Load contributions for display
@@ -534,212 +545,120 @@ public class TasksController : Controller
         ViewBag.TaskContributions = contributions;
         ViewBag.CurrentUserId = currentUser.Id;
 
-        return View(vm);
-    }
+        // Pagination metadata
+        ViewBag.NotesPage = notesPage;
+        ViewBag.NotesTotalPages = totalPages;
+        ViewBag.NotesTotalCount = totalNotes;
+        ViewBag.NotesPageSize = pageSize;
 
-    [HttpGet]
-    public async Task<IActionResult> Edit(int id)
-    {
-        var currentUser = await _userManager.GetUserAsync(User);
-        if (currentUser == null) return Challenge();
-
-        var task = await _context.Tasks
-            .Include(t => t.Group).ThenInclude(g => g.Members).ThenInclude(m => m.User)
-            .Include(t => t.Assignments)
-            .FirstOrDefaultAsync(t => t.Id == id);
-
-        if (task == null) return NotFound();
-        if (task.Group == null) return BadRequest("Task's group is missing.");
-
-        var currentMember = task.Group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
-        bool isAdmin = User.IsInRole("Admin");
-        bool isProfessor = currentMember?.Role == "Professor" || User.IsInRole("Professor");
-        bool isLead = currentMember?.Role == "Lead";
-
-        // Only allow creator, admins, professors, or leads to edit
-        if (!isAdmin && !isProfessor && !isLead && task.CreatedById != currentUser.Id)
-            return Forbid();
-
-        var assignedUserIds = task.Assignments
-            .Where(a => a.RemovedAt == null)
-            .Select(a => a.AssignedToId)
-            .ToList();
-
-        var vm = new global::TeamSync.ViewModels.TaskEditViewModel
-        {
-            Id = task.Id,
-            GroupId = task.GroupId ?? 0,
-            Title = task.Title,
-            Description = task.Description,
-            AssignedToId = task.AssignedToId,
-            AssignedUserIds = assignedUserIds,
-            StartDate = task.StartDate,
-            DueDate = task.DueDate,
-            Priority = task.Priority
-        };
-
-        ViewBag.Members = task.Group.Members.Select(m => m.User).Where(u => u != null).ToList();
-        ViewBag.AssignedUserIds = assignedUserIds;
         return View(vm);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(global::TeamSync.ViewModels.TaskEditViewModel model)
+    public async Task<IActionResult> AddNote(int taskId, string content)
     {
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
 
-        if (!ModelState.IsValid) return View(model);
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            TempData["ErrorMessage"] = "Note cannot be empty.";
+            return RedirectToAction("Details", new { id = taskId });
+        }
 
-        var task = await _context.Tasks
-            .Include(t => t.Group).ThenInclude(g => g.Members).ThenInclude(m => m.User)
-            .Include(t => t.Assignments)
-            .FirstOrDefaultAsync(t => t.Id == model.Id);
-
+        var task = await _context.Tasks.Include(t => t.Group).ThenInclude(g => g.Members).FirstOrDefaultAsync(t => t.Id == taskId);
         if (task == null) return NotFound();
-        if (task.Group == null) return BadRequest("Task's group is missing.");
+        if (task.Group == null || !task.Group.IsActive)
+        {
+            TempData["ErrorMessage"] = "Cannot add note to archived or missing group.";
+            return RedirectToAction("Details", new { id = taskId });
+        }
 
-        var currentMember = task.Group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
         bool isAdmin = User.IsInRole("Admin");
-        bool isProfessor = currentMember?.Role == "Professor" || User.IsInRole("Professor");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        var currentMember = task.Group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
         bool isLead = currentMember?.Role == "Lead";
+        bool isMember = currentMember != null;
+        bool isAssigned = task.AssignedToId == currentUser.Id;
 
-        // Only allow creator, admins, professors, or leads to edit
-        if (!isAdmin && !isProfessor && !isLead && task.CreatedById != currentUser.Id)
+        if (!isAdmin && !isProfessor && !isLead && !isMember && !isAssigned)
             return Forbid();
 
-        // Validate assigned users are members
-        var assignedUserIds = model.AssignedUserIds ?? new List<string>();
-        foreach (var userId in assignedUserIds)
+        var note = new TaskNote
         {
-            var assignedIsMember = task.Group.Members.Any(m => m.UserId == userId);
-            if (!assignedIsMember)
-            {
-                ModelState.AddModelError("AssignedUserIds", $"User must be a member of the group.");
-                ViewBag.Members = task.Group.Members.Select(m => m.User).Where(u => u != null).ToList();
-                ViewBag.AssignedUserIds = assignedUserIds;
-                return View(model);
-            }
-        }
+            TaskId = taskId,
+            UserId = currentUser.Id,
+            Content = content.Trim(),
+            CreatedAt = DateTime.UtcNow
+        };
 
-        // Apply basic changes
-        task.Title = model.Title;
-        task.Description = model.Description;
-        task.AssignedToId = model.AssignedToId;
-        task.StartDate = model.StartDate?.Date;
-        task.DueDate = model.DueDate;
-        task.Priority = model.Priority;
-        task.UpdatedAt = DateTime.UtcNow;
-
-        // Update task assignments
-        var currentAssignments = task.Assignments.Where(a => a.RemovedAt == null).ToList();
-        var currentAssignedUserIds = currentAssignments.Select(a => a.AssignedToId).ToList();
-
-        // Remove assignments not in the new list
-        foreach (var assignment in currentAssignments)
-        {
-            if (!assignedUserIds.Contains(assignment.AssignedToId))
-            {
-                assignment.RemovedAt = DateTime.UtcNow;
-            }
-        }
-
-        // Add new assignments
-        foreach (var userId in assignedUserIds)
-        {
-            if (!currentAssignedUserIds.Contains(userId))
-            {
-                task.Assignments.Add(new TaskAssignment
-                {
-                    TaskId = task.Id,
-                    AssignedToId = userId,
-                    AssignedByUserId = currentUser.Id,
-                    AssignedAt = DateTime.UtcNow
-                });
-            }
-        }
-
-        _context.Tasks.Update(task);
+        _context.TaskNotes.Add(note);
         await _context.SaveChangesAsync();
 
-        TempData["SuccessMessage"] = "Task updated successfully.";
-        return RedirectToAction("Details", new { id = task.Id });
+        TempData["SuccessMessage"] = "Note added.";
+        return RedirectToAction("Details", new { id = taskId });
     }
 
-    [HttpGet]
-    public async Task<IActionResult> SelectGroup(string mode = "create")
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditNote(int noteId, string content, int? notesPage)
     {
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
 
-        var normalizedMode = (mode ?? string.Empty).Trim().ToLowerInvariant();
-        if (normalizedMode != "create" && normalizedMode != "request")
-            return BadRequest("Invalid mode.");
+        var note = await _context.TaskNotes.Include(n => n.Task).FirstOrDefaultAsync(n => n.Id == noteId);
+        if (note == null) return NotFound();
 
-        var activeGroupsQuery = _context.Groups
-            .Include(g => g.Members)
-            .Where(g => g.IsActive)
-            .AsQueryable();
+        var task = note.Task;
+        if (task == null) return BadRequest();
 
-        List<TaskGroupSelectionItemViewModel> groups;
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
 
-        if (normalizedMode == "create")
+        if (note.UserId != currentUser.Id && !isAdmin && !isProfessor)
+            return Forbid();
+
+        if (string.IsNullOrWhiteSpace(content))
         {
-            bool isAdmin = User.IsInRole("Admin");
-            bool isProfessorGlobal = await _userManager.IsInRoleAsync(currentUser, "Professor");
-
-            if (!isAdmin && !isProfessorGlobal)
-            {
-                activeGroupsQuery = activeGroupsQuery
-                    .Where(g => g.Members.Any(m => m.UserId == currentUser.Id && (m.Role == "Lead" || m.Role == "Professor")));
-            }
-
-            groups = await activeGroupsQuery
-                .Select(g => new TaskGroupSelectionItemViewModel
-                {
-                    GroupId = g.Id,
-                    GroupName = g.Name,
-                    GroupDescription = g.Description
-                })
-                .ToListAsync();
-        }
-        else
-        {
-            groups = await activeGroupsQuery
-                .Where(g => g.Members.Any(m => m.UserId == currentUser.Id && m.Role == "Member"))
-                .Select(g => new TaskGroupSelectionItemViewModel
-                {
-                    GroupId = g.Id,
-                    GroupName = g.Name,
-                    GroupDescription = g.Description
-                })
-                .ToListAsync();
+            TempData["ErrorMessage"] = "Note cannot be empty.";
+            return RedirectToAction("Details", new { id = task.Id, notesPage = notesPage });
         }
 
-        if (!groups.Any())
-        {
-            TempData["ErrorMessage"] = normalizedMode == "create"
-                ? "No active groups available where you can create tasks."
-                : "No active groups available where you can request tasks.";
-            return RedirectToAction("Index");
-        }
+        note.Content = content.Trim();
+        note.UpdatedAt = DateTime.UtcNow;
 
-        if (groups.Count == 1)
-        {
-            var groupId = groups[0].GroupId;
-            return normalizedMode == "create"
-                ? RedirectToAction("Create", new { groupId })
-                : RedirectToAction("RequestTask", new { groupId });
-        }
+        _context.TaskNotes.Update(note);
+        await _context.SaveChangesAsync();
 
-        var vm = new TaskGroupSelectionViewModel
-        {
-            Mode = normalizedMode,
-            Groups = groups.OrderBy(g => g.GroupName).ToList()
-        };
+        TempData["SuccessMessage"] = "Note updated.";
+        return RedirectToAction("Details", new { id = task.Id, notesPage = notesPage });
+    }
 
-        return View(vm);
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteNote(int noteId, int? notesPage)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var note = await _context.TaskNotes.Include(n => n.Task).FirstOrDefaultAsync(n => n.Id == noteId);
+        if (note == null) return NotFound();
+
+        var task = note.Task;
+        if (task == null) return BadRequest();
+
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+
+        if (note.UserId != currentUser.Id && !isAdmin && !isProfessor)
+            return Forbid();
+
+        _context.TaskNotes.Remove(note);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Note deleted.";
+        return RedirectToAction("Details", new { id = task.Id, notesPage = notesPage });
     }
 
     [HttpPost]
@@ -1038,11 +957,6 @@ public class TasksController : Controller
 
                 return Forbid();
             }
-            catch (DbUpdateConcurrencyException)
-            {
-                TempData["ErrorMessage"] = "The task was updated by another user. Your changes were not saved.";
-                return RedirectToAction("Details", new { id = task.Id });
-            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error rejecting task completion");
@@ -1063,10 +977,7 @@ public class TasksController : Controller
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
 
-        var task = await _context.Tasks
-            .Include(t => t.Group).ThenInclude(g => g.Members)
-            .FirstOrDefaultAsync(t => t.Id == taskId);
-
+        var task = await _context.Tasks.Include(t => t.Group).ThenInclude(g => g.Members).FirstOrDefaultAsync(t => t.Id == taskId);
         if (task == null) return NotFound();
         if (task.Group == null || !task.Group.IsActive)
             return BadRequest("Cannot modify tasks for an archived or missing group.");
@@ -1086,8 +997,7 @@ public class TasksController : Controller
             return BadRequest("User must be a member of the group.");
 
         // Check if already assigned
-        var existingAssignment = await _context.TaskAssignments
-            .FirstOrDefaultAsync(ta => ta.TaskId == taskId && ta.AssignedToId == userId && ta.RemovedAt == null);
+        var existingAssignment = await _context.TaskAssignments.FirstOrDefaultAsync(ta => ta.TaskId == taskId && ta.AssignedToId == userId && ta.RemovedAt == null);
 
         if (existingAssignment != null)
         {
@@ -1095,19 +1005,9 @@ public class TasksController : Controller
             return RedirectToAction("Details", new { id = taskId });
         }
 
-        var assignment = new TaskAssignment
-        {
-            TaskId = taskId,
-            AssignedToId = userId,
-            AssignedByUserId = currentUser.Id,
-            AssignedAt = DateTime.UtcNow
-        };
-
+        var assignment = new TaskAssignment { TaskId = taskId, AssignedToId = userId, AssignedByUserId = currentUser.Id, AssignedAt = DateTime.UtcNow };
         _context.TaskAssignments.Add(assignment);
         await _context.SaveChangesAsync();
-
-        _logger.LogInformation("User {UserId} added as assignee to task {TaskId} by {AssignedByUserId}", 
-            userId, taskId, currentUser.Id);
 
         TempData["SuccessMessage"] = "User added as assignee.";
         return RedirectToAction("Details", new { id = taskId });
@@ -1124,10 +1024,7 @@ public class TasksController : Controller
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
 
-        var task = await _context.Tasks
-            .Include(t => t.Group).ThenInclude(g => g.Members)
-            .FirstOrDefaultAsync(t => t.Id == taskId);
-
+        var task = await _context.Tasks.Include(t => t.Group).ThenInclude(g => g.Members).FirstOrDefaultAsync(t => t.Id == taskId);
         if (task == null) return NotFound();
         if (task.Group == null || !task.Group.IsActive)
             return BadRequest("Cannot modify tasks for an archived or missing group.");
@@ -1141,8 +1038,7 @@ public class TasksController : Controller
         if (!isAdmin && !isProfessor && !isLead)
             return Forbid();
 
-        var assignment = await _context.TaskAssignments
-            .FirstOrDefaultAsync(ta => ta.TaskId == taskId && ta.AssignedToId == userId && ta.RemovedAt == null);
+        var assignment = await _context.TaskAssignments.FirstOrDefaultAsync(ta => ta.TaskId == taskId && ta.AssignedToId == userId && ta.RemovedAt == null);
 
         if (assignment == null)
         {
@@ -1154,241 +1050,7 @@ public class TasksController : Controller
         _context.TaskAssignments.Update(assignment);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("User {UserId} removed from task {TaskId} by {RemovedByUserId}", 
-            userId, taskId, currentUser.Id);
-
         TempData["SuccessMessage"] = "User removed from assignees.";
         return RedirectToAction("Details", new { id = taskId });
-    }
-
-    /// <summary>
-    /// Add a discussion note/comment to a task.
-    /// Any assignee or lead can post notes.
-    /// </summary>
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> AddNote(int taskId, string content)
-    {
-        var currentUser = await _userManager.GetUserAsync(User);
-        if (currentUser == null) return Challenge();
-
-        if (string.IsNullOrWhiteSpace(content))
-        {
-            TempData["ErrorMessage"] = "Note content cannot be empty.";
-            return RedirectToAction("Details", new { id = taskId });
-        }
-
-        var task = await _context.Tasks
-            .Include(t => t.Group).ThenInclude(g => g.Members)
-            .Include(t => t.Assignments)
-            .FirstOrDefaultAsync(t => t.Id == taskId);
-
-        if (task == null) return NotFound();
-        if (task.Group == null) return BadRequest("Task's group is missing.");
-
-        var currentMember = task.Group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
-        bool isAdmin = User.IsInRole("Admin");
-        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
-        bool isLead = currentMember?.Role == "Lead";
-        bool isAssigned = task.Assignments.Any(ta => ta.AssignedToId == currentUser.Id && ta.RemovedAt == null);
-
-        // Only leads, professors, admins, or assigned users can post notes
-        if (!isAdmin && !isProfessor && !isLead && !isAssigned)
-            return Forbid();
-
-        var note = new TaskNote
-        {
-            TaskId = taskId,
-            UserId = currentUser.Id,
-            Content = content.Trim(),
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _context.TaskNotes.Add(note);
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation("Task note added to task {TaskId} by {UserId}", taskId, currentUser.Id);
-
-        TempData["SuccessMessage"] = "Note added successfully.";
-        return RedirectToAction("Details", new { id = taskId });
-    }
-
-    /// <summary>
-    /// Delete a task note.
-    /// Only professors, admins, or the note author can delete.
-    /// </summary>
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> DeleteNote(int noteId, int taskId)
-    {
-        var currentUser = await _userManager.GetUserAsync(User);
-        if (currentUser == null) return Challenge();
-
-        var note = await _context.TaskNotes.FirstOrDefaultAsync(n => n.Id == noteId);
-        if (note == null) return NotFound();
-
-        bool isAdmin = User.IsInRole("Admin");
-        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
-        bool isAuthor = note.UserId == currentUser.Id;
-
-        // Only prof, admin, or author can delete
-        if (!isAdmin && !isProfessor && !isAuthor)
-            return Forbid();
-
-        _context.TaskNotes.Remove(note);
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation("Task note {NoteId} deleted by {UserId}", noteId, currentUser.Id);
-
-        TempData["SuccessMessage"] = "Note deleted.";
-        return RedirectToAction("Details", new { id = taskId });
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> AddContribution(int taskId, string description, decimal? hours, string? notes, string? source, string? userId)
-    {
-        var currentUser = await _userManager.GetUserAsync(User);
-        if (currentUser == null) return Challenge();
-
-        var task = await _context.Tasks.Include(t => t.Group).ThenInclude(g => g.Members).FirstOrDefaultAsync(t => t.Id == taskId);
-        if (task == null) return NotFound();
-        if (task.Group == null || !task.Group.IsActive) return BadRequest("Cannot add contribution to archived or missing group.");
-
-        // Permission: assigned user or lead/prof/admin can add
-        var currentMember = task.Group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
-        bool isAdmin = User.IsInRole("Admin");
-        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
-        bool isLead = currentMember?.Role == "Lead";
-        bool isAssigned = task.AssignedToId == currentUser.Id;
-
-        if (!isAdmin && !isProfessor && !isLead && !isAssigned)
-            return Forbid();
-
-        var attributedUserId = string.IsNullOrWhiteSpace(userId) ? task.AssignedToId ?? currentUser.Id : userId;
-
-        var contribution = new Models.Contribution
-        {
-            TaskId = task.Id,
-            UserId = attributedUserId ?? string.Empty,
-            Description = description?.Trim() ?? string.Empty,
-            ContributedAt = DateTime.UtcNow,
-            HoursSpent = hours,
-            Source = string.IsNullOrWhiteSpace(source) ? "ManualEntry" : source?.Trim(),
-            Notes = string.IsNullOrWhiteSpace(notes) ? null : notes?.Trim(),
-            RecordedById = currentUser.Id,
-            RecordedAt = DateTime.UtcNow
-        };
-
-        _context.Contributions.Add(contribution);
-        try
-        {
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateException ex)
-        {
-            _logger.LogWarning(ex, "Error saving contribution for task {TaskId}", task.Id);
-            TempData["ErrorMessage"] = "Could not save contribution. It may already exist for this user and task.";
-            return RedirectToAction("Details", new { id = task.Id });
-        }
-
-        // record history
-        var history = new Models.ContributionHistory
-        {
-            ContributionId = contribution.Id,
-            Action = "Created",
-            PerformedById = currentUser.Id,
-            PerformedAt = DateTime.UtcNow,
-            Changes = JsonSerializer.Serialize(new { contribution.Description, contribution.HoursSpent, contribution.Notes, contribution.Source })
-        };
-        _context.ContributionHistories.Add(history);
-        await _context.SaveChangesAsync();
-
-        TempData["SuccessMessage"] = "Contribution recorded.";
-        return RedirectToAction("Details", new { id = task.Id });
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> EditContribution(int contributionId, string description, decimal? hours, string? notes)
-    {
-        var currentUser = await _userManager.GetUserAsync(User);
-        if (currentUser == null) return Challenge();
-
-        var contribution = await _context.Contributions.Include(c => c.Task).FirstOrDefaultAsync(c => c.Id == contributionId);
-        if (contribution == null) return NotFound();
-
-        var task = contribution.Task;
-        if (task == null) return BadRequest();
-
-        // Only RecordedBy, Admin or Professor can edit
-        bool isAdmin = User.IsInRole("Admin");
-        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
-        if (contribution.RecordedById != currentUser.Id && !isAdmin && !isProfessor)
-            return Forbid();
-
-        var before = new { contribution.Description, contribution.HoursSpent, contribution.Notes };
-
-        contribution.Description = description?.Trim() ?? contribution.Description;
-        contribution.HoursSpent = hours;
-        contribution.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes?.Trim();
-        contribution.RecordedById = currentUser.Id;
-        contribution.RecordedAt = DateTime.UtcNow;
-
-        _context.Contributions.Update(contribution);
-        await _context.SaveChangesAsync();
-
-        var after = new { contribution.Description, contribution.HoursSpent, contribution.Notes };
-        var history = new Models.ContributionHistory
-        {
-            ContributionId = contribution.Id,
-            Action = "Updated",
-            PerformedById = currentUser.Id,
-            PerformedAt = DateTime.UtcNow,
-            Changes = JsonSerializer.Serialize(new { before, after })
-        };
-        _context.ContributionHistories.Add(history);
-        await _context.SaveChangesAsync();
-
-        TempData["SuccessMessage"] = "Contribution updated.";
-        return RedirectToAction("Details", new { id = task.Id });
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> DeleteContribution(int contributionId)
-    {
-        var currentUser = await _userManager.GetUserAsync(User);
-        if (currentUser == null) return Challenge();
-
-        var contribution = await _context.Contributions.Include(c => c.Task).FirstOrDefaultAsync(c => c.Id == contributionId);
-        if (contribution == null) return NotFound();
-
-        var task = contribution.Task;
-        if (task == null) return BadRequest();
-
-        bool isAdmin = User.IsInRole("Admin");
-        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
-        if (contribution.RecordedById != currentUser.Id && !isAdmin && !isProfessor)
-            return Forbid();
-
-        var snapshot = new { contribution.Description, contribution.HoursSpent, contribution.Notes };
-
-        _context.Contributions.Remove(contribution);
-        await _context.SaveChangesAsync();
-
-        var history = new Models.ContributionHistory
-        {
-            ContributionId = contributionId,
-            Action = "Deleted",
-            PerformedById = currentUser.Id,
-            PerformedAt = DateTime.UtcNow,
-            Changes = JsonSerializer.Serialize(snapshot)
-        };
-        _context.ContributionHistories.Add(history);
-        await _context.SaveChangesAsync();
-
-        TempData["SuccessMessage"] = "Contribution deleted.";
-        return RedirectToAction("Details", new { id = task.Id });
     }
 }
