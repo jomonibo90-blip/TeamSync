@@ -14,9 +14,12 @@
 
     var isAssigned = (ViewBag.IsAssigned as bool?) ?? false;
     var canApprove = (ViewBag.CanApproveCompletion as bool?) ?? false;
-    var assignments = (ViewBag.TaskAssignments as List<dynamic>) ?? new List<dynamic>();
-    var notes = (ViewBag.TaskNotes as List<dynamic>) ?? new List<dynamic>();
-    var contributions = (ViewBag.TaskContributions as List<dynamic>) ?? new List<dynamic>();
+    var canArchive = (ViewBag.CanArchiveTask as bool?) ?? false;
+    var isArchived = (ViewBag.IsArchived as bool?) ?? false;
+    // Use strongly-typed collections instead of List<dynamic> so Razor can access properties correctly
+    var assignments = (ViewBag.TaskAssignments as List<TeamSync.Models.TaskAssignment>) ?? new List<TeamSync.Models.TaskAssignment>();
+    var notes = (ViewBag.TaskNotes as List<TeamSync.Models.TaskNote>) ?? new List<TeamSync.Models.TaskNote>();
+    var contributions = (ViewBag.TaskContributions as List<TeamSync.Models.Contribution>) ?? new List<TeamSync.Models.Contribution>();
     var currentUserId = (ViewBag.CurrentUserId as string) ?? string.Empty;
 
     var notesPage = (ViewBag.NotesPage as int?) ?? 1;
@@ -25,13 +28,52 @@
 
 <div class="ts-task-detail-header">
     <div>
-        <h1 class="ts-headline-lg-mobile md:ts-headline-lg">@Model.Title</h1>
+        <h1 class="ts-headline-lg-mobile md:ts-headline-lg">
+            @if (isArchived)
+            {
+                <span class="material-symbols-outlined" style="font-size:24px; vertical-align: middle; margin-right: 0.5rem;">archive</span>
+            }
+            @Model.Title
+        </h1>
         <p class="ts-body-sm ts-text-secondary">Task details and assignment metadata</p>
     </div>
     <div class="ts-task-actions">
-        <a asp-controller="Tasks" asp-action="Edit" asp-route-id="@Model.Id" class="ts-btn ts-btn-secondary">
-            <span class="material-symbols-outlined" style="font-size:18px;">edit</span> Edit
-        </a>
+        @if (!isArchived)
+        {
+            <a asp-controller="Tasks" asp-action="Edit" asp-route-id="@Model.Id" class="ts-btn ts-btn-secondary">
+                <span class="material-symbols-outlined" style="font-size:18px;">edit</span> Edit
+            </a>
+        }
+        
+        @if (canArchive && !isArchived)
+        {
+            <details style="display:inline-block;">
+                <summary class="ts-btn ts-btn-secondary">
+                    <span class="material-symbols-outlined" style="font-size:18px;">archive</span> Archive
+                </summary>
+                <form asp-action="ArchiveTask" method="post" style="margin-top:0.5rem; padding:1rem; border:1px solid var(--ts-border); border-radius:6px; background:var(--ts-surface-container); width:24rem;">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <div class="ts-form-group">
+                        <label class="ts-label-sm">Archive Reason (optional)</label>
+                        <textarea name="reason" class="ts-input" rows="2" placeholder="Why are you archiving this task?" maxlength="1000"></textarea>
+                    </div>
+                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary" onclick="return confirm('Archive this task?');">Confirm Archive</button>
+                </form>
+            </details>
+        }
+
+        @if (isArchived)
+        {
+            <form asp-action="RestoreTask" method="post" style="display:inline-block;">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <button type="submit" class="ts-btn ts-btn-secondary" onclick="return confirm('Restore this task?');">
+                    <span class="material-symbols-outlined" style="font-size:18px;">restore</span> Restore
+                </button>
+            </form>
+        }
+
         <a asp-controller="Tasks" asp-action="Index" class="ts-btn ts-btn-primary">Back to Tasks</a>
     </div>
 </div>
@@ -357,6 +399,8 @@
             {
                 <div class="ts-body-sm ts-text-secondary">No team members assigned yet.</div>
             }
+
+            }
         </div>
     </section>
 
@@ -392,7 +436,14 @@
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
                                 <div>
                                     <div class="ts-body-sm" style="font-weight: 500;">
-                                        @note.User?.FirstName @note.User?.LastName
+                                        @if (note.User != null)
+                                        {
+                                            @note.User.FirstName @note.User.LastName
+                                        }
+                                        else
+                                        {
+                                            <span>Unknown User</span>
+                                        }
                                         <span class="ts-body-xs ts-text-secondary" style="margin-left: 0.5rem;">@note.CreatedAt.ToString("MMM dd, yyyy HH:mm")</span>
                                     </div>
                                 </div>

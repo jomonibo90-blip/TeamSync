@@ -440,6 +440,16 @@ namespace TeamSync.Migrations
                     b.Property<string>("ApprovalNotes")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ArchiveReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ArchivedById")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("AssignedToId")
                         .HasColumnType("nvarchar(450)");
 
@@ -502,6 +512,8 @@ namespace TeamSync.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ArchivedById");
 
                     b.HasIndex("AssignedToId");
 
@@ -880,6 +892,11 @@ namespace TeamSync.Migrations
 
             modelBuilder.Entity("TeamSync.Models.Task", b =>
                 {
+                    b.HasOne("TeamSync.Models.User", "ArchivedBy")
+                        .WithMany()
+                        .HasForeignKey("ArchivedById")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("TeamSync.Models.User", "AssignedTo")
                         .WithMany()
                         .HasForeignKey("AssignedToId")
@@ -894,6 +911,8 @@ namespace TeamSync.Migrations
                         .WithMany("Tasks")
                         .HasForeignKey("GroupId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ArchivedBy");
 
                     b.Navigation("AssignedTo");
 

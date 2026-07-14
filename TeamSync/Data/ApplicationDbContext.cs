@@ -68,6 +68,12 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
             .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<Models.Task>()
+            .HasOne(t => t.ArchivedBy)
+            .WithMany()
+            .HasForeignKey(t => t.ArchivedById)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<Models.Task>()
             .HasMany(t => t.Contributions)
             .WithOne(c => c.Task)
             .HasForeignKey(c => c.TaskId)
@@ -86,6 +92,11 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
             .WithMany()
             .HasForeignKey(c => c.RecordedById)
             .OnDelete(DeleteBehavior.NoAction);
+
+        // Configure HoursSpent decimal precision
+        modelBuilder.Entity<Models.Contribution>()
+            .Property(c => c.HoursSpent)
+            .HasPrecision(18, 2);
 
         // Prevent duplicate contributions per task+user
         modelBuilder.Entity<Models.Contribution>()

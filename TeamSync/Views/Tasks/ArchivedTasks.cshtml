@@ -1,0 +1,110 @@
+@model List<TeamSync.Models.Task>
+@{
+    ViewData["Title"] = "Archived Tasks";
+    var groupId = (ViewBag.GroupId as int?) ?? 0;
+    var groupName = (ViewBag.GroupName as string) ?? "Unknown Group";
+    var canManageTasks = (ViewBag.CanManageTasks as bool?) ?? false;
+}
+
+<div class="ts-task-page-header">
+    <div>
+        <h1 class="ts-headline-lg-mobile md:ts-headline-lg">Archived Tasks - @groupName</h1>
+        <p class="ts-body-lg ts-text-secondary">View tasks that have been archived for reference.</p>
+    </div>
+    <div class="ts-task-actions">
+        <a asp-controller="Groups" asp-action="Details" asp-route-id="@groupId" class="ts-btn ts-btn-secondary">
+            <span class="material-symbols-outlined" style="font-size:18px;">arrow_back</span> Back to Group
+        </a>
+    </div>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="ts-card ts-mt-md">
+        <div class="ts-card-body ts-empty">
+            <p>No archived tasks for this group.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="ts-task-list">
+        @foreach (var task in Model)
+        {
+            var archivedByName = task.ArchivedBy != null 
+                ? $"{task.ArchivedBy.FirstName} {task.ArchivedBy.LastName}" 
+                : "Unknown";
+            
+            <article class="ts-task-item" style="opacity: 0.7; border-left: 4px solid #999;">
+                <div class="ts-task-item-top">
+                    <div class="ts-task-title-wrap">
+                        <h3 class="ts-task-title">
+                            <span class="material-symbols-outlined" style="font-size:18px; vertical-align: middle; margin-right: 0.5rem;">archive</span>
+                            <a asp-controller="Tasks" asp-action="Details" asp-route-id="@task.Id" class="ts-link">@task.Title</a>
+                        </h3>
+                        @if (!string.IsNullOrWhiteSpace(task.Description))
+                        {
+                            <p class="ts-task-desc">@task.Description</p>
+                        }
+                    </div>
+                </div>
+
+                <div class="ts-task-item-meta">
+                    <span class="ts-badge" style="background: #999; color: white;">ARCHIVED</span>
+                    
+                    <span class="ts-task-date">
+                        <span class="material-symbols-outlined" style="font-size:16px;">archive</span>
+                        @(task.ArchivedAt?.ToString("MMM dd, yyyy HH:mm") ?? "Unknown")
+                    </span>
+
+                    <span class="ts-body-xs ts-text-secondary">
+                        Archived by: <strong>@archivedByName</strong>
+                    </span>
+
+                    @if (!string.IsNullOrWhiteSpace(task.ArchiveReason))
+                    {
+                        <span class="ts-body-xs ts-text-secondary" style="margin-left: 1rem;">
+                            Reason: @task.ArchiveReason
+                        </span>
+                    }
+                </div>
+
+                <div class="ts-task-item-footer">
+                    <div class="ts-task-info">
+                        <span class="ts-body-sm ts-text-secondary">Status: @task.Status</span>
+                        <span class="ts-body-sm ts-text-secondary" style="margin-left: 1rem;">Created by: @(task.CreatedBy != null ? $"{task.CreatedBy.FirstName} {task.CreatedBy.LastName}" : "Unknown")</span>
+                    </div>
+                    
+                    <div class="ts-task-links">
+                        @if (canManageTasks)
+                        {
+                            <form asp-action="RestoreTask" method="post" style="display:inline-block;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@task.Id" />
+                                <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary" onclick="return confirm('Restore this task?');">
+                                    <span class="material-symbols-outlined" style="font-size:16px;">restore</span> Restore
+                                </button>
+                            </form>
+
+                            <form asp-action="HardDeleteTask" method="post" style="display:inline-block; margin-left:0.5rem;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@task.Id" />
+                                <button type="submit" class="ts-btn ts-btn-sm ts-btn-secondary" onclick="return confirm('Permanently delete this task? This cannot be undone.');">
+                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span> Delete
+                                </button>
+                            </form>
+                        }
+
+                        <a asp-controller="Tasks" asp-action="Details" asp-route-id="@task.Id" class="ts-link" style="margin-left:0.5rem;">View Details</a>
+                    </div>
+                </div>
+            </article>
+        }
+    </div>
+}
+
+<style>
+    .ts-task-item[style*="opacity"] {
+        background: rgba(128, 128, 128, 0.05);
+    }
+</style>

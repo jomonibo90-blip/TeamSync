@@ -1,2 +1,6 @@
 *.patch
 *.patch
+
+# Documentation files (generated during development)
+*.md
+!README.md

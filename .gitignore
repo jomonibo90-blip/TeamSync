@@ -11,6 +11,10 @@
 *.sln.docstates
 *.env
 
+# Documentation files (generated during development)
+*.md
+!README.md
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

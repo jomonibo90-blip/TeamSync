@@ -41,6 +41,7 @@ public class TasksController : Controller
             .Include(t => t.Group).ThenInclude(g => g.Members)
             .Include(t => t.AssignedTo)
             .Include(t => t.CreatedBy)
+            .Where(t => !t.ArchivedAt.HasValue)  // Exclude archived tasks by default
             .AsQueryable();
 
         if (!isAdmin && !isProfessor)
@@ -222,6 +223,142 @@ public class TasksController : Controller
 
         TempData["SuccessMessage"] = "Task created successfully.";
         return RedirectToAction("Details", "Groups", new { id = model.GroupId });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Edit(int id)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var task = await _context.Tasks
+            .Include(t => t.Group).ThenInclude(g => g.Members).ThenInclude(m => m.User)
+            .Include(t => t.Assignments)
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        if (task == null) return NotFound();
+        if (task.Group == null || !task.Group.IsActive)
+            return BadRequest("Cannot edit tasks for an archived or missing group.");
+
+        var currentMember = task.Group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        bool isLead = currentMember?.Role == "Lead";
+        bool isCreator = task.CreatedById == currentUser.Id;
+
+        // Allow creator, lead, professor, or admin to edit
+        if (!isAdmin && !isProfessor && !isLead && !isCreator)
+            return Forbid();
+
+        var vm = new TaskEditViewModel
+        {
+            Id = task.Id,
+            GroupId = task.GroupId ?? 0,
+            Title = task.Title,
+            Description = task.Description,
+            StartDate = task.StartDate,
+            DueDate = task.DueDate,
+            Priority = task.Priority
+        };
+
+        // Members for multi-select
+        ViewBag.Members = task.Group.Members.Select(m => m.User).Where(u => u != null).ToList();
+
+        // Current assigned user ids (active assignments) + single AssignedToId
+        var assignedIds = task.Assignments?.Where(a => a.RemovedAt == null).Select(a => a.AssignedToId).ToList() ?? new List<string>();
+        if (!string.IsNullOrEmpty(task.AssignedToId) && !assignedIds.Contains(task.AssignedToId))
+            assignedIds.Add(task.AssignedToId);
+
+        ViewBag.AssignedUserIds = assignedIds;
+
+        return View(vm);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(TaskEditViewModel model)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        if (!ModelState.IsValid)
+        {
+            // reload members for the view
+            var grp = await _context.Groups.Include(g => g.Members).ThenInclude(m => m.User).FirstOrDefaultAsync(g => g.Id == model.GroupId);
+            ViewBag.Members = grp?.Members.Select(m => m.User).Where(u => u != null).ToList() ?? new List<Models.User>();
+            ViewBag.AssignedUserIds = model.AssignedUserIds ?? new List<string>();
+            return View(model);
+        }
+
+        var task = await _context.Tasks
+            .Include(t => t.Group).ThenInclude(g => g.Members)
+            .Include(t => t.Assignments)
+            .FirstOrDefaultAsync(t => t.Id == model.Id);
+
+        if (task == null) return NotFound();
+        if (task.Group == null || !task.Group.IsActive)
+            return BadRequest("Cannot edit tasks for an archived or missing group.");
+
+        var currentMember = task.Group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        bool isLead = currentMember?.Role == "Lead";
+        bool isCreator = task.CreatedById == currentUser.Id;
+
+        if (!isAdmin && !isProfessor && !isLead && !isCreator)
+            return Forbid();
+
+        // Validate selected assignees are group members
+        var selectedIds = model.AssignedUserIds ?? new List<string>();
+        var groupMemberIds = task.Group.Members.Select(m => m.UserId).ToHashSet();
+        foreach (var id in selectedIds)
+        {
+            if (!groupMemberIds.Contains(id))
+            {
+                ModelState.AddModelError("AssignedUserIds", "One or more selected users are not members of the group.");
+            }
+        }
+        if (!ModelState.IsValid)
+        {
+            ViewBag.Members = task.Group.Members.Select(m => m.User).Where(u => u != null).ToList();
+            ViewBag.AssignedUserIds = selectedIds;
+            return View(model);
+        }
+
+        // Update task fields
+        task.Title = model.Title;
+        task.Description = model.Description;
+        task.StartDate = model.StartDate?.Date;
+        task.DueDate = model.DueDate;
+        task.Priority = model.Priority;
+        task.UpdatedAt = DateTime.UtcNow;
+
+        // Manage assignments: mark removed those not selected, add new for those selected
+        var existing = task.Assignments?.Where(a => a.RemovedAt == null).ToList() ?? new List<TaskAssignment>();
+        var existingIds = existing.Select(a => a.AssignedToId).ToHashSet();
+
+        // Add new assignments
+        foreach (var id in selectedIds.Where(s => !existingIds.Contains(s)))
+        {
+            var assignment = new TaskAssignment { TaskId = task.Id, AssignedToId = id, AssignedByUserId = currentUser.Id, AssignedAt = DateTime.UtcNow };
+            _context.TaskAssignments.Add(assignment);
+        }
+
+        // Remove assignments that were unselected
+        foreach (var a in existing.Where(a => !selectedIds.Contains(a.AssignedToId)))
+        {
+            a.RemovedAt = DateTime.UtcNow;
+            _context.TaskAssignments.Update(a);
+        }
+
+        // Update single AssignedToId to first selected or null
+        task.AssignedToId = selectedIds.FirstOrDefault();
+
+        _context.Tasks.Update(task);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Task updated successfully.";
+        return RedirectToAction("Details", new { id = task.Id });
     }
 
     // Student task request flow - renamed to avoid hiding ControllerBase.Request
@@ -507,6 +644,10 @@ public class TasksController : Controller
         // Can approve completion if admin, professor, or lead
         ViewBag.CanApproveCompletion = isAdmin || isProfessor || isLead;
 
+        // Can archive if admin, professor, or lead (and not already archived)
+        ViewBag.CanArchiveTask = (isAdmin || isProfessor || isLead) && !task.ArchivedAt.HasValue;
+        ViewBag.IsArchived = task.ArchivedAt.HasValue;
+
         // Load assignments
         var assignments = await _context.TaskAssignments
             .Where(ta => ta.TaskId == id && ta.RemovedAt == null)
@@ -532,6 +673,15 @@ public class TasksController : Controller
             .Skip((notesPage - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
+
+        // Ensure User navigation is loaded for each note
+        foreach (var note in notes)
+        {
+            if (note.User == null && !string.IsNullOrEmpty(note.UserId))
+            {
+                note.User = await _context.Users.FindAsync(note.UserId);
+            }
+        }
 
         // Load contributions for display
         var contributions = await _context.Contributions
@@ -597,7 +747,7 @@ public class TasksController : Controller
         await _context.SaveChangesAsync();
 
         TempData["SuccessMessage"] = "Note added.";
-        return RedirectToAction("Details", new { id = taskId });
+        return RedirectToAction("Details", new { id = taskId, notesPage = 1 });
     }
 
     [HttpPost]
@@ -1239,5 +1389,210 @@ public class TasksController : Controller
         var bytes = global::TeamSync.Services.CsvExportService.GenerateContributionsCsvBytes(contributions, task, task.Group);
 
         return File(bytes, "text/csv; charset=utf-8", $"contributions_task_{taskId}.csv");
+    }
+
+    /// <summary>
+    /// Archive a task - soft delete with audit trail.
+    /// Only Lead/Professor/Admin can archive.
+    /// Cannot archive completed/rejected/already archived tasks.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ArchiveTask(int id, string? reason)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var task = await _context.Tasks.Include(t => t.Group).ThenInclude(g => g.Members).FirstOrDefaultAsync(t => t.Id == id);
+        if (task == null) return NotFound();
+        if (task.Group == null || !task.Group.IsActive)
+            return BadRequest("Cannot archive tasks for archived or missing group.");
+
+        // Authorization: Lead/Professor/Admin only
+        var currentMember = task.Group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        bool isLead = currentMember?.Role == "Lead";
+
+        if (!isAdmin && !isProfessor && !isLead)
+            return Forbid();
+
+        // Cannot archive already archived tasks
+        if (task.ArchivedAt.HasValue)
+        {
+            TempData["ErrorMessage"] = "Task is already archived.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        // Cannot archive completed tasks (preserve history)
+        if (task.Status == "Completed")
+        {
+            TempData["ErrorMessage"] = "Cannot archive completed tasks. They are preserved for accountability.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        // Cannot archive rejected tasks (preserve history)
+        if (task.Status == "Rejected")
+        {
+            TempData["ErrorMessage"] = "Cannot archive rejected tasks. They are preserved for accountability.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        // Validate reason length
+        if (!string.IsNullOrWhiteSpace(reason) && reason.Length > 1000)
+        {
+            TempData["ErrorMessage"] = "Archive reason cannot exceed 1000 characters.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        // Archive the task (soft delete)
+        task.ArchivedAt = DateTime.UtcNow;
+        task.ArchivedById = currentUser.Id;
+        task.ArchiveReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        task.UpdatedAt = DateTime.UtcNow;
+
+        _context.Tasks.Update(task);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Task {TaskId} archived by {UserId} with reason: {Reason}", 
+            task.Id, currentUser.Id, task.ArchiveReason ?? "No reason provided");
+
+        TempData["SuccessMessage"] = "Task archived successfully.";
+        return RedirectToAction("Details", "Groups", new { id = task.GroupId });
+    }
+
+    /// <summary>
+    /// Restore an archived task.
+    /// Only the user who archived it, or Admin/Professor can restore.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RestoreTask(int id)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var task = await _context.Tasks.Include(t => t.Group).ThenInclude(g => g.Members).FirstOrDefaultAsync(t => t.Id == id);
+        if (task == null) return NotFound();
+        if (task.Group == null || !task.Group.IsActive)
+            return BadRequest("Cannot restore tasks for archived or missing group.");
+
+        // Authorization: Task archiver, Professor, Admin
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        bool isArchiver = task.ArchivedById == currentUser.Id;
+
+        if (!isAdmin && !isProfessor && !isArchiver)
+            return Forbid();
+
+        // Cannot restore if not archived
+        if (!task.ArchivedAt.HasValue)
+        {
+            TempData["ErrorMessage"] = "Task is not archived.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        // Restore the task
+        task.ArchivedAt = null;
+        task.ArchivedById = null;
+        task.ArchiveReason = null;
+        task.UpdatedAt = DateTime.UtcNow;
+
+        _context.Tasks.Update(task);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Task {TaskId} restored by {UserId}", task.Id, currentUser.Id);
+
+        TempData["SuccessMessage"] = "Task restored successfully.";
+        return RedirectToAction("Details", new { id = task.Id });
+    }
+
+    /// <summary>
+    /// Hard delete a task (admin only).
+    /// Only Admin can permanently delete tasks.
+    /// Removes all associated data (contributions, notes, assignments).
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> HardDeleteTask(int id)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        // Admin only
+        if (!User.IsInRole("Admin"))
+            return Forbid();
+
+        var task = await _context.Tasks
+            .Include(t => t.Contributions)
+            .Include(t => t.Notes)
+            .Include(t => t.Assignments)
+            .Include(t => t.Group)
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        if (task == null) return NotFound();
+
+        int groupId = task.GroupId ?? 0;
+
+        // Delete all related records first
+        _context.ContributionHistories.RemoveRange(
+            await _context.ContributionHistories
+                .Where(ch => ch.Contribution.TaskId == task.Id)
+                .ToListAsync()
+        );
+
+        _context.Contributions.RemoveRange(task.Contributions);
+        _context.TaskNotes.RemoveRange(task.Notes);
+        _context.TaskAssignments.RemoveRange(task.Assignments);
+
+        // Delete the task itself
+        _context.Tasks.Remove(task);
+        await _context.SaveChangesAsync();
+
+        _logger.LogWarning("Task {TaskId} permanently deleted by Admin {UserId}", task.Id, currentUser.Id);
+
+        TempData["SuccessMessage"] = "Task permanently deleted.";
+        return RedirectToAction("Details", "Groups", new { id = groupId });
+    }
+
+    /// <summary>
+    /// View archived tasks for a group.
+    /// Only Lead/Professor/Admin can view archived tasks.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> ArchivedTasks(int groupId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var group = await _context.Groups
+            .Include(g => g.Members)
+            .FirstOrDefaultAsync(g => g.Id == groupId);
+
+        if (group == null) return NotFound();
+
+        // Authorization: Member of group, Lead, Professor, or Admin
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        var currentMember = group.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
+        bool isLead = currentMember?.Role == "Lead";
+        bool isMember = currentMember != null;
+
+        if (!isAdmin && !isProfessor && !isLead && !isMember)
+            return Forbid();
+
+        var archivedTasks = await _context.Tasks
+            .Where(t => t.GroupId == groupId && t.ArchivedAt.HasValue)
+            .Include(t => t.AssignedTo)
+            .Include(t => t.CreatedBy)
+            .Include(t => t.ArchivedBy)
+            .OrderByDescending(t => t.ArchivedAt)
+            .ToListAsync();
+
+        ViewBag.GroupId = groupId;
+        ViewBag.GroupName = group.Name;
+        ViewBag.CanManageTasks = isAdmin || isProfessor || isLead;
+
+        return View(archivedTasks);
     }
 }

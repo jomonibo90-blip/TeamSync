@@ -52,6 +52,14 @@ public class Task
     // Approval notes / reason for approval/rejection
     public string? ApprovalNotes { get; set; }
 
+    // Archive/Delete Governance (Item #0)
+    public DateTime? ArchivedAt { get; set; }
+    public string? ArchivedById { get; set; }
+    public User? ArchivedBy { get; set; }
+    
+    [StringLength(1000)]
+    public string? ArchiveReason { get; set; }
+
     // Concurrency token
     [Timestamp]
     public byte[]? RowVersion { get; set; }
