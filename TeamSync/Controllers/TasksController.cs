@@ -1235,24 +1235,49 @@ public class TasksController : Controller
             .OrderByDescending(c => c.ContributedAt)
             .ToListAsync();
 
-        var csv = new System.Text.StringBuilder();
-        csv.AppendLine("Id,User,RecordedBy,ContributedAt,Hours,Description,Notes,Source");
-        foreach (var c in contributions)
+        // Helper to escape CSV fields: wrap in quotes, double any existing quotes
+        string EscapeCsv(string? input)
         {
-            var line = string.Format("{0},\"{1}\",\"{2}\",{3},{4},\"{5}\",\"{6}\",\"{7}\"",
-                c.Id,
-                (c.User != null ? c.User.FirstName + " " + c.User.LastName : c.UserId),
-                (c.RecordedBy != null ? c.RecordedBy.FirstName + " " + c.RecordedBy.LastName : c.RecordedById ?? ""),
-                c.ContributedAt.ToString("o"),
-                c.HoursSpent?.ToString() ?? "",
-                (c.Description ?? string.Empty).Replace("\"", "\'"),
-                (c.Notes ?? string.Empty).Replace("\"", "\'"),
-                (c.Source ?? string.Empty).Replace("\"", "\'")
-            );
-            csv.AppendLine(line);
+            if (string.IsNullOrEmpty(input)) return "";
+            var escaped = input.Replace("\"", "\"\"");
+            return $"\"{escaped}\"";
         }
 
-        var bytes = System.Text.Encoding.UTF8.GetBytes(csv.ToString());
-        return File(bytes, "text/csv", $"contributions_task_{taskId}.csv");
+        var sb = new System.Text.StringBuilder();
+        // Header
+        sb.AppendLine("Id,UserName,UserEmail,RecordedByName,RecordedByEmail,ContributedAt,Hours,Description,Notes,Source");
+
+        foreach (var c in contributions)
+        {
+            var userName = c.User != null ? (c.User.FirstName + " " + c.User.LastName).Trim() : c.UserId;
+            var userEmail = c.User?.Email ?? string.Empty;
+            var recordedByName = c.RecordedBy != null ? (c.RecordedBy.FirstName + " " + c.RecordedBy.LastName).Trim() : (c.RecordedById ?? string.Empty);
+            var recordedByEmail = c.RecordedBy?.Email ?? string.Empty;
+
+            var fields = new[]
+            {
+                c.Id.ToString(),
+                EscapeCsv(userName),
+                EscapeCsv(userEmail),
+                EscapeCsv(recordedByName),
+                EscapeCsv(recordedByEmail),
+                EscapeCsv(c.ContributedAt.ToString("o")),
+                EscapeCsv(c.HoursSpent?.ToString() ?? string.Empty),
+                EscapeCsv(c.Description ?? string.Empty),
+                EscapeCsv(c.Notes ?? string.Empty),
+                EscapeCsv(c.Source ?? string.Empty)
+            };
+
+            sb.AppendLine(string.Join(',', fields));
+        }
+
+        // Prepend UTF-8 BOM to help Excel detect UTF-8
+        var utf8Preamble = System.Text.Encoding.UTF8.GetPreamble();
+        var csvBytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+        var bytes = new byte[utf8Preamble.Length + csvBytes.Length];
+        Buffer.BlockCopy(utf8Preamble, 0, bytes, 0, utf8Preamble.Length);
+        Buffer.BlockCopy(csvBytes, 0, bytes, utf8Preamble.Length, csvBytes.Length);
+
+        return File(bytes, "text/csv; charset=utf-8", $"contributions_task_{taskId}.csv");
     }
 }
