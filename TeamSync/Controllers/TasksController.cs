@@ -202,6 +202,15 @@ public class TasksController : Controller
                 ViewBag.Members = group.Members.Select(m => m.User).ToList();
                 return View(model);
             }
+
+            // Prevent assigning tasks to professors
+            var assignedUser = group.Members.FirstOrDefault(m => m.UserId == model.AssignedToId)?.User;
+            if (assignedUser != null && await _userManager.IsInRoleAsync(assignedUser, "Professor"))
+            {
+                ModelState.AddModelError("AssignedToId", "Tasks cannot be assigned to professors.");
+                ViewBag.Members = group.Members.Select(m => m.User).ToList();
+                return View(model);
+            }
         }
 
         var task = new global::TeamSync.Models.Task
@@ -318,9 +327,21 @@ public class TasksController : Controller
                 ModelState.AddModelError("AssignedUserIds", "One or more selected users are not members of the group.");
             }
         }
+
+        // Prevent assigning tasks to professors
+        foreach (var id in selectedIds)
+        {
+            var member = task.Group.Members.FirstOrDefault(m => m.UserId == id);
+            if (member?.User != null && await _userManager.IsInRoleAsync(member.User, "Professor"))
+            {
+                ModelState.AddModelError("AssignedUserIds", "Tasks cannot be assigned to professors.");
+                break;
+            }
+        }
+
         if (!ModelState.IsValid)
         {
-            ViewBag.Members = task.Group.Members.Select(m => m.User).Where(u => u != null).ToList();
+            ViewBag.Members = task.Group.Members.Select(m => m.User).OfType<Models.User>().ToList();
             ViewBag.AssignedUserIds = selectedIds;
             return View(model);
         }
@@ -1145,6 +1166,13 @@ public class TasksController : Controller
         var targetMember = task.Group.Members.FirstOrDefault(m => m.UserId == userId);
         if (targetMember == null)
             return BadRequest("User must be a member of the group.");
+
+        // Prevent assigning tasks to professors
+        if (targetMember.User != null && await _userManager.IsInRoleAsync(targetMember.User, "Professor"))
+        {
+            TempData["ErrorMessage"] = "Tasks cannot be assigned to professors.";
+            return RedirectToAction("Details", new { id = taskId });
+        }
 
         // Check if already assigned
         var existingAssignment = await _context.TaskAssignments.FirstOrDefaultAsync(ta => ta.TaskId == taskId && ta.AssignedToId == userId && ta.RemovedAt == null);

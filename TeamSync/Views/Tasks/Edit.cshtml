@@ -1,4 +1,6 @@
 @model TeamSync.ViewModels.TaskEditViewModel
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<TeamSync.Models.User> UserManager
 @{
     ViewData["Title"] = "Edit Task";
 }
@@ -33,11 +35,15 @@
                     var assignedIds = (ViewBag.AssignedUserIds as List<string>) ?? new List<string>();
                     foreach (var u in (List<TeamSync.Models.User>)ViewBag.Members)
                     {
-                        var isChecked = assignedIds.Contains(u.Id);
-                        <label class="ts-checkbox-item">
-                            <input type="checkbox" name="AssignedUserIds" value="@u.Id" @(isChecked ? "checked" : "") class="ts-checkbox" />
-                            <span class="ts-checkbox-label">@u.FirstName @u.LastName (@u.Email)</span>
-                        </label>
+                        var isProfessor = UserManager.IsInRoleAsync(u, "Professor").Result;
+                        if (!isProfessor)
+                        {
+                            var isChecked = assignedIds.Contains(u.Id);
+                            <label class="ts-checkbox-item">
+                                <input type="checkbox" name="AssignedUserIds" value="@u.Id" @(isChecked ? "checked" : "") class="ts-checkbox" />
+                                <span class="ts-checkbox-label">@u.FirstName @u.LastName (@u.Email)</span>
+                            </label>
+                        }
                     }
                 }
             </div>
