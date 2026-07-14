@@ -123,6 +123,10 @@
                 <span class="ts-status @statusClass">@Model.Status</span>
             </div>
             <div class="ts-task-detail-row">
+                <span class="ts-label-sm ts-text-secondary">Start Date</span>
+                <span class="@(Model.StartDate.HasValue && Model.StartDate.Value.Date < DateTime.UtcNow.Date ? "ts-task-date-overdue" : "")">@(Model.StartDate?.ToString("MMM dd, yyyy") ?? "No start date")</span>
+            </div>
+            <div class="ts-task-detail-row">
                 <span class="ts-label-sm ts-text-secondary">Due Date</span>
                 <span class="@(Model.DueDate.HasValue && Model.DueDate.Value.Date < DateTime.UtcNow.Date ? "ts-task-date-overdue" : "")">@(Model.DueDate?.ToString("MMM dd, yyyy") ?? "No due date")</span>
             </div>

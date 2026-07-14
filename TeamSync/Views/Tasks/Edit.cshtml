@@ -25,27 +25,32 @@
     </div>
 
     <div class="ts-form-group">
-        <label asp-for="AssignedToId" class="ts-label">Assign To (optional)</label>
+        <label class="ts-label">Assign To (Multi-Select)</label>
         <div class="ts-input-wrapper">
-            <select asp-for="AssignedToId" class="ts-input">
-                <option value="">-- Unassigned --</option>
+            <div id="assigneeMultiSelect" class="ts-multi-select">
                 @if (ViewBag.Members != null)
                 {
+                    var assignedIds = (ViewBag.AssignedUserIds as List<string>) ?? new List<string>();
                     foreach (var u in (List<TeamSync.Models.User>)ViewBag.Members)
                     {
-                        if (Model.AssignedToId == u.Id)
-                        {
-                            <option value="@u.Id" selected="selected">@u.FirstName @u.LastName (@u.Email)</option>
-                        }
-                        else
-                        {
-                            <option value="@u.Id">@u.FirstName @u.LastName (@u.Email)</option>
-                        }
+                        var isChecked = assignedIds.Contains(u.Id);
+                        <label class="ts-checkbox-item">
+                            <input type="checkbox" name="AssignedUserIds" value="@u.Id" @(isChecked ? "checked" : "") class="ts-checkbox" />
+                            <span class="ts-checkbox-label">@u.FirstName @u.LastName (@u.Email)</span>
+                        </label>
                     }
                 }
-            </select>
+            </div>
         </div>
-        <span asp-validation-for="AssignedToId" class="ts-validation-error"></span>
+        <span class="ts-body-xs ts-text-secondary" style="margin-top: 0.5rem; display: block;">Select one or more team members to assign this task</span>
+    </div>
+
+    <div class="ts-form-group">
+        <label asp-for="StartDate" class="ts-label">Start Date</label>
+        <div class="ts-input-wrapper">
+            <input asp-for="StartDate" type="date" class="ts-input" />
+        </div>
+        <span asp-validation-for="StartDate" class="ts-validation-error"></span>
     </div>
 
     <div class="ts-form-group">
@@ -98,4 +103,38 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <style>
+        .ts-multi-select {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: var(--ts-surface-container);
+            border-radius: var(--ts-radius-md);
+            border: 1px solid var(--ts-border);
+        }
+
+        .ts-checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            transition: background-color 0.2s ease;
+        }
+
+        .ts-checkbox-item:hover {
+            background-color: var(--ts-surface);
+        }
+
+        .ts-checkbox-item input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .ts-checkbox-label {
+            cursor: pointer;
+            flex: 1;
+        }
+    </style>
 }

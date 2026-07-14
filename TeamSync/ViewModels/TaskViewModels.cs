@@ -16,6 +16,8 @@ namespace TeamSync.ViewModels
 
         public string? AssignedToId { get; set; }
 
+        public DateTime? StartDate { get; set; }
+
         public DateTime? DueDate { get; set; }
 
         [Range(1, 3)]
@@ -46,6 +48,7 @@ namespace TeamSync.ViewModels
         public string? AssignedToName { get; set; }
         public string? CreatedById { get; set; }
         public string? CreatedByName { get; set; }
+        public DateTime? StartDate { get; set; }
         public DateTime? DueDate { get; set; }
         public int Priority { get; set; }
         public string? Description { get; set; }
@@ -87,6 +90,10 @@ namespace TeamSync.ViewModels
         public string? Description { get; set; }
 
         public string? AssignedToId { get; set; }
+
+        public List<string> AssignedUserIds { get; set; } = new List<string>();
+
+        public DateTime? StartDate { get; set; }
 
         public DateTime? DueDate { get; set; }
 

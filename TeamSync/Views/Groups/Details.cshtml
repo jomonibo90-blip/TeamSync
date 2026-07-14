@@ -391,6 +391,9 @@
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="taskId" value="@t.Id" />
 
+                                <label class="ts-label-sm ts-requested-field-label">Start</label>
+                                <input type="date" name="startDate" value="@DateTime.UtcNow.ToString("yyyy-MM-dd")" class="ts-input ts-requested-start-input" />
+
                                 <label class="ts-label-sm ts-requested-field-label">Due</label>
                                 <input type="date" name="dueDate" value="@DateTime.UtcNow.AddDays(7).ToString("yyyy-MM-dd")" class="ts-input ts-requested-due-input" required />
 

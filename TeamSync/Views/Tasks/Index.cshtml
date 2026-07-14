@@ -28,6 +28,7 @@
     };
 
     var currentUserId = (ViewBag.CurrentUserId as string) ?? string.Empty;
+    var taskAssignments = (ViewBag.TaskAssignments as Dictionary<int, int>) ?? new Dictionary<int, int>();
 }
 
 <div class="ts-task-page-header">
@@ -88,6 +89,7 @@ else
         @foreach (var t in Model)
         {
             var assigneeInitial = string.IsNullOrWhiteSpace(t.AssignedToName) ? "U" : t.AssignedToName.Trim()[0].ToString().ToUpperInvariant();
+            var assigneeCount = taskAssignments.ContainsKey(t.Id) ? taskAssignments[t.Id] : 0;
             <article class="ts-task-item">
                 <div class="ts-task-item-top">
                     <div class="ts-task-title-wrap">
@@ -104,6 +106,16 @@ else
 
                 <div class="ts-task-item-meta">
                     <span class="ts-status @StatusClass(t.Status)">@t.Status</span>
+
+                    @* Show Start Date if present *@
+                    @if (t.StartDate.HasValue)
+                    {
+                        <span class="ts-task-date @(t.StartDate.Value.Date < DateTime.UtcNow.Date ? "ts-task-date-overdue" : "")">
+                            <span class="material-symbols-outlined" style="font-size:16px;">play_arrow</span>
+                            @(t.StartDate.Value.ToString("MMM dd"))
+                        </span>
+                    }
+
                     <span class="ts-task-date @(t.DueDate.HasValue && t.DueDate.Value.Date < DateTime.UtcNow.Date ? "ts-task-date-overdue" : "")">
                         <span class="material-symbols-outlined" style="font-size:16px;">calendar_month</span>
                         @(t.DueDate?.ToString("MMM dd") ?? "No due date")
@@ -113,7 +125,13 @@ else
                 <div class="ts-task-item-footer">
                     <div class="ts-task-assignee">
                         <span class="ts-avatar-sm">@assigneeInitial</span>
-                        <span class="ts-body-sm">@(t.AssignedToName ?? "Unassigned")</span>
+                        <div class="ts-assignee-info">
+                            <span class="ts-body-sm">@(t.AssignedToName ?? "Unassigned")</span>
+                            @if (assigneeCount > 0)
+                            {
+                                <span class="ts-body-xs ts-text-secondary">+@assigneeCount @(assigneeCount == 1 ? "team member" : "team members")</span>
+                            }
+                        </div>
                     </div>
                     <div class="ts-task-links">
                         <span class="ts-body-sm ts-text-secondary">@(t.GroupName ?? "No project")</span>
@@ -175,3 +193,11 @@ else
         });
     </script>
 }
+
+<style>
+    .ts-assignee-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+</style>

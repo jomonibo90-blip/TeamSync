@@ -12,6 +12,7 @@
 - Final status changes must be approved by the task creator (`CreatedById`) with oversight from a professor.
 - Implement a progress bar UI layout on the Student Dashboard to display real project completion data (completed tasks vs total tasks) in Sprint 2.
 - Professors should be able to monitor progress, tasks, and individual contribution activity to ensure accountability and support.
+- Tasks may have an optional `StartDate` when assigned; the UI and model should support assigning a start date.
 
 ## Commit Message Guidelines
 - Use conventional commits format for commit messages (e.g., `feat:`, `fix:`).

@@ -25,6 +25,9 @@ public class Task
 
     public DateTime? DueDate { get; set; }
 
+    // New: optional start date when a task is scheduled/assigned
+    public DateTime? StartDate { get; set; }
+
     public int Priority { get; set; } = 2;
 
     [StringLength(50)]

@@ -78,6 +78,7 @@ public class TasksController : Controller
                 AssignedToName = t.AssignedTo != null ? $"{t.AssignedTo.FirstName} {t.AssignedTo.LastName}" : null,
                 CreatedById = t.CreatedById,
                 CreatedByName = t.CreatedBy != null ? $"{t.CreatedBy.FirstName} {t.CreatedBy.LastName}" : null,
+                StartDate = t.StartDate,
                 DueDate = t.DueDate,
                 Priority = t.Priority,
                 Description = t.Description,
@@ -102,6 +103,16 @@ public class TasksController : Controller
         ViewBag.CanCreateTask = canCreateTask;
         ViewBag.CanRequestTask = !canCreateTask && isMemberInAnyGroup;
         ViewBag.CurrentUserId = currentUser.Id; // used by view to show card-level actions
+
+        // Load assignee counts for each task
+        var taskIds = vm.Select(t => t.Id).ToList();
+        var assignmentCounts = await _context.TaskAssignments
+            .Where(ta => taskIds.Contains(ta.TaskId) && ta.RemovedAt == null)
+            .GroupBy(ta => ta.TaskId)
+            .Select(g => new { TaskId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.TaskId, x => x.Count);
+
+        ViewBag.TaskAssignments = assignmentCounts;
 
         return View(vm);
     }
@@ -133,7 +144,7 @@ public class TasksController : Controller
             return Forbid();
 
         ViewBag.Members = group.Members.Select(m => m.User).Where(u => u != null).ToList();
-        var vm = new TaskCreateViewModel { GroupId = groupId, DueDate = DateTime.UtcNow.AddDays(7) };
+        var vm = new TaskCreateViewModel { GroupId = groupId, StartDate = DateTime.UtcNow.Date, DueDate = DateTime.UtcNow.AddDays(7) };
         return View(vm);
     }
 
@@ -197,6 +208,7 @@ public class TasksController : Controller
             GroupId = model.GroupId,
             AssignedToId = model.AssignedToId,
             CreatedById = currentUser.Id,
+            StartDate = model.StartDate?.Date,
             DueDate = model.DueDate,
             Priority = model.Priority,
             Status = "Pending",
@@ -275,7 +287,7 @@ public class TasksController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ApproveRequest(int taskId, DateTime? dueDate, string? assignedToId)
+    public async Task<IActionResult> ApproveRequest(int taskId, DateTime? dueDate, DateTime? startDate, string? assignedToId)
     {
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
@@ -311,6 +323,18 @@ public class TasksController : Controller
             return RedirectToAction("Details", "Groups", new { id = task.GroupId });
         }
 
+        if (startDate.HasValue && startDate.Value.Date < todayUtc)
+        {
+            TempData["ErrorMessage"] = "Start date cannot be in the past.";
+            return RedirectToAction("Details", "Groups", new { id = task.GroupId });
+        }
+
+        if (dueDate.HasValue && startDate.HasValue && startDate.Value.Date > dueDate.Value.Date)
+        {
+            TempData["ErrorMessage"] = "Start date cannot be after due date.";
+            return RedirectToAction("Details", "Groups", new { id = task.GroupId });
+        }
+
         // If approver explicitly provided an assignee, validate membership
         if (!string.IsNullOrWhiteSpace(assignedToId))
         {
@@ -340,6 +364,7 @@ public class TasksController : Controller
             }
         }
 
+        task.StartDate = startDate?.Date ?? todayUtc;
         task.DueDate = (dueDate?.Date ?? todayUtc.AddDays(7));
         task.Status = "Pending";
         task.UpdatedAt = DateTime.UtcNow;
@@ -347,7 +372,7 @@ public class TasksController : Controller
         _context.Tasks.Update(task);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Task request {TaskId} approved by {ApproverId} - AssignedTo: {AssignedToId} DueDate: {DueDate}", task.Id, currentUser.Id, task.AssignedToId ?? "Unassigned", task.DueDate);
+        _logger.LogInformation("Task request {TaskId} approved by {ApproverId} - AssignedTo: {AssignedToId} StartDate: {StartDate} DueDate: {DueDate}", task.Id, currentUser.Id, task.AssignedToId ?? "Unassigned", task.StartDate, task.DueDate);
 
         if (TempData["WarningMessage"] == null)
             TempData["SuccessMessage"] = "Task request approved and scheduled.";
@@ -383,7 +408,7 @@ public class TasksController : Controller
         if (task.Status != "Requested")
         {
             TempData["ErrorMessage"] = "Task is not in requested state.";
-            return RedirectToAction("Details", "Groups", new { id = task.GroupId });
+            return RedirectToAction("Details", new { id = task.GroupId });
         }
 
         task.Status = "Rejected";
@@ -392,7 +417,7 @@ public class TasksController : Controller
         await _context.SaveChangesAsync();
 
         TempData["SuccessMessage"] = "Task request rejected.";
-        return RedirectToAction("Details", "Groups", new { id = task.GroupId });
+        return RedirectToAction("Details", new { id = task.GroupId });
     }
 
     [HttpGet]
@@ -438,6 +463,7 @@ public class TasksController : Controller
             AssignedToName = task.AssignedTo != null ? $"{task.AssignedTo.FirstName} {task.AssignedTo.LastName}" : null,
             CreatedById = task.CreatedById,
             CreatedByName = task.CreatedBy != null ? $"{task.CreatedBy.FirstName} {task.CreatedBy.LastName}" : null,
+            StartDate = task.StartDate,
             DueDate = task.DueDate,
             Priority = task.Priority,
             ReviewRequestedById = task.ReviewRequestedById,
@@ -508,6 +534,7 @@ public class TasksController : Controller
 
         var task = await _context.Tasks
             .Include(t => t.Group).ThenInclude(g => g.Members).ThenInclude(m => m.User)
+            .Include(t => t.Assignments)
             .FirstOrDefaultAsync(t => t.Id == id);
 
         if (task == null) return NotFound();
@@ -522,6 +549,11 @@ public class TasksController : Controller
         if (!isAdmin && !isProfessor && !isLead && task.CreatedById != currentUser.Id)
             return Forbid();
 
+        var assignedUserIds = task.Assignments
+            .Where(a => a.RemovedAt == null)
+            .Select(a => a.AssignedToId)
+            .ToList();
+
         var vm = new global::TeamSync.ViewModels.TaskEditViewModel
         {
             Id = task.Id,
@@ -529,11 +561,14 @@ public class TasksController : Controller
             Title = task.Title,
             Description = task.Description,
             AssignedToId = task.AssignedToId,
+            AssignedUserIds = assignedUserIds,
+            StartDate = task.StartDate,
             DueDate = task.DueDate,
             Priority = task.Priority
         };
 
         ViewBag.Members = task.Group.Members.Select(m => m.User).Where(u => u != null).ToList();
+        ViewBag.AssignedUserIds = assignedUserIds;
         return View(vm);
     }
 
@@ -548,6 +583,7 @@ public class TasksController : Controller
 
         var task = await _context.Tasks
             .Include(t => t.Group).ThenInclude(g => g.Members).ThenInclude(m => m.User)
+            .Include(t => t.Assignments)
             .FirstOrDefaultAsync(t => t.Id == model.Id);
 
         if (task == null) return NotFound();
@@ -562,25 +598,56 @@ public class TasksController : Controller
         if (!isAdmin && !isProfessor && !isLead && task.CreatedById != currentUser.Id)
             return Forbid();
 
-        // If assigning, ensure AssignedToId is a member
-        if (!string.IsNullOrEmpty(model.AssignedToId))
+        // Validate assigned users are members
+        var assignedUserIds = model.AssignedUserIds ?? new List<string>();
+        foreach (var userId in assignedUserIds)
         {
-            var assignedIsMember = task.Group.Members.Any(m => m.UserId == model.AssignedToId);
+            var assignedIsMember = task.Group.Members.Any(m => m.UserId == userId);
             if (!assignedIsMember)
             {
-                ModelState.AddModelError("AssignedToId", "Assigned user must be a member of the group.");
+                ModelState.AddModelError("AssignedUserIds", $"User must be a member of the group.");
                 ViewBag.Members = task.Group.Members.Select(m => m.User).Where(u => u != null).ToList();
+                ViewBag.AssignedUserIds = assignedUserIds;
                 return View(model);
             }
         }
 
-        // Apply changes
+        // Apply basic changes
         task.Title = model.Title;
         task.Description = model.Description;
         task.AssignedToId = model.AssignedToId;
+        task.StartDate = model.StartDate?.Date;
         task.DueDate = model.DueDate;
         task.Priority = model.Priority;
         task.UpdatedAt = DateTime.UtcNow;
+
+        // Update task assignments
+        var currentAssignments = task.Assignments.Where(a => a.RemovedAt == null).ToList();
+        var currentAssignedUserIds = currentAssignments.Select(a => a.AssignedToId).ToList();
+
+        // Remove assignments not in the new list
+        foreach (var assignment in currentAssignments)
+        {
+            if (!assignedUserIds.Contains(assignment.AssignedToId))
+            {
+                assignment.RemovedAt = DateTime.UtcNow;
+            }
+        }
+
+        // Add new assignments
+        foreach (var userId in assignedUserIds)
+        {
+            if (!currentAssignedUserIds.Contains(userId))
+            {
+                task.Assignments.Add(new TaskAssignment
+                {
+                    TaskId = task.Id,
+                    AssignedToId = userId,
+                    AssignedByUserId = currentUser.Id,
+                    AssignedAt = DateTime.UtcNow
+                });
+            }
+        }
 
         _context.Tasks.Update(task);
         await _context.SaveChangesAsync();

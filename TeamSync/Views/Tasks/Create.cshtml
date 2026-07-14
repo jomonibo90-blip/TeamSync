@@ -41,6 +41,14 @@
     </div>
 
     <div class="ts-form-group">
+        <label asp-for="StartDate" class="ts-label">Start Date (optional)</label>
+        <div class="ts-input-wrapper">
+            <input asp-for="StartDate" type="date" class="ts-input" />
+        </div>
+        <span asp-validation-for="StartDate" class="ts-validation-error"></span>
+    </div>
+
+    <div class="ts-form-group">
         <label asp-for="DueDate" class="ts-label">Due Date</label>
         <div class="ts-input-wrapper">
             <input asp-for="DueDate" type="date" class="ts-input" />
