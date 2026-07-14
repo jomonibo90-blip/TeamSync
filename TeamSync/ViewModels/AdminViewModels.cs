@@ -93,11 +93,27 @@ public class StudentProgressViewModel
     public decimal TotalHoursContributed { get; set; }
     public int ContributionsCount { get; set; }
     
+    // Weekly contribution score (0-10 scale)
+    public decimal WeeklyContributionScore { get; set; }
+    
+    // Upcoming tasks (next 7 days)
+    public List<UpcomingTaskViewModel> UpcomingTasks { get; set; } = new();
+    
     public decimal CompletionPercentage => TotalTasks > 0 
         ? (CompletedTasks * 100m) / TotalTasks 
         : 0;
     
     public Dictionary<int, GroupProgressViewModel> GroupProgress { get; set; } = new();
+}
+
+public class UpcomingTaskViewModel
+{
+    public int TaskId { get; set; }
+    public string TaskTitle { get; set; } = string.Empty;
+    public string GroupName { get; set; } = string.Empty;
+    public DateTime? DueDate { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public int DaysUntilDue { get; set; }
 }
 
 public class GroupProgressViewModel

@@ -112,6 +112,7 @@ public class HomeController : Controller
             var groupIds = memberships.Where(m => m.Group != null).Select(m => m.Group!.Id).ToList();
             
             var allTasks = await _context.Tasks
+                .Include(t => t.Group)
                 .Where(t => t.GroupId.HasValue && groupIds.Contains(t.GroupId.Value) && t.AssignedToId == user.Id)
                 .ToListAsync();
 
@@ -128,6 +129,31 @@ public class HomeController : Controller
             var contributionsList = await contributionsQuery.ToListAsync();
             var totalHours = contributionsList.Sum(c => c.HoursSpent ?? 0m);
             var contributionsCount = contributionsList.Count;
+
+            // Calculate weekly contribution score (0-10 scale)
+            var oneWeekAgo = DateTime.UtcNow.AddDays(-7);
+            var weeklyContributions = contributionsList
+                .Where(c => c.ContributedAt >= oneWeekAgo)
+                .ToList();
+            
+            decimal weeklyScore = CalculateWeeklyScore(weeklyContributions, inProgressTasks, pendingTasks);
+
+            // Get upcoming tasks (next 7 days)
+            var sevenDaysFromNow = DateTime.UtcNow.AddDays(7);
+            var upcomingTasks = allTasks
+                .Where(t => t.DueDate.HasValue && t.DueDate.Value >= DateTime.UtcNow && t.DueDate.Value <= sevenDaysFromNow && t.Status != "Completed")
+                .OrderBy(t => t.DueDate)
+                .Take(5)
+                .Select(t => new UpcomingTaskViewModel
+                {
+                    TaskId = t.Id,
+                    TaskTitle = t.Title,
+                    GroupName = t.Group?.Name ?? "Unknown",
+                    DueDate = t.DueDate,
+                    Status = t.Status,
+                    DaysUntilDue = (int)(t.DueDate.Value.Date - DateTime.UtcNow.Date).TotalDays
+                })
+                .ToList();
 
             // Build per-group progress
             var groupProgress = new Dictionary<int, GroupProgressViewModel>();
@@ -148,6 +174,7 @@ public class HomeController : Controller
                 };
             }
 
+
             var studentViewModel = new StudentDashboardViewModel
             {
                 Groups = groupViewModels,
@@ -159,12 +186,31 @@ public class HomeController : Controller
                     PendingTasks = pendingTasks,
                     TotalHoursContributed = totalHours,
                     ContributionsCount = contributionsCount,
+                    WeeklyContributionScore = weeklyScore,
+                    UpcomingTasks = upcomingTasks,
                     GroupProgress = groupProgress
                 }
             };
 
             return View("StudentDashboard", studentViewModel);
         }
+    }
+
+    private decimal CalculateWeeklyScore(List<Contribution> weeklyContributions, int inProgressTasks, int pendingTasks)
+    {
+        // Score calculation:
+        // Base: 5 points
+        // + 0.5 points per contribution (up to 2.5 points max)
+        // + 1 point per hour contributed (up to 1.5 points max)
+        // - 0.5 per pending/overdue task
+        
+        var baseScore = 5m;
+        var contributionBonus = Math.Min(weeklyContributions.Count * 0.5m, 2.5m);
+        var hoursBonus = Math.Min(weeklyContributions.Sum(c => c.HoursSpent ?? 0m) * 0.1m, 1.5m);
+        var pendingPenalty = (inProgressTasks + pendingTasks) * 0.5m;
+        
+        var score = baseScore + contributionBonus + hoursBonus - pendingPenalty;
+        return Math.Max(0, Math.Min(10, score)); // Clamp between 0-10
     }
 
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
