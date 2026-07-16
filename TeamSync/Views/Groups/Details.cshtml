@@ -726,8 +726,8 @@ document.addEventListener('click', function(event) {
         </div>
     </div>
 
-    <!-- SignalR Script for Chat - using unpkg CDN -->
-    <script src="https://unpkg.com/@@microsoft/signalr@@latest/signalr.min.js" defer></script>
+    <!-- SignalR Script for Chat -->
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@@latest/dist/browser/signalr.js"></script>
     <script>
         window.chatConnection = null;
         const groupId = @Model.Id;
