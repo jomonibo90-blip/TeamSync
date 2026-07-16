@@ -13,11 +13,13 @@ public class NotificationHub : Hub
 {
     private readonly UserManager<User> _userManager;
     private readonly ApplicationDbContext _context;
+    private readonly ILogger<NotificationHub> _logger;
 
-    public NotificationHub(UserManager<User> userManager, ApplicationDbContext context)
+    public NotificationHub(UserManager<User> userManager, ApplicationDbContext context, ILogger<NotificationHub> logger)
     {
         _userManager = userManager;
         _context = context;
+        _logger = logger;
     }
 
     /// <summary>
@@ -62,30 +64,47 @@ public class NotificationHub : Hub
     /// <summary>
     /// Request unread notification count for the current user.
     /// </summary>
-    public async Task GetUnreadCount()
+    public async Task<int> GetUnreadCount()
     {
-        if (Context.User == null) return;
+        try
+        {
+            if (Context.User == null)
+            {
+                _logger.LogWarning("GetUnreadCount: Context.User is null");
+                return 0;
+            }
 
-        var user = await _userManager.GetUserAsync(Context.User);
-        if (user == null) return;
+            var user = await _userManager.GetUserAsync(Context.User);
+            if (user == null)
+            {
+                _logger.LogWarning("GetUnreadCount: User not found for identity: {Identity}", Context.User.Identity?.Name);
+                return 0;
+            }
 
-        var unreadCount = await _context.Notifications
-            .Where(n => n.UserId == user.Id && !n.IsRead)
-            .CountAsync();
+            var unreadCount = await _context.Notifications
+                .Where(n => n.UserId == user.Id && !n.IsRead)
+                .CountAsync();
 
-        await Clients.Caller.SendAsync("UnreadCountUpdated", unreadCount);
+            _logger.LogInformation("GetUnreadCount: Found {Count} unread notifications for user {UserId}", unreadCount, user.Id);
+            return unreadCount;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetUnreadCount");
+            throw;
+        }
     }
 
     /// <summary>
     /// Request recent notifications for the current user.
     /// Limited to last 10.
     /// </summary>
-    public async Task GetRecentNotifications(int limit = 10)
+    public async Task<List<object>> GetRecentNotifications(int limit = 10)
     {
-        if (Context.User == null) return;
+        if (Context.User == null) return new List<object>();
 
         var user = await _userManager.GetUserAsync(Context.User);
-        if (user == null) return;
+        if (user == null) return new List<object>();
 
         var notifications = await _context.Notifications
             .Where(n => n.UserId == user.Id)
@@ -104,6 +123,6 @@ public class NotificationHub : Hub
             })
             .ToListAsync();
 
-        await Clients.Caller.SendAsync("LoadRecentNotifications", notifications);
+        return notifications.Cast<object>().ToList();
     }
 }

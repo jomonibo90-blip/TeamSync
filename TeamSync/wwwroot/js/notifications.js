@@ -225,7 +225,9 @@ class NotificationClient {
     async requestUnreadCount() {
         if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
             try {
-                await this.connection.invoke("GetUnreadCount");
+                const count = await this.connection.invoke("GetUnreadCount");
+                this.unreadCount = count;
+                this.updateUnreadBadge();
             } catch (error) {
                 console.error("Error requesting unread count:", error);
             }
@@ -238,7 +240,9 @@ class NotificationClient {
     async requestRecentNotifications(limit = 10) {
         if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
             try {
-                await this.connection.invoke("GetRecentNotifications", limit);
+                const notifications = await this.connection.invoke("GetRecentNotifications", limit);
+                this.notifications = notifications;
+                this.refreshNotificationsUI();
             } catch (error) {
                 console.error("Error requesting recent notifications:", error);
             }
