@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using TeamSync.Models;
 using TeamSync.Data;
 using Task = System.Threading.Tasks.Task;
@@ -68,9 +69,9 @@ public class NotificationHub : Hub
         var user = await _userManager.GetUserAsync(Context.User);
         if (user == null) return;
 
-        var unreadCount = _context.Notifications
+        var unreadCount = await _context.Notifications
             .Where(n => n.UserId == user.Id && !n.IsRead)
-            .Count();
+            .CountAsync();
 
         await Clients.Caller.SendAsync("UnreadCountUpdated", unreadCount);
     }
@@ -86,10 +87,11 @@ public class NotificationHub : Hub
         var user = await _userManager.GetUserAsync(Context.User);
         if (user == null) return;
 
-        var notifications = _context.Notifications
+        var notifications = await _context.Notifications
             .Where(n => n.UserId == user.Id)
             .OrderByDescending(n => n.CreatedAt)
             .Take(limit)
+            .Include(n => n.Task)
             .Select(n => new
             {
                 n.Id,
@@ -100,7 +102,7 @@ public class NotificationHub : Hub
                 n.TaskId,
                 TaskTitle = n.Task != null ? n.Task.Title : null
             })
-            .ToList();
+            .ToListAsync();
 
         await Clients.Caller.SendAsync("LoadRecentNotifications", notifications);
     }
