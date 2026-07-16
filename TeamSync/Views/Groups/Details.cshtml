@@ -65,11 +65,14 @@
                 </form>
             }
         }
-        else
+
+        <!-- Message Group button - available to all group members -->
+        <button class="ts-btn ts-btn-secondary" onclick="openChatModal()">
+            <span class="material-symbols-outlined" style="font-size: 18px;">chat</span> Message Group
+        </button>
+
+        @if (!canManageMembers)
         {
-            <button class="ts-btn ts-btn-secondary" onclick="openChatModal()">
-                <span class="material-symbols-outlined" style="font-size: 18px;">chat</span> Message Group
-            </button>
             @if (isStudent || isProfessor)
             {
                 @if (Model.IsActive)
