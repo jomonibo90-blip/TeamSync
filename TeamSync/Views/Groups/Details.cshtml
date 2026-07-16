@@ -727,15 +727,48 @@ document.addEventListener('click', function(event) {
     </div>
 
     <!-- SignalR Script for Chat -->
-    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@latest/signalr.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@latest/signalr.min.js" defer></script>
     <script>
         window.chatConnection = null;
         const groupId = @Model.Id;
         const currentUserId = '@User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value';
         const currentUserName = '@User.Identity?.Name';
 
+        // Wait for SignalR to be available
+        function waitForSignalR() {
+            return new Promise((resolve) => {
+                if (typeof signalR !== 'undefined') {
+                    resolve();
+                } else {
+                    const checkInterval = setInterval(() => {
+                        if (typeof signalR !== 'undefined') {
+                            clearInterval(checkInterval);
+                            console.log("SignalR library loaded");
+                            resolve();
+                        }
+                    }, 100);
+                    // Timeout after 5 seconds
+                    setTimeout(() => {
+                        clearInterval(checkInterval);
+                        console.error("SignalR library failed to load within 5 seconds");
+                        resolve(); // Resolve anyway to attempt connection
+                    }, 5000);
+                }
+            });
+        }
+
         async function initializeChat() {
             console.log("Initializing chat for group:", groupId);
+
+            // Wait for SignalR library to load
+            await waitForSignalR();
+
+            if (typeof signalR === 'undefined') {
+                console.error("SignalR library is not available");
+                const container = document.getElementById('chatMessages');
+                container.innerHTML = '<div style="padding: 1rem; color: red; text-align: center;">Failed to load chat library. Please refresh the page.</div>';
+                return;
+            }
 
             if (window.chatConnection && window.chatConnection.state === 2) { // 2 = Connected
                 console.log("Connection already established");
@@ -780,7 +813,7 @@ document.addEventListener('click', function(event) {
             try {
                 console.log("Starting connection...");
                 await window.chatConnection.start();
-                console.log("Connection started successfully");
+                console.log("Connection started successfully, state:", window.chatConnection.state);
 
                 console.log("Joining group chat...");
                 await window.chatConnection.invoke("JoinGroupChat", groupId);
@@ -789,8 +822,10 @@ document.addEventListener('click', function(event) {
                 loadChatHistory();
             } catch (err) {
                 console.error("Chat connection error:", err);
+                console.error("Error message:", err.message);
+                console.error("Error toString:", err.toString());
                 const container = document.getElementById('chatMessages');
-                container.innerHTML = '<div style="padding: 1rem; color: red; text-align: center;">Failed to connect to chat. Please refresh the page.</div>';
+                container.innerHTML = `<div style="padding: 1rem; color: red; text-align: center;"><strong>Connection Failed:</strong><br/>${escapeHtml(err.message || err.toString())}</div>`;
             }
         }
 
