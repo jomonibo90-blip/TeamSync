@@ -16,11 +16,16 @@ class NotificationClient {
      * Initialize the SignalR connection and set up event handlers.
      */
     async init() {
+        // Wait for SignalR to be available
+        if (typeof signalR === 'undefined') {
+            console.warn('SignalR not available for notifications');
+            return;
+        }
+
         // Build the SignalR connection
         this.connection = new signalR.HubConnectionBuilder()
             .withUrl("/notificationHub")
             .withAutomaticReconnect([0, 0, 3000, 5000, 10000, 30000])
-            .withHubProtocol(new signalR.protocols.json.JsonHubProtocol())
             .build();
 
         // Set up event handlers
