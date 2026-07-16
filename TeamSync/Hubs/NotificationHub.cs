@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using TeamSync.Models;
 using TeamSync.Data;
-using Task = System.Threading.Tasks.Task;
 
 namespace TeamSync.Hubs;
 
@@ -25,7 +24,7 @@ public class NotificationHub : Hub
     /// <summary>
     /// Called when a user connects. Add them to their personal notification group.
     /// </summary>
-    public override async Task OnConnectedAsync()
+    public override async System.Threading.Tasks.Task OnConnectedAsync()
     {
         if (Context.User != null)
         {
@@ -43,7 +42,7 @@ public class NotificationHub : Hub
     /// <summary>
     /// Mark a notification as read by the client.
     /// </summary>
-    public async Task MarkAsRead(int notificationId)
+    public async System.Threading.Tasks.Task MarkAsRead(int notificationId)
     {
         if (Context.User == null) return;
 
