@@ -729,41 +729,41 @@ document.addEventListener('click', function(event) {
     <!-- SignalR Script for Chat -->
     <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@latest/signalr.min.js"></script>
     <script>
-        let chatConnection;
+        window.chatConnection = null;
         const groupId = @Model.Id;
 
         async function initializeChat() {
-            if (chatConnection && chatConnection.state === 'Connected') {
+            if (window.chatConnection && window.chatConnection.state === 'Connected') {
                 loadChatHistory();
                 return;
             }
 
-            chatConnection = new signalR.HubConnectionBuilder()
+            window.chatConnection = new signalR.HubConnectionBuilder()
                 .withUrl("/chatHub")
                 .withAutomaticReconnect()
                 .build();
 
-            chatConnection.on("ReceiveMessage", function (message) {
+            window.chatConnection.on("ReceiveMessage", function (message) {
                 displayMessage(message);
             });
 
-            chatConnection.on("LoadHistoryResponse", function (messages) {
+            window.chatConnection.on("LoadHistoryResponse", function (messages) {
                 clearMessages();
                 messages.forEach(msg => displayMessage(msg));
                 scrollToBottom();
             });
 
-            chatConnection.onreconnected(async function () {
+            window.chatConnection.onreconnected(async function () {
                 console.log("Chat reconnected");
                 loadChatHistory();
             });
 
             try {
-                await chatConnection.start();
-                await chatConnection.invoke("JoinGroupChat", groupId);
+                await window.chatConnection.start();
+                await window.chatConnection.invoke("JoinGroupChat", groupId);
                 loadChatHistory();
             } catch (err) {
-                console.error(err);
+                console.error("Chat connection error:", err);
             }
         }
 
@@ -791,8 +791,8 @@ document.addEventListener('click', function(event) {
         }
 
         function loadChatHistory() {
-            if (chatConnection && chatConnection.state === 'Connected') {
-                chatConnection.invoke("LoadHistory", groupId, 50);
+            if (window.chatConnection && window.chatConnection.state === 'Connected') {
+                window.chatConnection.invoke("LoadHistory", groupId, 50);
             }
         }
 
@@ -801,10 +801,12 @@ document.addEventListener('click', function(event) {
             const content = input.value.trim();
             if (!content) return;
 
-            if (chatConnection && chatConnection.state === 'Connected') {
-                chatConnection.invoke("SendMessage", groupId, content);
+            if (window.chatConnection && window.chatConnection.state === 'Connected') {
+                window.chatConnection.invoke("SendMessage", groupId, content);
                 input.value = '';
                 input.focus();
+            } else {
+                console.error("Chat connection not ready");
             }
         }
 
