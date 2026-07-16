@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using TeamSync.Data;
 using TeamSync.Models;
+using TeamSync.Services;
 using TeamSync.ViewModels;
 
 namespace TeamSync.Controllers;
@@ -16,12 +17,18 @@ public class TasksController : Controller
     private readonly ApplicationDbContext _context;
     private readonly UserManager<User> _userManager;
     private readonly ILogger<TasksController> _logger;
+    private readonly NotificationService _notificationService;
 
-    public TasksController(ApplicationDbContext context, UserManager<User> userManager, ILogger<TasksController> logger)
+    public TasksController(
+        ApplicationDbContext context,
+        UserManager<User> userManager,
+        ILogger<TasksController> logger,
+        NotificationService notificationService)
     {
         _context = context;
         _userManager = userManager;
         _logger = logger;
+        _notificationService = notificationService;
     }
 
     [HttpGet]
@@ -380,7 +387,20 @@ public class TasksController : Controller
         _context.Tasks.Update(task);
         await _context.SaveChangesAsync();
 
+        // Notify assigned users if assignment changed
+        var newlyAssignedIds = selectedIds.Where(id => !existingIds.Contains(id)).ToList();
+        if (newlyAssignedIds.Any())
+        {
+            var message = $"You have been assigned to task: {task.Title}";
+            await _notificationService.CreateNotificationsForUsersAsync(
+                newlyAssignedIds,
+                "StatusChange",
+                message,
+                task.Id);
+        }
+
         TempData["SuccessMessage"] = "Task updated successfully.";
+
         return RedirectToAction("Details", new { id = task.Id });
     }
 
@@ -857,6 +877,29 @@ public class TasksController : Controller
         _context.Tasks.Update(task);
         await _context.SaveChangesAsync();
 
+        // Notify task creator and group leads/professors that task is in progress
+        var recipientIds = new HashSet<string>();
+        if (!string.IsNullOrEmpty(task.CreatedById))
+            recipientIds.Add(task.CreatedById);
+
+        if (task.Group?.Members != null)
+        {
+            foreach (var member in task.Group.Members)
+            {
+                if (member.User != null && (member.Role == "Lead" || await _userManager.IsInRoleAsync(member.User, "Professor")))
+                    recipientIds.Add(member.UserId);
+            }
+        }
+
+        if (recipientIds.Any())
+        {
+            await _notificationService.CreateNotificationsForUsersAsync(
+                recipientIds.ToList(),
+                "StatusChange",
+                $"Task '{task.Title}' is now in progress.",
+                task.Id);
+        }
+
         TempData["SuccessMessage"] = "Task started.";
         return RedirectToAction("Details", new { id = task.Id });
     }
@@ -1012,6 +1055,35 @@ public class TasksController : Controller
                     await _context.SaveChangesAsync();
 
                     await transaction.CommitAsync();
+
+                    // Send notification to assigned user and watchers (creator, lead, professors)
+                    var recipientIds = new HashSet<string>();
+                    if (!string.IsNullOrEmpty(task.AssignedToId))
+                        recipientIds.Add(task.AssignedToId);
+                    if (!string.IsNullOrEmpty(task.CreatedById))
+                        recipientIds.Add(task.CreatedById);
+
+                    // Add group lead and professors
+                    if (task.Group?.Members != null)
+                    {
+                        foreach (var member in task.Group.Members)
+                        {
+                            if (member.User != null && (member.Role == "Lead" || 
+                                await _userManager.IsInRoleAsync(member.User, "Professor")))
+                            {
+                                recipientIds.Add(member.UserId);
+                            }
+                        }
+                    }
+
+                    if (recipientIds.Any())
+                    {
+                        await _notificationService.CreateNotificationsForUsersAsync(
+                            recipientIds.ToList(),
+                            "StatusChange",
+                            $"Task '{task.Title}' has been approved and marked as completed.",
+                            task.Id);
+                    }
                 }
                 catch (DbUpdateConcurrencyException)
                 {

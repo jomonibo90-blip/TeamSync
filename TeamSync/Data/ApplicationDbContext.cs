@@ -23,6 +23,9 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
     // Contribution history audit
     public DbSet<Models.ContributionHistory> ContributionHistories { get; set; }
 
+    // Real-time notifications
+    public DbSet<Models.Notification> Notifications { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -250,5 +253,28 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
 
         modelBuilder.Entity<Models.RemovalRequest>()
             .HasIndex(rr => rr.Status);
+
+        // Configure Notification relationships
+        modelBuilder.Entity<Models.Notification>()
+            .HasOne(n => n.User)
+            .WithMany()
+            .HasForeignKey(n => n.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Models.Notification>()
+            .HasOne(n => n.Task)
+            .WithMany()
+            .HasForeignKey(n => n.TaskId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Indices for notification queries
+        modelBuilder.Entity<Models.Notification>()
+            .HasIndex(n => n.UserId);
+
+        modelBuilder.Entity<Models.Notification>()
+            .HasIndex(n => n.IsRead);
+
+        modelBuilder.Entity<Models.Notification>()
+            .HasIndex(n => n.CreatedAt);
     }
 }

@@ -137,22 +137,35 @@
  <h2 class="ts-topbar-title ts-title-lg ts-text-primary">@ViewData["Title"]</h2>
             </div>
             <div class="ts-topbar-right">
-     <button class="ts-icon-btn">
-             <span class="material-symbols-outlined">notifications</span>
-      </button>
-         @if (User?.Identity?.IsAuthenticated ?? false)
-         {
-     <div class="ts-avatar ts-avatar-sm">
-    @{
-  var initial = User.Identity?.Name?.Substring(0, 1).ToUpper() ?? "U";
- }
-@initial
-       </div>
-    <a asp-controller="Account" asp-action="Logout" class="ts-icon-btn ts-hide-mobile" title="Logout">
-     <span class="material-symbols-outlined">logout</span>
-      </a>
-   }
- </div>
+                <!-- Notifications -->
+                <div class="ts-notification-container">
+                    <button id="notificationBtn" class="ts-icon-btn" onclick="toggleNotificationDropdown()" title="Notifications">
+                        <span class="material-symbols-outlined">notifications</span>
+                        <span id="notificationBadge" class="ts-badge" style="display:none;">0</span>
+                    </button>
+                    <div id="notificationDropdown" class="ts-notification-dropdown">
+                        <div class="ts-dropdown-header">
+                            <h3>Notifications</h3>
+                        </div>
+                        <div class="ts-dropdown-body">
+                            <div class="notification-empty">No notifications</div>
+                        </div>
+                    </div>
+                </div>
+
+                @if (User?.Identity?.IsAuthenticated ?? false)
+                {
+                    <div class="ts-avatar ts-avatar-sm">
+                        @{
+                            var initial = User.Identity?.Name?.Substring(0, 1).ToUpper() ?? "U";
+                        }
+                        @initial
+                    </div>
+                    <a asp-controller="Account" asp-action="Logout" class="ts-icon-btn ts-hide-mobile" title="Logout">
+                        <span class="material-symbols-outlined">logout</span>
+                    </a>
+                }
+            </div>
         </header>
 
       <!-- Main Content -->
@@ -166,6 +179,20 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
     <script src="~/lib/jquery-validation-unobtrusive/dist/jquery.validate.unobtrusive.min.js"></script>
+
+    <!-- SignalR Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.0/signalr.js"></script>
+
+    <!-- Notification System -->
+    <script src="~/js/notifications.js" asp-append-version="true"></script>
+
+    <!-- Set authenticated flag if user is logged in -->
+    @if (User?.Identity?.IsAuthenticated ?? false)
+    {
+        <script>
+            document.body.classList.add('authenticated');
+        </script>
+    }
 
     <script>
         // Mobile drawer toggle

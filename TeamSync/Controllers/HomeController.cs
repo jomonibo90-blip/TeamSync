@@ -151,7 +151,7 @@ public class HomeController : Controller
                     GroupName = t.Group?.Name ?? "Unknown",
                     DueDate = t.DueDate,
                     Status = t.Status,
-                    DaysUntilDue = (int)(t.DueDate.Value.Date - DateTime.UtcNow.Date).TotalDays
+                    DaysUntilDue = t.DueDate.HasValue ? (int)(t.DueDate.Value.Date - DateTime.UtcNow.Date).TotalDays : 0
                 })
                 .ToList();
 

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using TeamSync.Data;
+using TeamSync.Hubs;
 using TeamSync.Models;
 using TeamSync.Services;
 
@@ -9,6 +10,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
+
+// Add Signal R services
+builder.Services.AddSignalR();
 
 // Add Entity Framework DbContext
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -30,8 +34,12 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// Add DbInitializerService
+// Add custom services
 builder.Services.AddScoped<DbInitializerService>();
+builder.Services.AddScoped<NotificationService>();
+
+// Add background service for deadline checking
+builder.Services.AddHostedService<DeadlineCheckService>();
 
 var app = builder.Build();
 
@@ -57,6 +65,9 @@ app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Map SignalR hubs
+app.MapHub<NotificationHub>("/notificationHub");
 
 // Debug middleware: log 404s to help track down missing routes
 app.Use(async (context, next) =>

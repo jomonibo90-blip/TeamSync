@@ -8,6 +8,21 @@
     <p class="ts-body-lg ts-text-secondary">Here's a summary of your active projects and upcoming tasks. <em style="font-weight: 600;">Team accountability, simplified.</em></p>
 </div>
 
+<!-- Real-Time Notifications Panel -->
+<div id="dashboardNotificationsPanel" style="margin-bottom: 2rem; display: none;">
+    <div class="ts-dashboard-card" style="border-left: 4px solid #f59e0b;">
+        <div class="ts-dashboard-card-header">
+            <h3 class="ts-title-lg">
+                <span class="material-symbols-outlined ts-text-primary" style="font-size: 20px;">notifications_active</span>
+                Recent Alerts
+            </h3>
+        </div>
+        <div class="ts-dashboard-card-body" id="dashboardNotificationsBody" style="max-height: 300px; overflow-y: auto;">
+            <!-- Populated by JavaScript -->
+        </div>
+    </div>
+</div>
+
 <div class="ts-dashboard-grid">
     <!-- Left Column (Projects & Progress) -->
     <div class="ts-col-span-2" style="display: flex; flex-direction: column; gap: var(--ts-gutter);">
