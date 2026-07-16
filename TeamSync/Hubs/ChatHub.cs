@@ -17,11 +17,13 @@ public class ChatHub : Hub
 {
     private readonly UserManager<User> _userManager;
     private readonly ApplicationDbContext _context;
+    private readonly ILogger<ChatHub> _logger;
 
-    public ChatHub(UserManager<User> userManager, ApplicationDbContext context)
+    public ChatHub(UserManager<User> userManager, ApplicationDbContext context, ILogger<ChatHub> logger)
     {
         _userManager = userManager;
         _context = context;
+        _logger = logger;
     }
 
     /// <summary>
@@ -29,25 +31,50 @@ public class ChatHub : Hub
     /// </summary>
     public override async Task OnConnectedAsync()
     {
-        if (Context.User != null)
+        try
         {
-            var user = await _userManager.GetUserAsync(Context.User);
-            if (user != null)
-            {
-                // Get all groups the user is a member of
-                var userGroups = await _context.GroupMembers
-                    .Where(gm => gm.UserId == user.Id)
-                    .Select(gm => gm.GroupId)
-                    .ToListAsync();
+            _logger.LogInformation("Chat connection attempt from user: {User}", Context.User?.Identity?.Name ?? "Unknown");
 
-                // Add connection to each group's chat group
-                foreach (var groupId in userGroups)
+            if (Context.User != null)
+            {
+                var user = await _userManager.GetUserAsync(Context.User);
+                if (user != null)
                 {
-                    await Groups.AddToGroupAsync(Context.ConnectionId, $"group-chat-{groupId}");
+                    _logger.LogInformation("User {UserId} connected to chat", user.Id);
+
+                    // Get all groups the user is a member of
+                    var userGroups = await _context.GroupMembers
+                        .Where(gm => gm.UserId == user.Id)
+                        .Select(gm => gm.GroupId)
+                        .ToListAsync();
+
+                    _logger.LogInformation("User {UserId} is member of {GroupCount} groups", user.Id, userGroups.Count);
+
+                    // Add connection to each group's chat group
+                    foreach (var groupId in userGroups)
+                    {
+                        await Groups.AddToGroupAsync(Context.ConnectionId, $"group-chat-{groupId}");
+                        _logger.LogInformation("User {UserId} added to group-chat-{GroupId}", user.Id, groupId);
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("User not found for identity: {Identity}", Context.User.Identity?.Name ?? "Unknown");
                 }
             }
+            else
+            {
+                _logger.LogWarning("Context.User is null");
+            }
+
+            await base.OnConnectedAsync();
+            _logger.LogInformation("Chat connection completed for {ConnectionId}", Context.ConnectionId);
         }
-        await base.OnConnectedAsync();
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ChatHub.OnConnectedAsync");
+            throw;
+        }
     }
 
     /// <summary>
@@ -56,44 +83,77 @@ public class ChatHub : Hub
     /// </summary>
     public async Task SendMessage(int groupId, string content)
     {
-        if (Context.User == null) return;
-        if (string.IsNullOrWhiteSpace(content)) return;
-
-        var user = await _userManager.GetUserAsync(Context.User);
-        if (user == null) return;
-
-        // Verify user is a member of this group
-        var isMember = await _context.GroupMembers
-            .AnyAsync(gm => gm.GroupId == groupId && gm.UserId == user.Id);
-
-        if (!isMember) return;
-
-        // Verify group exists and is active
-        var group = await _context.Groups.FindAsync(groupId);
-        if (group == null || group.ArchivedAt.HasValue) return;
-
-        // Create and save the message
-        var message = new ChatMessage
+        try
         {
-            GroupId = groupId,
-            SenderId = user.Id,
-            Content = content.Trim(),
-            CreatedAt = DateTime.UtcNow
-        };
+            if (Context.User == null) 
+            {
+                _logger.LogWarning("SendMessage: Context.User is null");
+                return;
+            }
 
-        _context.ChatMessages.Add(message);
-        await _context.SaveChangesAsync();
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                _logger.LogWarning("SendMessage: Content is empty");
+                return;
+            }
 
-        // Broadcast the message to all group members
-        await Clients.Group($"group-chat-{groupId}").SendAsync("ReceiveMessage", new
+            var user = await _userManager.GetUserAsync(Context.User);
+            if (user == null)
+            {
+                _logger.LogWarning("SendMessage: User not found");
+                return;
+            }
+
+            // Verify user is a member of this group
+            var isMember = await _context.GroupMembers
+                .AnyAsync(gm => gm.GroupId == groupId && gm.UserId == user.Id);
+
+            if (!isMember)
+            {
+                _logger.LogWarning("SendMessage: User {UserId} is not a member of group {GroupId}", user.Id, groupId);
+                return;
+            }
+
+            // Verify group exists and is active
+            var group = await _context.Groups.FindAsync(groupId);
+            if (group == null || group.ArchivedAt.HasValue)
+            {
+                _logger.LogWarning("SendMessage: Group {GroupId} not found or archived", groupId);
+                return;
+            }
+
+            // Create and save the message
+            var message = new ChatMessage
+            {
+                GroupId = groupId,
+                SenderId = user.Id,
+                Content = content.Trim(),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.ChatMessages.Add(message);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Message saved: {MessageId} from {UserId} to group {GroupId}", message.Id, user.Id, groupId);
+
+            // Broadcast the message to all group members
+            await Clients.Group($"group-chat-{groupId}").SendAsync("ReceiveMessage", new
+            {
+                message.Id,
+                message.GroupId,
+                SenderName = user.UserName,
+                SenderId = user.Id,
+                message.Content,
+                message.CreatedAt
+            });
+
+            _logger.LogInformation("Message broadcast to group-chat-{GroupId}", groupId);
+        }
+        catch (Exception ex)
         {
-            message.Id,
-            message.GroupId,
-            SenderName = user.UserName,
-            SenderId = user.Id,
-            message.Content,
-            message.CreatedAt
-        });
+            _logger.LogError(ex, "Error in SendMessage for group {GroupId}", groupId);
+            throw;
+        }
     }
 
     /// <summary>
@@ -101,37 +161,59 @@ public class ChatHub : Hub
     /// </summary>
     public async Task LoadHistory(int groupId, int limit = 50)
     {
-        if (Context.User == null) return;
-
-        var user = await _userManager.GetUserAsync(Context.User);
-        if (user == null) return;
-
-        // Verify user is a member of this group
-        var isMember = await _context.GroupMembers
-            .AnyAsync(gm => gm.GroupId == groupId && gm.UserId == user.Id);
-
-        if (!isMember) return;
-
-        // Get recent messages
-        var messages = await _context.ChatMessages
-            .Where(cm => cm.GroupId == groupId)
-            .OrderByDescending(cm => cm.CreatedAt)
-            .Take(limit)
-            .Include(cm => cm.Sender)
-            .OrderBy(cm => cm.CreatedAt) // Reverse order for display (oldest first in list)
-            .Select(cm => new
+        try
+        {
+            if (Context.User == null)
             {
-                cm.Id,
-                cm.GroupId,
-                SenderName = cm.Sender!.UserName,
-                SenderId = cm.SenderId,
-                cm.Content,
-                cm.CreatedAt
-            })
-            .ToListAsync();
+                _logger.LogWarning("LoadHistory: Context.User is null");
+                return;
+            }
 
-        // Send history to the caller
-        await Clients.Caller.SendAsync("LoadHistoryResponse", messages);
+            var user = await _userManager.GetUserAsync(Context.User);
+            if (user == null)
+            {
+                _logger.LogWarning("LoadHistory: User not found");
+                return;
+            }
+
+            // Verify user is a member of this group
+            var isMember = await _context.GroupMembers
+                .AnyAsync(gm => gm.GroupId == groupId && gm.UserId == user.Id);
+
+            if (!isMember)
+            {
+                _logger.LogWarning("LoadHistory: User {UserId} is not a member of group {GroupId}", user.Id, groupId);
+                return;
+            }
+
+            // Get recent messages
+            var messages = await _context.ChatMessages
+                .Where(cm => cm.GroupId == groupId)
+                .OrderByDescending(cm => cm.CreatedAt)
+                .Take(limit)
+                .Include(cm => cm.Sender)
+                .OrderBy(cm => cm.CreatedAt) // Reverse order for display (oldest first in list)
+                .Select(cm => new
+                {
+                    cm.Id,
+                    cm.GroupId,
+                    SenderName = cm.Sender!.UserName,
+                    SenderId = cm.SenderId,
+                    cm.Content,
+                    cm.CreatedAt
+                })
+                .ToListAsync();
+
+            _logger.LogInformation("LoadHistory: Loaded {MessageCount} messages for group {GroupId}", messages.Count, groupId);
+
+            // Send history to the caller
+            await Clients.Caller.SendAsync("LoadHistoryResponse", messages);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in LoadHistory for group {GroupId}", groupId);
+            throw;
+        }
     }
 
     /// <summary>
@@ -139,18 +221,39 @@ public class ChatHub : Hub
     /// </summary>
     public async Task JoinGroupChat(int groupId)
     {
-        if (Context.User == null) return;
+        try
+        {
+            if (Context.User == null)
+            {
+                _logger.LogWarning("JoinGroupChat: Context.User is null");
+                return;
+            }
 
-        var user = await _userManager.GetUserAsync(Context.User);
-        if (user == null) return;
+            var user = await _userManager.GetUserAsync(Context.User);
+            if (user == null)
+            {
+                _logger.LogWarning("JoinGroupChat: User not found");
+                return;
+            }
 
-        // Verify user is a member of this group
-        var isMember = await _context.GroupMembers
-            .AnyAsync(gm => gm.GroupId == groupId && gm.UserId == user.Id);
+            // Verify user is a member of this group
+            var isMember = await _context.GroupMembers
+                .AnyAsync(gm => gm.GroupId == groupId && gm.UserId == user.Id);
 
-        if (!isMember) return;
+            if (!isMember)
+            {
+                _logger.LogWarning("JoinGroupChat: User {UserId} is not a member of group {GroupId}", user.Id, groupId);
+                return;
+            }
 
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"group-chat-{groupId}");
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"group-chat-{groupId}");
+            _logger.LogInformation("JoinGroupChat: User {UserId} joined group-chat-{GroupId}", user.Id, groupId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in JoinGroupChat for group {GroupId}", groupId);
+            throw;
+        }
     }
 
     /// <summary>
