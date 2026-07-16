@@ -37,6 +37,7 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
 // Add custom services
 builder.Services.AddScoped<DbInitializerService>();
 builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<ChatService>();
 
 // Add background service for deadline checking
 builder.Services.AddHostedService<DeadlineCheckService>();
@@ -68,6 +69,7 @@ app.UseAuthorization();
 
 // Map SignalR hubs
 app.MapHub<NotificationHub>("/notificationHub");
+app.MapHub<ChatHub>("/chatHub");
 
 // Debug middleware: log 404s to help track down missing routes
 app.Use(async (context, next) =>

@@ -67,7 +67,7 @@
         }
         else
         {
-            <button class="ts-btn ts-btn-secondary">
+            <button class="ts-btn ts-btn-secondary" onclick="openChatModal()">
                 <span class="material-symbols-outlined" style="font-size: 18px;">chat</span> Message Group
             </button>
             @if (isStudent || isProfessor)
@@ -675,5 +675,153 @@ document.addEventListener('click', function(event) {
                 btns.forEach(function (b) { b.disabled = true; b.dataset.origHtml = b.innerHTML; b.innerHTML = 'Processing...'; });
             }
         });
+
+        // Chat modal functions
+        function openChatModal() {
+            var modal = document.getElementById('chatModal');
+            if (modal) modal.style.display = 'block';
+            initializeChat();
+        }
+
+        function closeChatModal() {
+            var modal = document.getElementById('chatModal');
+            if (modal) modal.style.display = 'none';
+            if (window.chatConnection) {
+                window.chatConnection.stop();
+            }
+        }
+
+        window.onclick = function (event) {
+            var modal = document.getElementById('chatModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
     </script>
+
+    <!-- Chat Modal -->
+    <div id="chatModal" class="ts-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4);">
+        <div class="ts-modal-content" style="background-color: var(--ts-surface); margin: auto; padding: 0; border: 1px solid var(--ts-border); border-radius: var(--ts-radius-lg); width: 90%; max-width: 600px; height: 600px; display: flex; flex-direction: column; margin-top: 5%;">
+            <!-- Modal Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid var(--ts-border);">
+                <h2 class="ts-title-lg">@Model.Name - Group Chat</h2>
+                <button type="button" onclick="closeChatModal()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: var(--ts-text-secondary);">&times;</button>
+            </div>
+
+            <!-- Messages Container -->
+            <div id="chatMessages" style="flex: 1; overflow-y: auto; padding: 1rem; background-color: var(--ts-background);">
+                <div style="text-align: center; color: var(--ts-text-secondary); padding: 2rem;">
+                    <p>Loading messages...</p>
+                </div>
+            </div>
+
+            <!-- Message Input -->
+            <div style="padding: 1rem; border-top: 1px solid var(--ts-border); display: flex; gap: 0.5rem;">
+                <input type="text" id="messageInput" placeholder="Type a message..." class="ts-input" style="flex: 1;" />
+                <button onclick="sendMessage()" class="ts-btn ts-btn-primary" style="padding: 0.5rem 1rem;">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SignalR Script for Chat -->
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@latest/signalr.min.js"></script>
+    <script>
+        let chatConnection;
+        const groupId = @Model.Id;
+
+        async function initializeChat() {
+            if (chatConnection && chatConnection.state === 'Connected') {
+                loadChatHistory();
+                return;
+            }
+
+            chatConnection = new signalR.HubConnectionBuilder()
+                .withUrl("/chatHub")
+                .withAutomaticReconnect()
+                .build();
+
+            chatConnection.on("ReceiveMessage", function (message) {
+                displayMessage(message);
+            });
+
+            chatConnection.on("LoadHistoryResponse", function (messages) {
+                clearMessages();
+                messages.forEach(msg => displayMessage(msg));
+                scrollToBottom();
+            });
+
+            chatConnection.onreconnected(async function () {
+                console.log("Chat reconnected");
+                loadChatHistory();
+            });
+
+            try {
+                await chatConnection.start();
+                await chatConnection.invoke("JoinGroupChat", groupId);
+                loadChatHistory();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function displayMessage(message) {
+            const container = document.getElementById('chatMessages');
+            const msgDiv = document.createElement('div');
+            msgDiv.style.marginBottom = '0.5rem';
+            msgDiv.style.padding = '0.75rem';
+            msgDiv.style.backgroundColor = 'var(--ts-surface)';
+            msgDiv.style.borderRadius = 'var(--ts-radius-md)';
+            msgDiv.style.borderLeft = '3px solid var(--ts-primary)';
+
+            const time = new Date(message.createdAt).toLocaleTimeString();
+            msgDiv.innerHTML = `
+                <div style="font-weight: bold; color: var(--ts-primary); font-size: 0.9rem;">@User.Identity?.Name</div>
+                <div style="color: var(--ts-text-primary); margin-top: 0.25rem;">${escapeHtml(message.content)}</div>
+                <div style="font-size: 0.75rem; color: var(--ts-text-secondary); margin-top: 0.25rem;">${time}</div>
+            `;
+            container.appendChild(msgDiv);
+            scrollToBottom();
+        }
+
+        function clearMessages() {
+            document.getElementById('chatMessages').innerHTML = '';
+        }
+
+        function loadChatHistory() {
+            if (chatConnection && chatConnection.state === 'Connected') {
+                chatConnection.invoke("LoadHistory", groupId, 50);
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const content = input.value.trim();
+            if (!content) return;
+
+            if (chatConnection && chatConnection.state === 'Connected') {
+                chatConnection.invoke("SendMessage", groupId, content);
+                input.value = '';
+                input.focus();
+            }
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('chatMessages');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Allow sending message with Enter key
+        document.addEventListener('keyup', function (e) {
+            if (e.key === 'Enter' && document.getElementById('messageInput') === document.activeElement) {
+                sendMessage();
+            }
+        });
+    </script>
+
 }

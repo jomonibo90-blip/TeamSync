@@ -26,6 +26,9 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
     // Real-time notifications
     public DbSet<Models.Notification> Notifications { get; set; }
 
+    // Group chat messages
+    public DbSet<Models.ChatMessage> ChatMessages { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -275,6 +278,29 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
             .HasIndex(n => n.IsRead);
 
         modelBuilder.Entity<Models.Notification>()
-            .HasIndex(n => n.CreatedAt);
+            .HasIndex(n => new { n.UserId, n.IsRead });
+
+        // Configure ChatMessage relationships
+        modelBuilder.Entity<Models.ChatMessage>()
+            .HasOne(cm => cm.Group)
+            .WithMany(g => g.ChatMessages)
+            .HasForeignKey(cm => cm.GroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Models.ChatMessage>()
+            .HasOne(cm => cm.Sender)
+            .WithMany()
+            .HasForeignKey(cm => cm.SenderId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Indices for chat message queries
+        modelBuilder.Entity<Models.ChatMessage>()
+            .HasIndex(cm => cm.GroupId);
+
+        modelBuilder.Entity<Models.ChatMessage>()
+            .HasIndex(cm => cm.CreatedAt);
+
+        modelBuilder.Entity<Models.ChatMessage>()
+            .HasIndex(cm => new { cm.GroupId, cm.CreatedAt });
     }
 }

@@ -21,4 +21,5 @@ public class Group
     public User? CreatedBy { get; set; }
     public ICollection<GroupMember> Members { get; set; } = new List<GroupMember>();
     public ICollection<Task> Tasks { get; set; } = new List<Task>();
+    public ICollection<ChatMessage> ChatMessages { get; set; } = new List<ChatMessage>();
 }
