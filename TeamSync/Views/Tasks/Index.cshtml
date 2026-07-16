@@ -41,13 +41,7 @@
             <span class="material-symbols-outlined" style="font-size:18px;">tune</span> Filter
         </a>
 
-        @if (canCreateTask)
-        {
-            <a asp-controller="Tasks" asp-action="SelectGroup" asp-route-mode="create" class="ts-btn ts-btn-primary">
-                <span class="material-symbols-outlined" style="font-size:18px;">add</span> New Task
-            </a>
-        }
-        else if (canRequestTask)
+        @if (canRequestTask)
         {
             <a asp-controller="Tasks" asp-action="SelectGroup" asp-route-mode="request" class="ts-btn ts-btn-primary">
                 <span class="material-symbols-outlined" style="font-size:18px;">assignment</span> Request Task
