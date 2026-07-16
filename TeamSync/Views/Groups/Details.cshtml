@@ -734,6 +734,14 @@ document.addEventListener('click', function(event) {
         const currentUserId = '@User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value';
         const currentUserName = '@User.Identity?.Name';
 
+        // Helper function to check if connection is ready
+        function isConnectionReady() {
+            return window.chatConnection && 
+                   (window.chatConnection.state === 2 || 
+                    window.chatConnection.state === signalR.HubConnectionState?.Connected ||
+                    window.chatConnection.state === 'Connected');
+        }
+
         // Wait for SignalR to be available
         function waitForSignalR() {
             return new Promise((resolve) => {
@@ -770,7 +778,7 @@ document.addEventListener('click', function(event) {
                 return;
             }
 
-            if (window.chatConnection && window.chatConnection.state === 2) { // 2 = Connected
+            if (window.chatConnection && isConnectionReady()) { // Connection already established
                 console.log("Connection already established");
                 loadChatHistory();
                 return;
@@ -861,7 +869,7 @@ document.addEventListener('click', function(event) {
         }
 
         function loadChatHistory() {
-            if (window.chatConnection && window.chatConnection.state === 2) { // 2 = Connected
+            if (isConnectionReady()) {
                 window.chatConnection.invoke("LoadHistory", groupId, 50);
             }
         }
@@ -871,7 +879,7 @@ document.addEventListener('click', function(event) {
             const content = input.value.trim();
             if (!content) return;
 
-            if (window.chatConnection && window.chatConnection.state === 2) { // 2 = Connected
+            if (isConnectionReady()) {
                 window.chatConnection.invoke("SendMessage", groupId, content)
                     .catch(err => {
                         console.error("Error sending message:", err);
