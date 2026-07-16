@@ -731,25 +731,40 @@ document.addEventListener('click', function(event) {
     <script>
         window.chatConnection = null;
         const groupId = @Model.Id;
+        const currentUserId = '@User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value';
+        const currentUserName = '@User.Identity?.Name';
 
         async function initializeChat() {
-            if (window.chatConnection && window.chatConnection.state === 'Connected') {
+            console.log("Initializing chat for group:", groupId);
+
+            if (window.chatConnection && window.chatConnection.state === 1) { // 1 = Connected
+                console.log("Connection already established");
                 loadChatHistory();
                 return;
             }
 
             window.chatConnection = new signalR.HubConnectionBuilder()
-                .withUrl("/chatHub")
-                .withAutomaticReconnect()
+                .withUrl("/chatHub", {
+                    withCredentials: true
+                })
+                .withAutomaticReconnect([0, 0, 1000, 3000, 5000, 10000])
+                .configureLogging(signalR.LogLevel.Information)
                 .build();
 
             window.chatConnection.on("ReceiveMessage", function (message) {
+                console.log("Message received:", message);
                 displayMessage(message);
             });
 
             window.chatConnection.on("LoadHistoryResponse", function (messages) {
+                console.log("History loaded:", messages.length, "messages");
                 clearMessages();
-                messages.forEach(msg => displayMessage(msg));
+                if (messages && messages.length > 0) {
+                    messages.forEach(msg => displayMessage(msg));
+                } else {
+                    const container = document.getElementById('chatMessages');
+                    container.innerHTML = '<div style="padding: 1rem; color: var(--ts-text-secondary); text-align: center;">No messages yet. Start the conversation!</div>';
+                }
                 scrollToBottom();
             });
 
@@ -758,17 +773,35 @@ document.addEventListener('click', function(event) {
                 loadChatHistory();
             });
 
+            window.chatConnection.onclose(async function () {
+                console.log("Chat connection closed");
+            });
+
             try {
+                console.log("Starting connection...");
                 await window.chatConnection.start();
+                console.log("Connection started successfully");
+
+                console.log("Joining group chat...");
                 await window.chatConnection.invoke("JoinGroupChat", groupId);
+                console.log("Joined group chat");
+
                 loadChatHistory();
             } catch (err) {
                 console.error("Chat connection error:", err);
+                const container = document.getElementById('chatMessages');
+                container.innerHTML = '<div style="padding: 1rem; color: red; text-align: center;">Failed to connect to chat. Please refresh the page.</div>';
             }
         }
 
         function displayMessage(message) {
             const container = document.getElementById('chatMessages');
+
+            // If container is empty or has placeholder text, clear it
+            if (!container.children.length || container.innerHTML.includes("No messages yet")) {
+                clearMessages();
+            }
+
             const msgDiv = document.createElement('div');
             msgDiv.style.marginBottom = '0.5rem';
             msgDiv.style.padding = '0.75rem';
@@ -777,8 +810,10 @@ document.addEventListener('click', function(event) {
             msgDiv.style.borderLeft = '3px solid var(--ts-primary)';
 
             const time = new Date(message.createdAt).toLocaleTimeString();
+            const senderName = message.senderName || message.SenderName || 'Unknown';
+
             msgDiv.innerHTML = `
-                <div style="font-weight: bold; color: var(--ts-primary); font-size: 0.9rem;">@User.Identity?.Name</div>
+                <div style="font-weight: bold; color: var(--ts-primary); font-size: 0.9rem;">${escapeHtml(senderName)}</div>
                 <div style="color: var(--ts-text-primary); margin-top: 0.25rem;">${escapeHtml(message.content)}</div>
                 <div style="font-size: 0.75rem; color: var(--ts-text-secondary); margin-top: 0.25rem;">${time}</div>
             `;
@@ -801,12 +836,17 @@ document.addEventListener('click', function(event) {
             const content = input.value.trim();
             if (!content) return;
 
-            if (window.chatConnection && window.chatConnection.state === 'Connected') {
-                window.chatConnection.invoke("SendMessage", groupId, content);
+            if (window.chatConnection && window.chatConnection.state === 1) { // 1 = Connected
+                window.chatConnection.invoke("SendMessage", groupId, content)
+                    .catch(err => {
+                        console.error("Error sending message:", err);
+                        alert("Failed to send message. Please try again.");
+                    });
                 input.value = '';
                 input.focus();
             } else {
-                console.error("Chat connection not ready");
+                console.error("Chat connection not ready. State:", window.chatConnection?.state);
+                alert("Chat connection not established. Please refresh the page.");
             }
         }
 

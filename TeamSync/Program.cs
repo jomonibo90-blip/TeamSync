@@ -11,8 +11,23 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 
-// Add Signal R services
-builder.Services.AddSignalR();
+// Add Signal R services with CORS
+builder.Services.AddSignalR(options =>
+{
+    options.MaximumReceiveMessageSize = 32 * 1024 * 1024; // 32 MB
+});
+
+// Add CORS for SignalR
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(builder =>
+    {
+        builder.AllowAnyMethod()
+               .AllowAnyHeader()
+               .AllowCredentials()
+               .SetIsOriginAllowed(origin => true);
+    });
+});
 
 // Add Entity Framework DbContext
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -63,6 +78,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
+app.UseCors();
 
 app.UseAuthentication();
 app.UseAuthorization();
