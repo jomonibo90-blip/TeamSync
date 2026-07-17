@@ -197,6 +197,7 @@ class NotificationClient {
                         <div class="ts-notification-content-title">${this.escapeHtml(n.message.substring(0, 50))}${n.message.length > 50 ? '...' : ''}</div>
                         <div class="ts-notification-content-message">${this.formatTime(n.createdAt)}</div>
                     </div>
+                    <button class="ts-notification-close" onclick="notificationClient.markAsRead(${n.id})" title="Dismiss" aria-label="Dismiss notification">×</button>
                 </div>
             `;
         }).join('');
