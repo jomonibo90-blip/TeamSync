@@ -422,7 +422,7 @@ public class TasksController : Controller
 
         // Only allow regular members (students) to request tasks
         bool isStudent = currentMember.Role == "Member";
-        if (!isStudent && !User.IsInRole("Student")) return Forbid();
+        if (!isStudent) return Forbid();
 
         var vm = new TaskRequestViewModel { GroupId = groupId };
         return View("Request", vm);
@@ -448,7 +448,7 @@ public class TasksController : Controller
 
         // Only allow regular members (students) to request tasks
         bool isStudent = currentMember.Role == "Member";
-        if (!isStudent && !User.IsInRole("Student")) return Forbid();
+        if (!isStudent) return Forbid();
 
         var task = new global::TeamSync.Models.Task
         {
