@@ -1,3 +1,4 @@
+@model TeamSync.ViewModels.GroupDetailsReportViewModel
 @{
     ViewData["Title"] = "Group Report";
 }
@@ -69,7 +70,7 @@
                                     <td>@(member.FirstName) @(member.LastName)</td>
                                     <td>@member.Email</td>
                                     <td><span class="ts-badge">@member.Role</span></td>
-                                    <td>@member.JoinedAt?.ToString("MMM dd, yyyy")</td>
+                                    <td>@member.JoinedAt.ToString("MMM dd, yyyy")</td>
                                 </tr>
                             }
                         </tbody>
@@ -115,9 +116,9 @@
 
                                 var priorityColor = task.Priority switch
                                 {
-                                    "High" => "var(--ts-danger)",
-                                    "Medium" => "var(--ts-warning)",
-                                    "Low" => "var(--ts-info)",
+                                    3 => "var(--ts-danger)",
+                                    2 => "var(--ts-warning)",
+                                    1 => "var(--ts-info)",
                                     _ => "var(--ts-border)"
                                 };
 

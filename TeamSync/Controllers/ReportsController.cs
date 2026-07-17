@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TeamSync.Data;
 using TeamSync.Models;
+using TeamSync.ViewModels;
 
 namespace TeamSync.Controllers;
 
@@ -41,22 +42,22 @@ public class ReportsController : Controller
                 .Include(g => g.Tasks)
                 .ToListAsync();
 
-            var reportData = new
+            var reportData = new ReportsIndexViewModel
             {
                 TotalGroups = professorGroups.Count,
                 TotalStudents = professorGroups.SelectMany(g => g.Members).Count(),
                 TotalTasks = professorGroups.SelectMany(g => g.Tasks).Count(),
                 CompletedTasks = professorGroups.SelectMany(g => g.Tasks)
                     .Where(t => t.Status == "Completed").Count(),
-                Groups = professorGroups.Select(g => new
+                Groups = professorGroups.Select(g => new GroupReportItemViewModel
                 {
-                    g.Id,
-                    g.Name,
+                    Id = g.Id,
+                    Name = g.Name,
                     MemberCount = g.Members.Count,
                     TaskCount = g.Tasks.Count,
                     CompletedTaskCount = g.Tasks.Where(t => t.Status == "Completed").Count(),
                     UpdatedAt = g.UpdatedAt
-                })
+                }).ToList()
             };
 
             return View(reportData);
@@ -89,34 +90,34 @@ public class ReportsController : Controller
             if (group == null)
                 return NotFound();
 
-            var groupReport = new
+            var groupReport = new GroupDetailsReportViewModel
             {
-                group.Id,
-                group.Name,
-                group.Description,
-                group.CreatedAt,
-                group.UpdatedAt,
+                Id = group.Id,
+                Name = group.Name,
+                Description = group.Description,
+                CreatedAt = group.CreatedAt,
+                UpdatedAt = group.UpdatedAt,
                 MemberCount = group.Members.Count,
-                Members = group.Members.Select(gm => new
+                Members = group.Members.Select(gm => new GroupMemberReportItemViewModel
                 {
-                    gm.User?.Id,
-                    gm.User?.FirstName,
-                    gm.User?.LastName,
-                    gm.User?.Email,
-                    gm.Role,
-                    gm.JoinedAt
-                }),
+                    Id = gm.User?.Id,
+                    FirstName = gm.User?.FirstName,
+                    LastName = gm.User?.LastName,
+                    Email = gm.User?.Email,
+                    Role = gm.Role,
+                    JoinedAt = gm.JoinedAt
+                }).ToList(),
                 TaskCount = group.Tasks.Count,
-                Tasks = group.Tasks.Select(t => new
+                Tasks = group.Tasks.Select(t => new TaskReportItemViewModel
                 {
-                    t.Id,
-                    t.Title,
-                    t.Status,
-                    t.Priority,
-                    t.CreatedAt,
-                    t.DueDate,
-                    t.UpdatedAt
-                })
+                    Id = t.Id,
+                    Title = t.Title,
+                    Status = t.Status,
+                    Priority = t.Priority,
+                    CreatedAt = t.CreatedAt,
+                    DueDate = t.DueDate,
+                    UpdatedAt = t.UpdatedAt
+                }).ToList()
             };
 
             return View(groupReport);
