@@ -64,12 +64,16 @@ class NotificationClient {
         });
 
         // Notification marked as read
-        this.connection.on("NotificationMarkedAsRead", (notificationId) => {
-            console.log("Notification marked as read:", notificationId);
-            this.unreadCount = Math.max(0, this.unreadCount - 1);
-            this.updateUnreadBadge();
-            this.removeNotificationFromUI(notificationId);
-        });
+            this.connection.on("NotificationMarkedAsRead", (notificationId) => {
+                console.log("Notification marked as read:", notificationId);
+                // Remove from local array
+                this.notifications = this.notifications.filter(n => n.id !== notificationId);
+                this.unreadCount = Math.max(0, this.unreadCount - 1);
+                this.updateUnreadBadge();
+                // Refresh both dropdown and dashboard panel
+                this.refreshNotificationsUI();
+                this.updateDashboardPanel();
+            });
 
         // All notifications marked as read
         this.connection.on("AllNotificationsMarkedAsRead", (notificationIds) => {
