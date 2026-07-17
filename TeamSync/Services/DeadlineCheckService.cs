@@ -85,6 +85,8 @@ public class DeadlineCheckService : BackgroundService
         CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
+        // Track tasks already notified in this cycle to prevent duplicates across thresholds
+        var tasksAlreadyNotified = new HashSet<(string userId, int taskId)>();
 
         foreach (var thresholdDays in deadlineThresholds)
         {
@@ -112,16 +114,22 @@ public class DeadlineCheckService : BackgroundService
 
                 foreach (var userId in userIdsToNotify)
                 {
-                    // Avoid duplicate notifications within the same threshold window
+                    // Check if already notified in this cycle or recently
+                    var notificationKey = (userId, task.Id);
+                    if (tasksAlreadyNotified.Contains(notificationKey))
+                    {
+                        continue; // Already notified this user about this task in this cycle
+                    }
+
                     var hasRecentNotification = await notificationService.HasRecentNotificationAsync(
                         userId,
                         "DeadlineReminder",
                         task.Id,
-                        withinLastMinutes: 60); // Don't re-notify within 1 hour
+                        withinLastMinutes: 1440); // Don't re-notify within 24 hours
 
                     if (!hasRecentNotification)
                     {
-                        var daysRemaining = (int)(thresholdDate.Date - now.Date).TotalDays;
+                        var daysRemaining = (int)(task.DueDate.Value.Date - now.Date).TotalDays;
                         var message = daysRemaining switch
                         {
                             0 => $"Task '{task.Title}' is due today!",
@@ -134,6 +142,8 @@ public class DeadlineCheckService : BackgroundService
                             "DeadlineReminder",
                             message,
                             task.Id);
+
+                        tasksAlreadyNotified.Add(notificationKey);
 
                         _logger.LogInformation(
                             "Created deadline reminder notification for user {UserId} on task {TaskId}",
@@ -199,10 +209,12 @@ public class DeadlineCheckService : BackgroundService
 
     /// <summary>
     /// Determine who should be notified about a task.
-    /// Includes: assigned users, task creator, group lead, and professors.
+    /// Uses HashSet to automatically deduplicate recipients if they have multiple roles.
+    /// Includes: assigned users, task creator, and group leads.
     /// </summary>
     private HashSet<string> GetNotificationRecipientsForTask(ModelTask task)
     {
+        // HashSet automatically deduplicates if the same user appears in multiple roles
         var recipients = new HashSet<string>();
 
         // Add assigned user
@@ -217,7 +229,7 @@ public class DeadlineCheckService : BackgroundService
             recipients.Add(task.CreatedById);
         }
 
-        // Add group lead and members
+        // Add group lead
         if (task.Group != null && task.Group.Members != null)
         {
             foreach (var member in task.Group.Members)
@@ -230,7 +242,7 @@ public class DeadlineCheckService : BackgroundService
         }
 
         // Note: Professor notifications would require User role check
-        // This is handled at notification time in context
+        // This is handled via the task creator or group context
 
         return recipients;
     }
