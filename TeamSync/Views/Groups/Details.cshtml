@@ -373,7 +373,7 @@
                                     <option value="">Unassigned / choose member</option>
                                     @foreach (var member in Model.Members)
                                     {
-                                        <option value="@member.UserId">@member.FullName (@member.Role)</option>
+                                        <option value="@member.UserId">@member.FullName (@(member.Role == "Member" ? "Student" : member.Role))</option>
                                     }
                                 </select>
 
@@ -423,7 +423,7 @@
                                           @(member.Role == "Professor" ? "background: rgba(13,110,253,0.1); color: var(--ts-primary);" : 
                                             member.Role == "Lead" ? "background: rgba(25,135,84,0.1); color: var(--ts-success);" : 
                                             "background: var(--ts-surface-container-high); color: var(--ts-secondary);")">
-                                        @member.Role
+                                        @(member.Role == "Member" ? "Student" : member.Role)
                                     </span>
                                     
                                     @* Action buttons *@
