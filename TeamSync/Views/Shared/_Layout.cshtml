@@ -57,15 +57,8 @@
              <span class="material-symbols-outlined @(IsActive("Tasks") ? "icon-fill" : "")">assignment</span>
             <span>Tasks</span>
   </a>
-          @if (User?.IsInRole("Professor") ?? false)
-          {
-              <a href="@Url.Action("Index", "Reports")" class="ts-nav-item @(IsActive("Reports") ? "active" : "")">
-            <span class="material-symbols-outlined @(IsActive("Reports") ? "icon-fill" : "")">analytics</span>
-                 <span>Reports</span>
-            </a>
-          }
-           </div>
-       </nav>
+       </div>
+  </nav>
 
     <!-- Desktop Sidebar Navigation -->
     <nav class="ts-sidebar">
@@ -88,13 +81,6 @@
      <span class="material-symbols-outlined @(IsActive("Tasks") ? "icon-fill" : "")">assignment</span>
       <span>Tasks</span>
        </a>
-            @if (User?.IsInRole("Professor") ?? false)
-            {
-                <a href="@Url.Action("Index", "Reports")" class="ts-nav-item @(IsActive("Reports") ? "active" : "")">
-         <span class="material-symbols-outlined @(IsActive("Reports") ? "icon-fill" : "")">analytics</span>
-        <span>Reports</span>
-</a>
-            }
             @if (User?.IsInRole("Admin") ?? false)
             {
                 <hr style="border: none; border-top: 1px solid var(--ts-border); margin: 1rem 0;" />
