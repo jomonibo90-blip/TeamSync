@@ -77,9 +77,7 @@
             {
                 @if (Model.IsActive)
                 {
-                    <a asp-controller="Tasks" asp-action="RequestTask" asp-route-groupId="@Model.Id" class="ts-btn ts-btn-secondary" style="margin-left:8px;">
-                        <span class="material-symbols-outlined" style="font-size:18px;">assignment</span> Request Task
-                    </a>
+                    @* Request Task button removed - use Task Management page instead *@
                 }
                 <button class="ts-btn ts-btn-secondary ts-btn-danger" onclick="openLeaveModal()">
                     <span class="material-symbols-outlined" style="font-size: 18px;">logout</span> Leave Group
