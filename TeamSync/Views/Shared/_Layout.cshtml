@@ -57,8 +57,8 @@
            <span class="material-symbols-outlined @(IsActive("Tasks") ? "icon-fill" : "")">assignment</span>
           <span>Tasks</span>
 </a>
-       <a href="#" class="ts-nav-item">
-         <span class="material-symbols-outlined">analytics</span>
+       <a href="@Url.Action("Index", "Reports")" class="ts-nav-item @(IsActive("Reports") ? "active" : "")">
+         <span class="material-symbols-outlined @(IsActive("Reports") ? "icon-fill" : "")">analytics</span>
               <span>Reports</span>
          </a>
         </div>
@@ -85,8 +85,8 @@
      <span class="material-symbols-outlined @(IsActive("Tasks") ? "icon-fill" : "")">assignment</span>
       <span>Tasks</span>
        </a>
-            <a href="#" class="ts-nav-item">
-         <span class="material-symbols-outlined">analytics</span>
+            <a href="@Url.Action("Index", "Reports")" class="ts-nav-item @(IsActive("Reports") ? "active" : "")">
+         <span class="material-symbols-outlined @(IsActive("Reports") ? "icon-fill" : "")">analytics</span>
         <span>Reports</span>
 </a>
             @if (User?.IsInRole("Admin") ?? false)

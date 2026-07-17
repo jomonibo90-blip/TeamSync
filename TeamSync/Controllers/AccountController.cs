@@ -79,25 +79,34 @@ return View(model);
 
         if (ModelState.IsValid)
         {
-        var result = await _signInManager.PasswordSignInAsync(
-    model.Email,
-          model.Password,
-    model.RememberMe,
-         lockoutOnFailure: true);
+            // First check if user exists and is active
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user != null && !user.IsActive)
+            {
+                _logger.LogWarning("Login attempt by deactivated user {Email}.", model.Email);
+                ModelState.AddModelError(string.Empty, "Your account has been deactivated. Please contact an administrator.");
+                return View(model);
+            }
 
-   if (result.Succeeded)
-  {
-       _logger.LogInformation("User {Email} logged in successfully.", model.Email);
-         return LocalRedirect(returnUrl ?? "/");
-         }
+            var result = await _signInManager.PasswordSignInAsync(
+                model.Email,
+                model.Password,
+                model.RememberMe,
+                lockoutOnFailure: true);
 
-        if (result.IsLockedOut)
-{
-        _logger.LogWarning("User {Email} account locked out.", model.Email);
+            if (result.Succeeded)
+            {
+                _logger.LogInformation("User {Email} logged in successfully.", model.Email);
+                return LocalRedirect(returnUrl ?? "/");
+            }
+
+            if (result.IsLockedOut)
+            {
+                _logger.LogWarning("User {Email} account locked out.", model.Email);
                 return RedirectToAction(nameof(Lockout));
-   }
+            }
 
-     ModelState.AddModelError(string.Empty, "Invalid login attempt.");
+            ModelState.AddModelError(string.Empty, "Invalid login attempt.");
         }
 
         return View(model);
