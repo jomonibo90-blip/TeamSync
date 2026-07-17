@@ -130,6 +130,36 @@ public class TasksController : Controller
     }
 
     [HttpGet]
+    public async Task<IActionResult> SelectGroup(string? mode)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        // Determine action: "create" or "request"
+        var actionMode = mode ?? "create";
+
+        // Get groups the user is a member of (filter by active groups only)
+        var groups = await _context.GroupMembers
+            .Where(gm => gm.UserId == currentUser.Id && gm.Group != null && gm.Group.IsActive)
+            .Select(gm => new TaskGroupSelectionItemViewModel
+            {
+                GroupId = gm.GroupId,
+                GroupName = gm.Group.Name,
+                GroupDescription = gm.Group.Description
+            })
+            .OrderBy(g => g.GroupName)
+            .ToListAsync();
+
+        var vm = new TaskGroupSelectionViewModel
+        {
+            Mode = actionMode,
+            Groups = groups
+        };
+
+        return View(vm);
+    }
+
+    [HttpGet]
     public async Task<IActionResult> Create(int groupId)
     {
         var currentUser = await _userManager.GetUserAsync(User);
