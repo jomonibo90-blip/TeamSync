@@ -23,6 +23,9 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
     // Contribution history audit
     public DbSet<Models.ContributionHistory> ContributionHistories { get; set; }
 
+    // Contribution overrides (immutable student records with lead overrides)
+    public DbSet<Models.ContributionOverride> ContributionOverrides { get; set; }
+
     // Real-time notifications
     public DbSet<Models.Notification> Notifications { get; set; }
 
@@ -108,6 +111,33 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
         modelBuilder.Entity<Models.Contribution>()
             .HasIndex(c => new { c.TaskId, c.UserId })
             .IsUnique();
+
+        // Configure ContributionOverride relationships
+        modelBuilder.Entity<Models.ContributionOverride>()
+            .HasOne(co => co.Contribution)
+            .WithMany(c => c.Overrides)
+            .HasForeignKey(co => co.ContributionId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<Models.ContributionOverride>()
+            .HasOne(co => co.OverriddenBy)
+            .WithMany()
+            .HasForeignKey(co => co.OverriddenById)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<Models.ContributionOverride>()
+            .HasOne(co => co.DisputedBy)
+            .WithMany()
+            .HasForeignKey(co => co.DisputedById)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Configure override decimal precision
+        modelBuilder.Entity<Models.ContributionOverride>()
+            .Property(co => co.OriginalHours)
+            .HasPrecision(18, 2);
+        modelBuilder.Entity<Models.ContributionOverride>()
+            .Property(co => co.NewHours)
+            .HasPrecision(18, 2);
 
         // Configure RemovalRequest relationships
         modelBuilder.Entity<Models.RemovalRequest>()

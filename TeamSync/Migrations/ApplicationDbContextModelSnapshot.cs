@@ -17,12 +17,12 @@ namespace TeamSync.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.0")
+                .HasAnnotation("ProductVersion", "8.0.0")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("TeamSync.Models.ChatMessage", b =>
+            modelBuilder.Entity("TeamSync.Models.Notification", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -30,72 +30,40 @@ namespace TeamSync.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("GroupId")
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("TaskId")
                         .HasColumnType("int");
 
-                    b.Property<string>("SenderId")
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("UserId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatedAt");
+                    b.HasIndex("IsRead");
 
-                    b.HasIndex("GroupId");
+                    b.HasIndex("TaskId");
 
-                    b.HasIndex("GroupId", "CreatedAt");
+                    b.HasIndex("UserId");
 
-                    b.ToTable("ChatMessages", (string)null);
-                });
+                    b.HasIndex("UserId", "IsRead");
 
-            modelBuilder.Entity("TeamSync.Models.Group", b =>
-                {
-                    b.Property<int>("TempId")
-                        .HasColumnType("int");
-
-                    b.ToTable("Group");
-                });
-
-            modelBuilder.Entity("TeamSync.Models.User", b =>
-                {
-                    b.Property<string>("TempId1")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.ToTable("User");
-                });
-
-            modelBuilder.Entity("TeamSync.Models.ChatMessage", b =>
-                {
-                    b.HasOne("TeamSync.Models.Group", "Group")
-                        .WithMany("ChatMessages")
-                        .HasForeignKey("GroupId")
-                        .HasPrincipalKey("TempId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("TeamSync.Models.User", "Sender")
-                        .WithMany()
-                        .HasForeignKey("SenderId")
-                        .HasPrincipalKey("TempId1")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Group");
-
-                    b.Navigation("Sender");
-                });
-
-            modelBuilder.Entity("TeamSync.Models.Group", b =>
-                {
-                    b.Navigation("ChatMessages");
+                    b.ToTable("Notifications", (string)null);
                 });
 #pragma warning restore 612, 618
         }

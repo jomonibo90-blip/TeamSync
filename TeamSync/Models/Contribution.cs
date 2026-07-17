@@ -31,8 +31,16 @@ public class Contribution
     [StringLength(2000)]
     public string? Notes { get; set; }
 
+    /// <summary>
+    /// Indicates if this contribution was submitted by the student (vs created by lead/professor).
+    /// Student-submitted contributions are immutable to preserve audit trail.
+    /// Any changes create separate ContributionOverride records.
+    /// </summary>
+    public bool IsStudentSubmitted { get; set; } = false;
+
     // Navigation properties
     public Task? Task { get; set; }
     public User? User { get; set; }
     public User? RecordedBy { get; set; }
+    public ICollection<ContributionOverride> Overrides { get; set; } = new List<ContributionOverride>();
 }

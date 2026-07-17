@@ -17,7 +17,7 @@ namespace TeamSync.Services
             }
 
             var sb = new StringBuilder();
-            sb.AppendLine("Id,GroupName,TaskId,TaskTitle,UserName,UserEmail,RecordedByName,RecordedByEmail,ContributedAt,Hours,Description,Notes,Source");
+            sb.AppendLine("Id,GroupName,TaskId,TaskTitle,UserName,UserEmail,RecordedByName,RecordedByEmail,ContributedAt,Hours,Description,Notes,Source,RecordType,IsStudentSubmitted,OverrideJustification");
 
             foreach (var c in contributions)
             {
@@ -30,6 +30,7 @@ namespace TeamSync.Services
                 var taskTitle = task?.Title ?? c.Task?.Title ?? string.Empty;
                 var taskId = task?.Id ?? c.TaskId;
 
+                // Original contribution row
                 var fields = new[]
                 {
                     c.Id.ToString(),
@@ -44,10 +45,45 @@ namespace TeamSync.Services
                     EscapeCsv(c.HoursSpent?.ToString() ?? string.Empty),
                     EscapeCsv(c.Description ?? string.Empty),
                     EscapeCsv(c.Notes ?? string.Empty),
-                    EscapeCsv(c.Source ?? string.Empty)
+                    EscapeCsv(c.Source ?? string.Empty),
+                    "Original",
+                    c.IsStudentSubmitted ? "Yes" : "No",
+                    ""
                 };
 
-                sb.AppendLine(string.Join(',', fields));
+                sb.AppendLine(string.Join(",", fields));
+
+                // Override rows (if any)
+                if (c.Overrides != null && c.Overrides.Any())
+                {
+                    foreach (var ovr in c.Overrides.OrderByDescending(o => o.OverriddenAt))
+                    {
+                        var overriddenByName = ovr.OverriddenBy != null ? (ovr.OverriddenBy.FirstName + " " + ovr.OverriddenBy.LastName).Trim() : (ovr.OverriddenById ?? string.Empty);
+                        var overriddenByEmail = ovr.OverriddenBy?.Email ?? string.Empty;
+
+                        var overrideFields = new[]
+                        {
+                            ovr.Id.ToString(),
+                            EscapeCsv(groupName),
+                            taskId.ToString(),
+                            EscapeCsv(taskTitle),
+                            EscapeCsv(userName),
+                            EscapeCsv(userEmail),
+                            EscapeCsv(overriddenByName),
+                            EscapeCsv(overriddenByEmail),
+                            EscapeCsv(ovr.OverriddenAt.ToString("o")),
+                            EscapeCsv(ovr.NewHours?.ToString() ?? string.Empty),
+                            EscapeCsv(ovr.NewDescription ?? string.Empty),
+                            "", // Notes not applicable to overrides
+                            EscapeCsv("Override"),
+                            "Override",
+                            "", // IsStudentSubmitted not applicable to overrides
+                            EscapeCsv(ovr.Justification ?? string.Empty)
+                        };
+
+                        sb.AppendLine(string.Join(",", overrideFields));
+                    }
+                }
             }
 
             var utf8Preamble = Encoding.UTF8.GetPreamble();

@@ -307,30 +307,60 @@
                                                         <button type="submit" class="ts-btn ts-btn-xs ts-btn-secondary" onclick="return confirm('Delete contribution?');">Delete</button>
                                                     </form>
 
-                                                    <details style="display:inline-block; margin-left:0.5rem;">
-                                                        <summary class="ts-btn ts-btn-xs ts-btn-secondary">Edit</summary>
-                                                        <form asp-action="EditContribution" method="post" style="margin-top:0.5rem;">
-                                                            @Html.AntiForgeryToken()
-                                                            <input type="hidden" name="contributionId" value="@c.Id" />
-                                                            <div class="ts-form-group">
-                                                                <label class="ts-label-sm">Description</label>
-                                                                <textarea name="description" class="ts-input" rows="2">@c.Description</textarea>
-                                                            </div>
-                                                            <div style="display:flex; gap:0.5rem; margin-top:0.5rem; align-items:center;">
-                                                                <div style="width:10rem;">
-                                                                    <label class="ts-label-sm">Hours</label>
-                                                                    <input type="number" name="hours" step="0.25" min="0" class="ts-input" value="@(c.HoursSpent ?? 0)" />
+                                                    @if (c.IsStudentSubmitted && (Model.IsProfessorForCurrentUser || User.IsInRole("Admin") || Model.IsLeadForCurrentUser))
+                                                    {
+                                                        <details style="display:inline-block; margin-left:0.5rem;">
+                                                            <summary class="ts-btn ts-btn-xs ts-btn-secondary">Create Override</summary>
+                                                            <form asp-action="EditContribution" method="post" style="margin-top:0.5rem;">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="contributionId" value="@c.Id" />
+                                                                <div class="ts-form-group">
+                                                                    <label class="ts-label-sm">New Description</label>
+                                                                    <textarea name="description" class="ts-input" rows="2" placeholder="Leave blank to keep original" style="margin-bottom: 0.5rem;"></textarea>
                                                                 </div>
-                                                                <div style="flex:1;">
-                                                                    <label class="ts-label-sm">Notes (optional)</label>
-                                                                    <input type="text" name="notes" class="ts-input" value="@c.Notes" />
+                                                                <div style="display:flex; gap:0.5rem; margin-bottom:0.5rem; align-items:center;">
+                                                                    <div style="width:10rem;">
+                                                                        <label class="ts-label-sm">New Hours</label>
+                                                                        <input type="number" name="hours" step="0.25" min="0" class="ts-input" placeholder="Leave blank to keep original" />
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                            <div style="margin-top:0.5rem;">
-                                                                <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Save</button>
-                                                            </div>
-                                                        </form>
-                                                    </details>
+                                                                <div class="ts-form-group">
+                                                                    <label class="ts-label-sm">Justification *</label>
+                                                                    <textarea name="justification" class="ts-input" rows="2" required placeholder="Why is this override necessary?"></textarea>
+                                                                </div>
+                                                                <div style="margin-top:0.5rem;">
+                                                                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Create Override</button>
+                                                                </div>
+                                                            </form>
+                                                        </details>
+                                                    }
+                                                    @if (!c.IsStudentSubmitted)
+                                                    {
+                                                        <details style="display:inline-block; margin-left:0.5rem;">
+                                                            <summary class="ts-btn ts-btn-xs ts-btn-secondary">Edit</summary>
+                                                            <form asp-action="EditContribution" method="post" style="margin-top:0.5rem;">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="contributionId" value="@c.Id" />
+                                                                <div class="ts-form-group">
+                                                                    <label class="ts-label-sm">Description</label>
+                                                                    <textarea name="description" class="ts-input" rows="2">@c.Description</textarea>
+                                                                </div>
+                                                                <div style="display:flex; gap:0.5rem; margin-top:0.5rem; align-items:center;">
+                                                                    <div style="width:10rem;">
+                                                                        <label class="ts-label-sm">Hours</label>
+                                                                        <input type="number" name="hours" step="0.25" min="0" class="ts-input" value="@(c.HoursSpent ?? 0)" />
+                                                                    </div>
+                                                                    <div style="flex:1;">
+                                                                        <label class="ts-label-sm">Notes (optional)</label>
+                                                                        <input type="text" name="notes" class="ts-input" value="@c.Notes" />
+                                                                    </div>
+                                                                </div>
+                                                                <div style="margin-top:0.5rem;">
+                                                                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Save</button>
+                                                                </div>
+                                                            </form>
+                                                        </details>
+                                                    }
                                                     <a asp-action="ContributionHistory" asp-route-contributionId="@c.Id" class="ts-btn ts-btn-xs ts-btn-secondary" style="margin-left:0.5rem;">History</a>
                                                 }
                                              </div>
@@ -344,6 +374,63 @@
                                         @if (!string.IsNullOrWhiteSpace(c.Notes))
                                         {
                                             <div class="ts-body-xs">Notes: @c.Notes</div>
+                                        }
+
+                                        @* Student submission indicator *@
+                                        @if (c.IsStudentSubmitted)
+                                        {
+                                            <div class="ts-body-xs" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: var(--ts-warning-surface); color: var(--ts-warning-on-surface); border-radius: 3px; display: inline-block;">
+                                                <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">verified_user</span>
+                                                Student-submitted (immutable)
+                                            </div>
+                                        }
+
+                                        @* Display overrides if they exist *@
+                                        @if (c.Overrides != null && c.Overrides.Any())
+                                        {
+                                            <div style="margin-top: 0.75rem; padding: 0.5rem; background: var(--ts-surface-container); border-left: 3px solid var(--ts-tertiary); border-radius: 4px;">
+                                                <div class="ts-body-xs" style="font-weight: 600; margin-bottom: 0.5rem;">
+                                                    <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">edit_note</span>
+                                                    Overrides
+                                                </div>
+                                                @foreach (var ovr in c.Overrides.OrderByDescending(o => o.OverriddenAt))
+                                                {
+                                                    <div style="margin-bottom: 0.5rem; padding: 0.5rem; background: var(--ts-surface); border-radius: 3px; border: 1px dashed var(--ts-border);">
+                                                        <div class="ts-body-xs" style="margin-bottom: 0.25rem;">
+                                                            <strong>Overridden by: @(ovr.OverriddenBy?.FirstName ?? "") @(ovr.OverriddenBy?.LastName ?? "")</strong>
+                                                            <span class="ts-text-secondary" style="margin-left: 0.5rem;">@ovr.OverriddenAt.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</span>
+                                                        </div>
+                                                        @if (ovr.OriginalHours != ovr.NewHours)
+                                                        {
+                                                            <div class="ts-body-xs">
+                                                                Hours: <span style="text-decoration: line-through;">@(ovr.OriginalHours ?? 0)</span> → <strong>@(ovr.NewHours ?? 0)</strong>
+                                                            </div>
+                                                        }
+                                                        @if (!string.Equals(ovr.OriginalDescription, ovr.NewDescription))
+                                                        {
+                                                            <div class="ts-body-xs">
+                                                                <strong>New Description:</strong> @ovr.NewDescription
+                                                            </div>
+                                                        }
+                                                        @if (!string.IsNullOrWhiteSpace(ovr.Justification))
+                                                        {
+                                                            <div class="ts-body-xs" style="margin-top: 0.25rem;">
+                                                                <strong>Justification:</strong> @ovr.Justification
+                                                            </div>
+                                                        }
+                                                        @if (ovr.DisputedById != null)
+                                                        {
+                                                            <div class="ts-body-xs" style="color: var(--ts-error); margin-top: 0.25rem;">
+                                                                <strong>Disputed by: @(ovr.DisputedBy?.FirstName ?? "") @(ovr.DisputedBy?.LastName ?? "")</strong>
+                                                                @if (!string.IsNullOrWhiteSpace(ovr.DisputeReason))
+                                                                {
+                                                                    <div>@ovr.DisputeReason</div>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
                                         }
                                     </li>
                                 }

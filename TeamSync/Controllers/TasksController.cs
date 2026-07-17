@@ -730,6 +730,8 @@ public class TasksController : Controller
         var contributions = await _context.Contributions
             .Where(c => c.TaskId == id)
             .Include(c => c.User)
+            .Include(c => c.Overrides).ThenInclude(co => co.OverriddenBy)
+            .Include(c => c.Overrides).ThenInclude(co => co.DisputedBy)
             .OrderByDescending(c => c.ContributedAt)
             .ToListAsync();
 
@@ -1328,6 +1330,12 @@ public class TasksController : Controller
 
         var attributedUserId = string.IsNullOrWhiteSpace(userId) ? (task.AssignedToId ?? currentUser.Id) : userId.Trim();
 
+        // Determine if this is a student-submitted contribution
+        // It's student-submitted if:
+        // 1. The assignee is adding their own contribution
+        // 2. AND they are not an admin, professor, or lead
+        bool isStudentSubmitted = isAssigned && !isAdmin && !isProfessor && !isLead && attributedUserId == currentUser.Id;
+
         var contribution = new Contribution
         {
             TaskId = taskId,
@@ -1337,7 +1345,8 @@ public class TasksController : Controller
             Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
             RecordedById = currentUser.Id,
             RecordedAt = DateTime.UtcNow,
-            ContributedAt = DateTime.UtcNow
+            ContributedAt = DateTime.UtcNow,
+            IsStudentSubmitted = isStudentSubmitted
         };
 
         _context.Contributions.Add(contribution);
@@ -1362,12 +1371,15 @@ public class TasksController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> EditContribution(int contributionId, string description, decimal? hours, string? notes)
+    public async Task<IActionResult> EditContribution(int contributionId, string? description, decimal? hours, string? notes, string? justification)
     {
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
 
-        var contribution = await _context.Contributions.Include(c => c.Task).FirstOrDefaultAsync(c => c.Id == contributionId);
+        var contribution = await _context.Contributions
+            .Include(c => c.Task)
+            .Include(c => c.Overrides)
+            .FirstOrDefaultAsync(c => c.Id == contributionId);
         if (contribution == null) return NotFound();
 
         var task = contribution.Task;
@@ -1375,24 +1387,78 @@ public class TasksController : Controller
 
         bool isAdmin = User.IsInRole("Admin");
         bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        var currentMember = task.Group?.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
+        bool isLead = currentMember?.Role == "Lead";
 
-        if (contribution.RecordedById != currentUser.Id && !isAdmin && !isProfessor)
+        // Authorization: Only admin, professor, or lead can edit
+        // If contribution is student-submitted, only admin/professor can override
+        if (contribution.IsStudentSubmitted && !isAdmin && !isProfessor)
+            return Forbid("Only professors and admins can override student submissions");
+
+        if (!isAdmin && !isProfessor && !isLead)
             return Forbid();
 
+        // If this is a student-submitted contribution, create an override instead of mutating
+        if (contribution.IsStudentSubmitted && (isAdmin || isProfessor || isLead))
+        {
+            // Create override record instead of modifying original
+            var overrideRecord = new Models.ContributionOverride
+            {
+                ContributionId = contribution.Id,
+                OverriddenById = currentUser.Id,
+                OverriddenAt = DateTime.UtcNow,
+                OriginalHours = contribution.HoursSpent,
+                NewHours = hours,
+                OriginalDescription = contribution.Description,
+                NewDescription = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+                Justification = string.IsNullOrWhiteSpace(justification) 
+                    ? "No justification provided" 
+                    : justification.Trim(),
+                IsApproved = true
+            };
+
+            _context.ContributionOverrides.Add(overrideRecord);
+
+            // Create audit trail
+            var changes = JsonSerializer.Serialize(new
+            {
+                action = "OverrideCreated",
+                originalHours = contribution.HoursSpent,
+                newHours = hours,
+                originalDescription = contribution.Description,
+                newDescription = description,
+                justification = overrideRecord.Justification
+            });
+
+            var history = new ContributionHistory
+            {
+                ContributionId = contribution.Id,
+                Action = "Overridden",
+                PerformedById = currentUser.Id,
+                PerformedAt = DateTime.UtcNow,
+                Changes = changes
+            };
+            _context.ContributionHistories.Add(history);
+
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Contribution override recorded. Original submission preserved.";
+            return RedirectToAction("Details", new { id = task.Id });
+        }
+
+        // For lead-created (non-student-submitted) contributions, allow direct editing
         var before = JsonSerializer.Serialize(new { contribution.UserId, contribution.Description, contribution.HoursSpent, contribution.Notes });
 
         contribution.Description = (description ?? string.Empty).Trim();
         contribution.HoursSpent = hours;
         contribution.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
-        contribution.RecordedById = currentUser.Id;
-        contribution.RecordedAt = DateTime.UtcNow;
 
         _context.Contributions.Update(contribution);
         await _context.SaveChangesAsync();
 
         var after = JsonSerializer.Serialize(new { contribution.UserId, contribution.Description, contribution.HoursSpent, contribution.Notes });
 
-        var history = new ContributionHistory
+        var historyRecord = new ContributionHistory
         {
             ContributionId = contribution.Id,
             Action = "Updated",
@@ -1400,7 +1466,7 @@ public class TasksController : Controller
             PerformedAt = DateTime.UtcNow,
             Changes = JsonSerializer.Serialize(new { before, after })
         };
-        _context.ContributionHistories.Add(history);
+        _context.ContributionHistories.Add(historyRecord);
         await _context.SaveChangesAsync();
 
         TempData["SuccessMessage"] = "Contribution updated.";
