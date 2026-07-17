@@ -16,10 +16,12 @@
     </div>
     <div class="ts-flex ts-items-center ts-gap-md" style="flex-wrap: wrap;">
         <!-- Search Input -->
-        <div class="ts-input-wrapper" style="width: 280px; max-width: 100%;">
-            <span class="material-symbols-outlined ts-input-icon">search</span>
-            <input type="text" class="ts-input ts-input-with-icon" placeholder="Search projects or courses..." />
-        </div>
+        <form method="get" asp-action="Index" style="display: flex; align-items: center; gap: 0;">
+            <div class="ts-input-wrapper" style="width: 280px; max-width: 100%;">
+                <span class="material-symbols-outlined ts-input-icon">search</span>
+                <input type="text" name="search" class="ts-input ts-input-with-icon" placeholder="Search projects or courses..." value="@ViewData["SearchTerm"]" />
+            </div>
+        </form>
         <div class="ts-flex ts-gap-sm">
             <a asp-action="Join" class="ts-btn ts-btn-secondary" style="border-color: var(--ts-primary); color: var(--ts-primary);">
                 <span class="material-symbols-outlined" style="font-size: 18px;">login</span> Join

@@ -25,7 +25,7 @@ public class GroupsController : Controller
         _userManager = userManager;
     }
 
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(string search = "")
     {
         var user = await _userManager.GetUserAsync(User);
         if (user == null) return Challenge();
@@ -41,6 +41,16 @@ public class GroupsController : Controller
                 .Include(g => g.Members)
                 .OrderByDescending(g => g.CreatedAt)
                 .ToListAsync();
+
+            // Search by name or description
+            if (!string.IsNullOrEmpty(search))
+            {
+                search = search.ToLower();
+                groups = groups.Where(g =>
+                    g.Name.ToLower().Contains(search) ||
+                    (g.Description != null && g.Description.ToLower().Contains(search))
+                ).ToList();
+            }
 
             groupViewModels = groups.Select(g => new GroupListViewModel
             {
@@ -63,6 +73,16 @@ public class GroupsController : Controller
                 .OrderByDescending(gm => gm.Group!.CreatedAt)
                 .ToListAsync();
 
+            // Search by name or description
+            if (!string.IsNullOrEmpty(search))
+            {
+                search = search.ToLower();
+                memberships = memberships.Where(gm =>
+                    gm.Group!.Name.ToLower().Contains(search) ||
+                    (gm.Group.Description != null && gm.Group.Description.ToLower().Contains(search))
+                ).ToList();
+            }
+
             groupViewModels = memberships.Select(gm => new GroupListViewModel
             {
                 Id = gm.Group!.Id,
@@ -74,6 +94,9 @@ public class GroupsController : Controller
                 UserRole = gm.Role
             }).ToList();
         }
+
+        // Pass search term to view
+        ViewData["SearchTerm"] = search;
 
         return View(groupViewModels);
     }
