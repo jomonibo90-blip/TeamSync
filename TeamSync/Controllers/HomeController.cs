@@ -127,7 +127,14 @@ public class HomeController : Controller
                 .Where(c => c.UserId == user.Id && c.Task != null && c.Task.GroupId.HasValue && groupIds.Contains(c.Task.GroupId.Value));
 
             var contributionsList = await contributionsQuery.ToListAsync();
-            var totalHours = contributionsList.Sum(c => c.HoursSpent ?? 0m);
+
+            // Calculate total hours considering overrides
+            decimal totalHours = 0m;
+            foreach (var contribution in contributionsList)
+            {
+                totalHours += await GetFinalHoursAsync(contribution);
+            }
+
             var contributionsCount = contributionsList.Count;
 
             // Calculate weekly contribution score (0-10 scale)
@@ -135,8 +142,15 @@ public class HomeController : Controller
             var weeklyContributions = contributionsList
                 .Where(c => c.ContributedAt >= oneWeekAgo)
                 .ToList();
-            
-            decimal weeklyScore = CalculateWeeklyScore(weeklyContributions, inProgressTasks, pendingTasks);
+
+            // Calculate final hours for weekly contributions (considering overrides)
+            decimal weeklyFinalHours = 0m;
+            foreach (var contribution in weeklyContributions)
+            {
+                weeklyFinalHours += await GetFinalHoursAsync(contribution);
+            }
+
+            decimal weeklyScore = CalculateWeeklyScore(weeklyContributions.Count, weeklyFinalHours, inProgressTasks, pendingTasks);
 
             // Get upcoming tasks (next 7 days)
             var sevenDaysFromNow = DateTime.UtcNow.AddDays(7);
@@ -196,19 +210,42 @@ public class HomeController : Controller
         }
     }
 
-    private decimal CalculateWeeklyScore(List<Contribution> weeklyContributions, int inProgressTasks, int pendingTasks)
+    /// <summary>
+    /// Gets the final hours for a contribution, considering any overrides.
+    /// If a ContributionOverride exists, returns NewHours; otherwise returns original HoursSpent.
+    /// </summary>
+    private async Task<decimal> GetFinalHoursAsync(Contribution contribution)
+    {
+        if (contribution?.Id == 0)
+            return contribution?.HoursSpent ?? 0m;
+
+        // Check if there's an override for this contribution
+        var overrideRecord = await _context.ContributionOverrides
+            .Where(co => co.ContributionId == contribution.Id)
+            .OrderByDescending(co => co.OverriddenAt)
+            .FirstOrDefaultAsync();
+
+        if (overrideRecord?.NewHours.HasValue == true)
+        {
+            return overrideRecord.NewHours.Value;
+        }
+
+        return contribution?.HoursSpent ?? 0m;
+    }
+
+    private decimal CalculateWeeklyScore(int contributionCount, decimal weeklyFinalHours, int inProgressTasks, int pendingTasks)
     {
         // Score calculation:
         // Base: 5 points
         // + 0.5 points per contribution (up to 2.5 points max)
-        // + 1 point per hour contributed (up to 1.5 points max)
+        // + 0.1 per hour of final contributed hours (up to 1.5 points max)
         // - 0.5 per pending/overdue task
-        
+
         var baseScore = 5m;
-        var contributionBonus = Math.Min(weeklyContributions.Count * 0.5m, 2.5m);
-        var hoursBonus = Math.Min(weeklyContributions.Sum(c => c.HoursSpent ?? 0m) * 0.1m, 1.5m);
+        var contributionBonus = Math.Min(contributionCount * 0.5m, 2.5m);
+        var hoursBonus = Math.Min(weeklyFinalHours * 0.1m, 1.5m);
         var pendingPenalty = (inProgressTasks + pendingTasks) * 0.5m;
-        
+
         var score = baseScore + contributionBonus + hoursBonus - pendingPenalty;
         return Math.Max(0, Math.Min(10, score)); // Clamp between 0-10
     }
