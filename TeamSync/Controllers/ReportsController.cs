@@ -33,6 +33,7 @@ public class ReportsController : Controller
                 return Forbid();
 
             // Get groups where this professor is assigned as an Instructor
+            // (Note: Only Leads can create groups. Professors are assigned to groups for oversight)
             var professorGroups = await _context.Groups
                 .Where(g => g.Members.Any(gm => gm.UserId == currentUser.Id && gm.Role == "Instructor"))
                 .Include(g => g.Members)
@@ -76,7 +77,8 @@ public class ReportsController : Controller
             if (currentUser == null)
                 return Forbid();
 
-            // Verify professor is assigned to this group as Instructor
+            // Verify professor is assigned to this group as Instructor for oversight
+            // (Note: Only Leads can create groups. Professors are assigned for monitoring and support)
             var group = await _context.Groups
                 .Where(g => g.Id == id && g.Members.Any(gm => gm.UserId == currentUser.Id && gm.Role == "Instructor"))
                 .Include(g => g.Members)
