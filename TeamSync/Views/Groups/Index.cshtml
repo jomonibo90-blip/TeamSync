@@ -36,6 +36,19 @@
     </div>
 </div>
 
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="ts-alert" style="background: rgba(25,135,84,0.1); color: var(--ts-success); border: 1px solid rgba(25,135,84,0.2);">
+        @TempData["SuccessMessage"]
+    </div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="ts-alert ts-alert-error">
+        @TempData["ErrorMessage"]
+    </div>
+}
+
 <div class="ts-dashboard-grid">
     @if (!Model.Any())
     {
