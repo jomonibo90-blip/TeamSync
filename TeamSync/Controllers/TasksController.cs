@@ -893,7 +893,7 @@ public class TasksController : Controller
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
 
-        var task = await _context.Tasks.Include(t => t.Group).FirstOrDefaultAsync(t => t.Id == id);
+        var task = await _context.Tasks.Include(t => t.Group).ThenInclude(g => g.Members).ThenInclude(m => m.User).FirstOrDefaultAsync(t => t.Id == id);
         if (task == null) return NotFound();
         if (task.AssignedToId != currentUser.Id) return Forbid();
 
@@ -943,7 +943,7 @@ public class TasksController : Controller
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
 
-        var task = await _context.Tasks.Include(t => t.Group).FirstOrDefaultAsync(t => t.Id == id);
+        var task = await _context.Tasks.Include(t => t.Group).ThenInclude(g => g.Members).ThenInclude(m => m.User).FirstOrDefaultAsync(t => t.Id == id);
         if (task == null) return NotFound();
         if (task.AssignedToId != currentUser.Id) return Forbid();
 
@@ -961,6 +961,29 @@ public class TasksController : Controller
         _context.Tasks.Update(task);
         await _context.SaveChangesAsync();
 
+        // Notify creator, leads, and professors that review is requested
+        var recipientIds = new HashSet<string>();
+        if (!string.IsNullOrEmpty(task.CreatedById))
+            recipientIds.Add(task.CreatedById);
+
+        if (task.Group?.Members != null)
+        {
+            foreach (var member in task.Group.Members)
+            {
+                if (member.User != null && (member.Role == "Lead" || await _userManager.IsInRoleAsync(member.User, "Professor")))
+                    recipientIds.Add(member.UserId);
+            }
+        }
+
+        if (recipientIds.Any())
+        {
+            await _notificationService.CreateNotificationsForUsersAsync(
+                recipientIds.ToList(),
+                "ReviewRequest",
+                $"Task '{task.Title}' is ready for review.",
+                task.Id);
+        }
+
         TempData["SuccessMessage"] = "Review requested.";
         return RedirectToAction("Details", new { id = task.Id });
     }
@@ -973,7 +996,7 @@ public class TasksController : Controller
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
 
-        var task = await _context.Tasks.Include(t => t.Group).FirstOrDefaultAsync(t => t.Id == id);
+        var task = await _context.Tasks.Include(t => t.Group).ThenInclude(g => g.Members).ThenInclude(m => m.User).FirstOrDefaultAsync(t => t.Id == id);
         if (task == null) return NotFound();
         if (task.AssignedToId != currentUser.Id) return Forbid();
 
@@ -998,6 +1021,29 @@ public class TasksController : Controller
         _context.Tasks.Update(task);
         await _context.SaveChangesAsync();
 
+        // Notify creator, leads, and professors that completion is proposed
+        var recipientIds = new HashSet<string>();
+        if (!string.IsNullOrEmpty(task.CreatedById))
+            recipientIds.Add(task.CreatedById);
+
+        if (task.Group?.Members != null)
+        {
+            foreach (var member in task.Group.Members)
+            {
+                if (member.User != null && (member.Role == "Lead" || await _userManager.IsInRoleAsync(member.User, "Professor")))
+                    recipientIds.Add(member.UserId);
+            }
+        }
+
+        if (recipientIds.Any())
+        {
+            await _notificationService.CreateNotificationsForUsersAsync(
+                recipientIds.ToList(),
+                "CompletionProposal",
+                $"Task '{task.Title}' completion is pending approval.",
+                task.Id);
+        }
+
         TempData["SuccessMessage"] = "Completion proposed; awaiting approval.";
         return RedirectToAction("Details", new { id = task.Id });
     }
@@ -1009,7 +1055,7 @@ public class TasksController : Controller
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
 
-        var task = await _context.Tasks.Include(t => t.Group).ThenInclude(g => g.Members).FirstOrDefaultAsync(t => t.Id == id);
+        var task = await _context.Tasks.Include(t => t.Group).ThenInclude(g => g.Members).ThenInclude(m => m.User).FirstOrDefaultAsync(t => t.Id == id);
         if (task == null) return NotFound();
 
         bool isAdmin = User.IsInRole("Admin");
