@@ -371,7 +371,7 @@
                                         <option value="@t.CreatedById">@(t.CreatedByName ?? "Requester") (Requester)</option>
                                     }
                                     <option value="">Unassigned / choose member</option>
-                                    @foreach (var member in Model.Members)
+                                    @foreach (var member in Model.Members.Where(m => m.Role != "Professor" && m.UserId != t.CreatedById))
                                     {
                                         <option value="@member.UserId">@member.FullName (@(member.Role == "Member" ? "Student" : member.Role))</option>
                                     }
