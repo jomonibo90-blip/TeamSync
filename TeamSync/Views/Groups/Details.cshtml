@@ -630,6 +630,9 @@
     </div>
 </div>
 
+<!-- Store Razor values for JavaScript access -->
+<div id="razorData" style="display: none;" data-is-professor="@(isProfessor ? "true" : "false")" data-professor-count="@Model.Members.Count(m => m.Role == "Professor")" data-group-id="@Model.Id"></div>
+
 <script>
 function openRemoveModal(userId, memberName) {
     document.getElementById('userId').value = userId;
@@ -647,9 +650,10 @@ function openLeaveModal() {
     }
 
     // Check if user is professor and if they're the only one
-    const isProfessor = @(isProfessor ? "true" : "false");
+    const razorData = document.getElementById('razorData');
+    const isProfessor = razorData.getAttribute('data-is-professor') === 'true';
     if (isProfessor) {
-        const professorCount = @Model.Members.Count(m => m.Role == "Professor");
+        const professorCount = parseInt(razorData.getAttribute('data-professor-count'));
         const warningDiv = document.getElementById('professorWarning');
         if (professorCount === 1 && warningDiv) {
             warningDiv.style.display = 'block';
@@ -730,10 +734,11 @@ document.addEventListener('click', function(event) {
     </div>
 
     <!-- SignalR Script for Chat -->
-    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@@latest/dist/browser/signalr.js"></script>
+    @Html.Raw("<script src=\"https://cdn.jsdelivr.net/npm/@microsoft/signalr@latest/dist/browser/signalr.js\"></script>")
     <script>
         window.chatConnection = null;
-        const groupId = @Model.Id;
+        const razorData = document.getElementById('razorData');
+        const groupId = parseInt(razorData.getAttribute('data-group-id'));
         const currentUserId = '@User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value';
         const currentUserName = '@User.Identity?.Name';
 

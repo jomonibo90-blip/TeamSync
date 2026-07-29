@@ -44,7 +44,7 @@
                 <span class="material-symbols-outlined" style="font-size:18px;">edit</span> Edit
             </a>
         }
-        
+
         @if (canArchive && !isArchived)
         {
             <details style="display:inline-block;">
@@ -133,475 +133,489 @@
 
                 @if (Model.Status == "ReviewRequested" || Model.Status == "LeadApproved")
                 {
-                    <div class="ts-mt-sm ts-body-sm">Review requested by: <strong>@(Model.ReviewRequestedByName ?? "Unknown")</strong> @if(Model.ReviewRequestedAt.HasValue){ <span class="ts-text-secondary">(@Model.ReviewRequestedAt.Value.ToLocalTime().ToString("MMM dd, yyyy HH:mm"))</span> }</div>
-
-                    @if (canApprove)
-                    {
-                        var approveLabel = Model.IsLeadForCurrentUser && !Model.IsProfessorForCurrentUser ? "Lead Approve" : "Finalize";
-                        var approveClass = Model.IsLeadForCurrentUser && !Model.IsProfessorForCurrentUser ? "ts-btn ts-btn-sm ts-btn-warning" : "ts-btn ts-btn-sm ts-btn-success";
-
-                        <div class="ts-mt-sm" style="display:flex; gap:0.5rem; align-items:flex-start; flex-wrap:wrap;">
-                            <form asp-action="ApproveCompletion" method="post" style="display:flex; flex-direction:column; gap:0.5rem;">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@Model.Id" />
-                                <label for="approveNotes" class="ts-label-sm ts-text-secondary">Approval Notes (optional)</label>
-                                <textarea id="approveNotes" name="notes" class="ts-input" rows="3" placeholder="Add approval notes (optional)" style="width:24rem; max-width:100%;"></textarea>
-                                <label for="approveHours" class="ts-label-sm ts-text-secondary">Hours (optional)</label>
-                                <input id="approveHours" name="hours" type="number" step="0.25" min="0" max="1000" class="ts-input" style="width:8rem;" />
-                                <button type="submit" class="@approveClass">@approveLabel</button>
-                            </form>
-
-                            <form asp-action="RejectCompletion" method="post" style="display:flex; flex-direction:column; gap:0.5rem;">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@Model.Id" />
-                                <label for="rejectReason" class="ts-label-sm ts-text-secondary">Rejection Reason (optional)</label>
-                                <textarea id="rejectReason" name="reason" class="ts-input" rows="3" placeholder="Add reason for rejection (optional)" style="width:24rem; max-width:100%;"></textarea>
-                                <button type="submit" class="ts-btn ts-btn-secondary" onclick="return confirm('Reject completion?');">Reject</button>
-                            </form>
-                        </div>
+                    <div class="ts-mt-sm ts-body-sm">Review requested by: <strong>@(Model.ReviewRequestedByName ?? "Unknown")</strong> @if(Model.ReviewRequestedAt.HasValue){
+                        <span class="ts-text-secondary">(@Model.ReviewRequestedAt.Value.ToLocalTime().ToString("MMM dd, yyyy HH:mm"))</span>
                     }
-                }
-            </div>
-        </div>
-    </section>
+                </div>
 
-    <section class="ts-card">
-        <div class="ts-card-header">
-            <h3 class="ts-title-lg">Details</h3>
-        </div>
-        <div class="ts-card-body ts-task-details-list">
-            <div class="ts-task-detail-row">
-                <span class="ts-label-sm ts-text-secondary">Project</span>
-                <span>
-                    @if (Model.GroupId.HasValue && !string.IsNullOrEmpty(Model.GroupName))
-                    {
-                        <a asp-controller="Groups" asp-action="Details" asp-route-id="@Model.GroupId.Value" class="ts-link">@Model.GroupName</a>
-                    }
-                    else
-                    {
-                        <span>-</span>
-                    }
-                </span>
-            </div>
-            <div class="ts-task-detail-row">
-                <span class="ts-label-sm ts-text-secondary">Assigned To</span>
-                <span>@(Model.AssignedToName ?? "Unassigned")</span>
-            </div>
-            <div class="ts-task-detail-row">
-                <span class="ts-label-sm ts-text-secondary">Created By</span>
-                <span>@(Model.CreatedByName ?? "Unknown")</span>
-            </div>
-            <div class="ts-task-detail-row">
-                <span class="ts-label-sm ts-text-secondary">Status</span>
-                <span class="ts-status @statusClass">@Model.Status</span>
-            </div>
-            <div class="ts-task-detail-row">
-                <span class="ts-label-sm ts-text-secondary">Start Date</span>
-                <span class="@(Model.StartDate.HasValue && Model.StartDate.Value.Date < DateTime.UtcNow.Date ? "ts-task-date-overdue" : "")">@(Model.StartDate?.ToString("MMM dd, yyyy") ?? "No start date")</span>
-            </div>
-            <div class="ts-task-detail-row">
-                <span class="ts-label-sm ts-text-secondary">Due Date</span>
-                <span class="@(Model.DueDate.HasValue && Model.DueDate.Value.Date < DateTime.UtcNow.Date ? "ts-task-date-overdue" : "")">@(Model.DueDate?.ToString("MMM dd, yyyy") ?? "No due date")</span>
-            </div>
-            <div class="ts-task-detail-row">
-                <span class="ts-label-sm ts-text-secondary">Priority</span>
-                @if (Model.Priority == 3)
+                @if (canApprove)
                 {
-                    <span class="ts-badge ts-priority-high">HIGH</span>
+                    var approveLabel = Model.IsLeadForCurrentUser && !Model.IsProfessorForCurrentUser ? "Lead Approve" : "Finalize";
+                    var approveClass = Model.IsLeadForCurrentUser && !Model.IsProfessorForCurrentUser ? "ts-btn ts-btn-sm ts-btn-warning" : "ts-btn ts-btn-sm ts-btn-success";
+
+                    <div class="ts-mt-sm" style="display:flex; gap:0.5rem; align-items:flex-start; flex-wrap:wrap;">
+                        <form asp-action="ApproveCompletion" method="post" style="display:flex; flex-direction:column; gap:0.5rem;">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@Model.Id" />
+                            <label for="approveNotes" class="ts-label-sm ts-text-secondary">Approval Notes (optional)</label>
+                            <textarea id="approveNotes" name="notes" class="ts-input" rows="3" placeholder="Add approval notes (optional)" style="width:24rem; max-width:100%;"></textarea>
+                            <label for="approveHours" class="ts-label-sm ts-text-secondary">Hours (optional)</label>
+                            <input id="approveHours" name="hours" type="number" step="0.25" min="0" max="1000" class="ts-input" style="width:8rem;" />
+                            <button type="submit" class="@approveClass">@approveLabel</button>
+                        </form>
+
+                        <form asp-action="RejectCompletion" method="post" style="display:flex; flex-direction:column; gap:0.5rem;">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@Model.Id" />
+                            <label for="rejectReason" class="ts-label-sm ts-text-secondary">Rejection Reason (optional)</label>
+                            <textarea id="rejectReason" name="reason" class="ts-input" rows="3" placeholder="Add reason for rejection (optional)" style="width:24rem; max-width:100%;"></textarea>
+                            <button type="submit" class="ts-btn ts-btn-secondary" onclick="return confirm('Reject completion?');">Reject</button>
+                        </form>
+                    </div>
                 }
-                else if (Model.Priority == 2)
+            }
+        </div>
+    </div>
+</section>
+
+<section class="ts-card">
+    <div class="ts-card-header">
+        <h3 class="ts-title-lg">Details</h3>
+    </div>
+    <div class="ts-card-body ts-task-details-list">
+        <div class="ts-task-detail-row">
+            <span class="ts-label-sm ts-text-secondary">Project</span>
+            <span>
+                @if (Model.GroupId.HasValue && !string.IsNullOrEmpty(Model.GroupName))
                 {
-                    <span class="ts-badge ts-priority-medium">MEDIUM</span>
+                    <a asp-controller="Groups" asp-action="Details" asp-route-id="@Model.GroupId.Value" class="ts-link">@Model.GroupName</a>
                 }
                 else
                 {
-                    <span class="ts-badge ts-priority-low">LOW</span>
+                    <span>-</span>
                 }
-            </div>
+            </span>
         </div>
-    </section>
-
-    <section class="ts-card">
-        <div class="ts-card-header">
-            <h3 class="ts-title-lg">Approval History</h3>
+        <div class="ts-task-detail-row">
+            <span class="ts-label-sm ts-text-secondary">Assigned To</span>
+            <span>@(Model.AssignedToName ?? "Unassigned")</span>
         </div>
-        <div class="ts-card-body">
-            <ul style="list-style: none; padding: 0; margin: 0;">
-                <li style="padding: 0.5rem 0; border-bottom: 1px dashed var(--ts-border);">
-                    <div class="ts-label-sm ts-text-secondary">Requested</div>
-                    <div class="ts-body-sm">By: <strong>@(Model.ReviewRequestedByName ?? "-")</strong> @if (Model.ReviewRequestedAt.HasValue) { <span class="ts-text-secondary">(@Model.ReviewRequestedAt.Value.ToLocalTime().ToString("MMM dd, yyyy HH:mm"))</span> }</div>
-                </li>
-                <li style="padding: 0.5rem 0; border-bottom: 1px dashed var(--ts-border);">
-                    <div class="ts-label-sm ts-text-secondary">Lead Approval</div>
-                    <div class="ts-body-sm">By: <strong>@(Model.LeadApprovedByName ?? "-")</strong> @if (Model.LeadApprovedAt.HasValue) { <span class="ts-text-secondary">(@Model.LeadApprovedAt.Value.ToLocalTime().ToString("MMM dd, yyyy HH:mm"))</span> }</div>
-                </li>
-                <li style="padding: 0.5rem 0;">
-                    <div class="ts-label-sm ts-text-secondary">Finalized</div>
-                    <div class="ts-body-sm">By: <strong>@(Model.CompletionApprovedByName ?? "-")</strong> @if (Model.CompletionApprovedAt.HasValue) { <span class="ts-text-secondary">(@Model.CompletionApprovedAt.Value.ToLocalTime().ToString("MMM dd, yyyy HH:mm"))</span> }</div>
-                    @if (!string.IsNullOrWhiteSpace(Model.ApprovalNotes))
-                    {
-                        <div class="ts-body-xs ts-text-secondary" style="margin-top:0.25rem;">Notes: @Model.ApprovalNotes</div>
-                    }
-
-                    @* Contributions list and add form *@
-                    <div style="margin-top:0.75rem;">
-                        <div class="ts-label-sm ts-text-secondary" style="display:flex; justify-content:space-between; align-items:center;">
-                            <span>Contributions</span>
-                            <div style="display:flex; gap:0.5rem; align-items:center;">
-                                @if (isAssigned || Model.IsLeadForCurrentUser || Model.IsProfessorForCurrentUser)
-                                {
-                                    <span class="ts-body-xs ts-text-secondary">You can add a contribution</span>
-                                }
-                                <a asp-action="ExportContributionsCsv" asp-route-taskId="@Model.Id" class="ts-btn ts-btn-xs ts-btn-secondary">Export CSV</a>
-                            </div>
-                        </div>
-
-                        @* Add contribution form (visible to assignee, lead, professors, admins) *@
-                        @if (isAssigned || Model.IsLeadForCurrentUser || Model.IsProfessorForCurrentUser)
-                        {
-                            <form asp-action="AddContribution" method="post" style="margin-top:0.5rem; border:1px solid var(--ts-border); padding:0.75rem; border-radius:6px; background:var(--ts-surface-container);">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="taskId" value="@Model.Id" />
-                                <div class="ts-form-group">
-                                    <label class="ts-label-sm">Description</label>
-                                    <textarea name="description" class="ts-input" rows="2" required></textarea>
-                                </div>
-                                <div style="display:flex; gap:0.5rem; margin-top:0.5rem; align-items:center;">
-                                    <div style="width:10rem;">
-                                        <label class="ts-label-sm">Hours</label>
-                                        <input type="number" name="hours" step="0.25" min="0" class="ts-input" />
-                                    </div>
-                                    <div style="flex:1;">
-                                        <label class="ts-label-sm">Notes (optional)</label>
-                                        <input type="text" name="notes" class="ts-input" />
-                                    </div>
-                                    <div style="width:12rem;">
-                                        <label class="ts-label-sm">User (optional)</label>
-                                        <input type="text" name="userId" class="ts-input" placeholder="user id to attribute" />
-                                    </div>
-                                </div>
-                                <div style="margin-top:0.5rem; display:flex; gap:0.5rem;">
-                                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Add Contribution</button>
-                                </div>
-                            </form>
-                        }
-
-                        @if (contributions.Any())
-                        {
-                            <ul style="list-style:none; padding:0; margin:0.5rem 0 0 0;">
-                                @foreach (var c in contributions)
-                                {
-                                    <li style="padding:0.5rem 0; border-bottom:1px dashed var(--ts-border);">
-                                        <div class="ts-body-sm" style="display:flex; justify-content:space-between; align-items:center;">
-                                            <div>
-                                                <strong>@(c.User?.FirstName ?? "") @(c.User?.LastName ?? "")</strong>
-                                                <span class="ts-body-xs ts-text-secondary" style="margin-left:0.5rem;">@c.ContributedAt.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</span>
-                                            </div>
-                                            <div>
-                                                @* Edit/delete options *@
-                                                @if (c.RecordedById == currentUserId || Model.IsProfessorForCurrentUser || User.IsInRole("Admin"))
-                                                {
-                                                    <form asp-action="DeleteContribution" method="post" style="display:inline; margin-left:0.5rem;">
-                                                        @Html.AntiForgeryToken()
-                                                        <input type="hidden" name="contributionId" value="@c.Id" />
-                                                        <button type="submit" class="ts-btn ts-btn-xs ts-btn-secondary" onclick="return confirm('Delete contribution?');">Delete</button>
-                                                    </form>
-
-                                                    @if (c.IsStudentSubmitted && (Model.IsProfessorForCurrentUser || User.IsInRole("Admin") || Model.IsLeadForCurrentUser))
-                                                    {
-                                                        <details style="display:inline-block; margin-left:0.5rem;">
-                                                            <summary class="ts-btn ts-btn-xs ts-btn-secondary">Create Override</summary>
-                                                            <form asp-action="EditContribution" method="post" style="margin-top:0.5rem;">
-                                                                @Html.AntiForgeryToken()
-                                                                <input type="hidden" name="contributionId" value="@c.Id" />
-                                                                <div class="ts-form-group">
-                                                                    <label class="ts-label-sm">New Description</label>
-                                                                    <textarea name="description" class="ts-input" rows="2" placeholder="Leave blank to keep original" style="margin-bottom: 0.5rem;"></textarea>
-                                                                </div>
-                                                                <div style="display:flex; gap:0.5rem; margin-bottom:0.5rem; align-items:center;">
-                                                                    <div style="width:10rem;">
-                                                                        <label class="ts-label-sm">New Hours</label>
-                                                                        <input type="number" name="hours" step="0.25" min="0" class="ts-input" placeholder="Leave blank to keep original" />
-                                                                    </div>
-                                                                </div>
-                                                                <div class="ts-form-group">
-                                                                    <label class="ts-label-sm">Justification *</label>
-                                                                    <textarea name="justification" class="ts-input" rows="2" required placeholder="Why is this override necessary?"></textarea>
-                                                                </div>
-                                                                <div style="margin-top:0.5rem;">
-                                                                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Create Override</button>
-                                                                </div>
-                                                            </form>
-                                                        </details>
-                                                    }
-                                                    @if (!c.IsStudentSubmitted)
-                                                    {
-                                                        <details style="display:inline-block; margin-left:0.5rem;">
-                                                            <summary class="ts-btn ts-btn-xs ts-btn-secondary">Edit</summary>
-                                                            <form asp-action="EditContribution" method="post" style="margin-top:0.5rem;">
-                                                                @Html.AntiForgeryToken()
-                                                                <input type="hidden" name="contributionId" value="@c.Id" />
-                                                                <div class="ts-form-group">
-                                                                    <label class="ts-label-sm">Description</label>
-                                                                    <textarea name="description" class="ts-input" rows="2">@c.Description</textarea>
-                                                                </div>
-                                                                <div style="display:flex; gap:0.5rem; margin-top:0.5rem; align-items:center;">
-                                                                    <div style="width:10rem;">
-                                                                        <label class="ts-label-sm">Hours</label>
-                                                                        <input type="number" name="hours" step="0.25" min="0" class="ts-input" value="@(c.HoursSpent ?? 0)" />
-                                                                    </div>
-                                                                    <div style="flex:1;">
-                                                                        <label class="ts-label-sm">Notes (optional)</label>
-                                                                        <input type="text" name="notes" class="ts-input" value="@c.Notes" />
-                                                                    </div>
-                                                                </div>
-                                                                <div style="margin-top:0.5rem;">
-                                                                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Save</button>
-                                                                </div>
-                                                            </form>
-                                                        </details>
-                                                    }
-                                                    <a asp-action="ContributionHistory" asp-route-contributionId="@c.Id" class="ts-btn ts-btn-xs ts-btn-secondary" style="margin-left:0.5rem;">History</a>
-                                                }
-                                             </div>
-                                         </div>
-
-                                        <div class="ts-body-xs ts-text-secondary" style="margin-top:0.25rem;">@c.Description</div>
-                                        @if (c.HoursSpent.HasValue)
-                                        {
-                                            <div class="ts-body-xs">Hours: @c.HoursSpent.Value</div>
-                                        }
-                                        @if (!string.IsNullOrWhiteSpace(c.Notes))
-                                        {
-                                            <div class="ts-body-xs">Notes: @c.Notes</div>
-                                        }
-
-                                        @* Student submission indicator *@
-                                        @if (c.IsStudentSubmitted)
-                                        {
-                                            <div class="ts-body-xs" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: var(--ts-warning-surface); color: var(--ts-warning-on-surface); border-radius: 3px; display: inline-block;">
-                                                <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">verified_user</span>
-                                                Student-submitted (immutable)
-                                            </div>
-                                        }
-
-                                        @* Display overrides if they exist *@
-                                        @if (c.Overrides != null && c.Overrides.Any())
-                                        {
-                                            <div style="margin-top: 0.75rem; padding: 0.5rem; background: var(--ts-surface-container); border-left: 3px solid var(--ts-tertiary); border-radius: 4px;">
-                                                <div class="ts-body-xs" style="font-weight: 600; margin-bottom: 0.5rem;">
-                                                    <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">edit_note</span>
-                                                    Overrides
-                                                </div>
-                                                @foreach (var ovr in c.Overrides.OrderByDescending(o => o.OverriddenAt))
-                                                {
-                                                    <div style="margin-bottom: 0.5rem; padding: 0.5rem; background: var(--ts-surface); border-radius: 3px; border: 1px dashed var(--ts-border);">
-                                                        <div class="ts-body-xs" style="margin-bottom: 0.25rem;">
-                                                            <strong>Overridden by: @(ovr.OverriddenBy?.FirstName ?? "") @(ovr.OverriddenBy?.LastName ?? "")</strong>
-                                                            <span class="ts-text-secondary" style="margin-left: 0.5rem;">@ovr.OverriddenAt.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</span>
-                                                        </div>
-                                                        @if (ovr.OriginalHours != ovr.NewHours)
-                                                        {
-                                                            <div class="ts-body-xs">
-                                                                Hours: <span style="text-decoration: line-through;">@(ovr.OriginalHours ?? 0)</span> → <strong>@(ovr.NewHours ?? 0)</strong>
-                                                            </div>
-                                                        }
-                                                        @if (!string.Equals(ovr.OriginalDescription, ovr.NewDescription))
-                                                        {
-                                                            <div class="ts-body-xs">
-                                                                <strong>New Description:</strong> @ovr.NewDescription
-                                                            </div>
-                                                        }
-                                                        @if (!string.IsNullOrWhiteSpace(ovr.Justification))
-                                                        {
-                                                            <div class="ts-body-xs" style="margin-top: 0.25rem;">
-                                                                <strong>Justification:</strong> @ovr.Justification
-                                                            </div>
-                                                        }
-                                                        @if (ovr.DisputedById != null)
-                                                        {
-                                                            <div class="ts-body-xs" style="color: var(--ts-error); margin-top: 0.25rem;">
-                                                                <strong>Disputed by: @(ovr.DisputedBy?.FirstName ?? "") @(ovr.DisputedBy?.LastName ?? "")</strong>
-                                                                @if (!string.IsNullOrWhiteSpace(ovr.DisputeReason))
-                                                                {
-                                                                    <div>@ovr.DisputeReason</div>
-                                                                }
-                                                            </div>
-                                                        }
-                                                    </div>
-                                                }
-                                            </div>
-                                        }
-                                    </li>
-                                }
-                            </ul>
-                        }
-                        else
-                        {
-                            <div class="ts-body-sm ts-text-secondary" style="margin-top:0.5rem;">No contributions recorded yet.</div>
-                        }
-                    </div>
-                </li>
-            </ul>
+        <div class="ts-task-detail-row">
+            <span class="ts-label-sm ts-text-secondary">Created By</span>
+            <span>@(Model.CreatedByName ?? "Unknown")</span>
         </div>
-    </section>
-
-    @* Multi-Assignee Section *@
-    <section class="ts-card">
-        <div class="ts-card-header">
-            <h3 class="ts-title-lg">Team Members</h3>
+        <div class="ts-task-detail-row">
+            <span class="ts-label-sm ts-text-secondary">Status</span>
+            <span class="ts-status @statusClass">@Model.Status</span>
         </div>
-        <div class="ts-card-body">
-            @if (assignments.Any())
+        <div class="ts-task-detail-row">
+            <span class="ts-label-sm ts-text-secondary">Start Date</span>
+            <span class="@(Model.StartDate.HasValue && Model.StartDate.Value.Date < DateTime.UtcNow.Date ? "ts-task-date-overdue" : "")">@(Model.StartDate?.ToString("MMM dd, yyyy") ?? "No start date")</span>
+        </div>
+        <div class="ts-task-detail-row">
+            <span class="ts-label-sm ts-text-secondary">Due Date</span>
+            <span class="@(Model.DueDate.HasValue && Model.DueDate.Value.Date < DateTime.UtcNow.Date ? "ts-task-date-overdue" : "")">@(Model.DueDate?.ToString("MMM dd, yyyy") ?? "No due date")</span>
+        </div>
+        <div class="ts-task-detail-row">
+            <span class="ts-label-sm ts-text-secondary">Priority</span>
+            @if (Model.Priority == 3)
             {
-                <ul style="list-style: none; padding: 0; margin: 0;">
-                    @foreach (var assignment in assignments)
-                    {
-                        <li style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--ts-border);">
-                            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                <div class="ts-avatar" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--ts-primary); color: white; font-weight: bold; font-size: 14px;">
-                                    @(assignment.AssignedTo?.FirstName?.Substring(0, 1).ToUpper() ?? "U")
-                                </div>
-                                <div>
-                                    <div class="ts-body-sm" style="font-weight: 500;">@assignment.AssignedTo?.FirstName @assignment.AssignedTo?.LastName</div>
-                                    <div class="ts-body-xs ts-text-secondary">@assignment.AssignedTo?.Email</div>
-                                </div>
-                            </div>
-                            @if (Model.IsLeadForCurrentUser || Model.IsProfessorForCurrentUser)
-                            {
-                                <form asp-action="RemoveAssignee" method="post" style="display:inline;" onsubmit="return confirm('Remove this assignee?');">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="taskId" value="@Model.Id" />
-                                    <input type="hidden" name="userId" value="@assignment.AssignedToId" />
-                                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-secondary" title="Remove assignee">
-                                        <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
-                                    </button>
-                                </form>
-                            }
-                        </li>
-                    }
-                </ul>
+                <span class="ts-badge ts-priority-high">HIGH</span>
+            }
+            else if (Model.Priority == 2)
+            {
+                <span class="ts-badge ts-priority-medium">MEDIUM</span>
             }
             else
             {
-                <div class="ts-body-sm ts-text-secondary">No team members assigned yet.</div>
+                <span class="ts-badge ts-priority-low">LOW</span>
             }
         </div>
-    </section>
+    </div>
+</section>
 
-    @* Task Notes/Discussion Section *@
-    <section class="ts-card">
-        <div class="ts-card-header">
-            <h3 class="ts-title-lg">Discussion</h3>
+<section class="ts-card">
+    <div class="ts-card-header">
+        <h3 class="ts-title-lg">Approval History</h3>
+    </div>
+    <div class="ts-card-body">
+        <ul style="list-style: none; padding: 0; margin: 0;">
+            <li style="padding: 0.5rem 0; border-bottom: 1px dashed var(--ts-border);">
+                <div class="ts-label-sm ts-text-secondary">Requested</div>
+                <div class="ts-body-sm">By: <strong>@(Model.ReviewRequestedByName ?? "-")</strong> @if (Model.ReviewRequestedAt.HasValue) {
+                    <span class="ts-text-secondary">(@Model.ReviewRequestedAt.Value.ToLocalTime().ToString("MMM dd, yyyy HH:mm"))</span>
+                }
+            </div>
+        </li>
+        <li style="padding: 0.5rem 0; border-bottom: 1px dashed var(--ts-border);">
+            <div class="ts-label-sm ts-text-secondary">Lead Approval</div>
+            <div class="ts-body-sm">By: <strong>@(Model.LeadApprovedByName ?? "-")</strong> @if (Model.LeadApprovedAt.HasValue) {
+                <span class="ts-text-secondary">(@Model.LeadApprovedAt.Value.ToLocalTime().ToString("MMM dd, yyyy HH:mm"))</span>
+            }
         </div>
-        <div class="ts-card-body">
-            @* Add Note Form *@
-            @if (isAssigned || Model.IsLeadForCurrentUser || Model.IsProfessorForCurrentUser)
-            {
-                <form asp-action="AddNote" method="post" style="margin-bottom: 1.5rem;">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="taskId" value="@Model.Id" />
-                    <div class="ts-form-group">
-                        <label for="noteContent" class="ts-label-sm">Add Note</label>
-                        <textarea name="content" id="noteContent" class="ts-input" placeholder="Share your thoughts or updates..." rows="3" style="resize: vertical;"></textarea>
+    </li>
+    <li style="padding: 0.5rem 0;">
+        <div class="ts-label-sm ts-text-secondary">Finalized</div>
+        <div class="ts-body-sm">By: <strong>@(Model.CompletionApprovedByName ?? "-")</strong> @if (Model.CompletionApprovedAt.HasValue) {
+            <span class="ts-text-secondary">(@Model.CompletionApprovedAt.Value.ToLocalTime().ToString("MMM dd, yyyy HH:mm"))</span>
+        }
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.ApprovalNotes))
+    {
+        <div class="ts-body-xs ts-text-secondary" style="margin-top:0.25rem;">Notes: @Model.ApprovalNotes</div>
+    }
+
+    @* Contributions list and add form *@
+    <div style="margin-top:0.75rem;">
+        <div class="ts-label-sm ts-text-secondary" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Contributions</span>
+            <div style="display:flex; gap:0.5rem; align-items:center;">
+                @if (isAssigned || Model.IsLeadForCurrentUser || Model.IsProfessorForCurrentUser)
+                {
+                    <span class="ts-body-xs ts-text-secondary">You can add a contribution</span>
+                }
+                <a asp-action="ExportContributionsCsv" asp-route-taskId="@Model.Id" class="ts-btn ts-btn-xs ts-btn-secondary">Export CSV</a>
+            </div>
+        </div>
+
+        @* Add contribution form (visible to assignee, lead, professors, admins) *@
+        @if (isAssigned || Model.IsLeadForCurrentUser || Model.IsProfessorForCurrentUser)
+        {
+            <form asp-action="AddContribution" method="post" style="margin-top:0.5rem; border:1px solid var(--ts-border); padding:0.75rem; border-radius:6px; background:var(--ts-surface-container);">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="taskId" value="@Model.Id" />
+                <div class="ts-form-group">
+                    <label class="ts-label-sm">Description</label>
+                    <textarea name="description" class="ts-input" rows="2" required></textarea>
+                </div>
+                <div style="display:flex; gap:0.5rem; margin-top:0.5rem; align-items:center;">
+                    <div style="width:10rem;">
+                        <label class="ts-label-sm">Hours</label>
+                        <input type="number" name="hours" step="0.25" min="0" class="ts-input" />
                     </div>
-                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Post Note</button>
-                </form>
+                    <div style="flex:1;">
+                        <label class="ts-label-sm">Notes (optional)</label>
+                        <input type="text" name="notes" class="ts-input" />
+                    </div>
+                    <div style="width:12rem;">
+                        <label class="ts-label-sm">User (optional)</label>
+                        <input type="text" name="userId" class="ts-input" placeholder="user id to attribute" />
+                    </div>
+                </div>
+                <div style="margin-top:0.5rem; display:flex; gap:0.5rem;">
+                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Add Contribution</button>
+                </div>
+            </form>
+        }
 
-                <hr style="margin: 1rem 0; border: 0; border-top: 1px dashed var(--ts-border);" />
-            }
+        @if (contributions.Any())
+        {
+            <ul style="list-style:none; padding:0; margin:0.5rem 0 0 0;">
+                @foreach (var c in contributions)
+                {
+                    <li style="padding:0.5rem 0; border-bottom:1px dashed var(--ts-border);">
+                        <div class="ts-body-sm" style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <strong>@(c.User?.FirstName ?? "") @(c.User?.LastName ?? "")</strong>
+                                <span class="ts-body-xs ts-text-secondary" style="margin-left:0.5rem;">@c.ContributedAt.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</span>
+                            </div>
+                            <div>
+                                @* Edit/delete options *@
+                                @if (c.RecordedById == currentUserId || Model.IsProfessorForCurrentUser || User.IsInRole("Admin"))
+                                {
+                                    <form asp-action="DeleteContribution" method="post" style="display:inline; margin-left:0.5rem;">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="contributionId" value="@c.Id" />
+                                        <button type="submit" class="ts-btn ts-btn-xs ts-btn-secondary" onclick="return confirm('Delete contribution?');">Delete</button>
+                                    </form>
 
-            @* Notes List *@
-            @if (notes.Any())
-            {
-                <div style="display: flex; flex-direction: column; gap: 1rem;">
-                    @foreach (var note in notes)
-                    {
-                        <div style="padding: 1rem; background: var(--ts-surface-container); border-radius: var(--ts-radius-md); border-left: 3px solid var(--ts-primary);">
-                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
-                                <div>
-                                    <div class="ts-body-sm" style="font-weight: 500;">
-                                        @if (note.User != null)
-                                        {
-                                            @note.User.FirstName @note.User.LastName
-                                        }
-                                        else
-                                        {
-                                            <span>Unknown User</span>
-                                        }
-                                        <span class="ts-body-xs ts-text-secondary" style="margin-left: 0.5rem;">@note.CreatedAt.ToString("MMM dd, yyyy HH:mm")</span>
-                                    </div>
-                                </div>
-                                <div>
-                                    @* Edit/Delete controls for note author or professor/admin *@
-                                    @if (Model.IsProfessorForCurrentUser || note.UserId == currentUserId)
+                                    @if (c.IsStudentSubmitted && (Model.IsProfessorForCurrentUser || User.IsInRole("Admin") || Model.IsLeadForCurrentUser))
                                     {
-                                        <form asp-action="DeleteNote" method="post" style="display:inline; margin-left:0.5rem;" onsubmit="return confirm('Delete this note?');">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="noteId" value="@note.Id" />
-                                            <input type="hidden" name="notesPage" value="@notesPage" />
-                                            <button type="submit" class="ts-btn ts-btn-xs ts-btn-secondary" title="Delete note" style="padding: 0.25rem 0.5rem; font-size: 12px;">
-                                                <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
-                                            </button>
-                                        </form>
-
+                                        <details style="display:inline-block; margin-left:0.5rem;">
+                                            <summary class="ts-btn ts-btn-xs ts-btn-secondary">Create Override</summary>
+                                            <form asp-action="EditContribution" method="post" style="margin-top:0.5rem;">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="contributionId" value="@c.Id" />
+                                                <div class="ts-form-group">
+                                                    <label class="ts-label-sm">New Description</label>
+                                                    <textarea name="description" class="ts-input" rows="2" placeholder="Leave blank to keep original" style="margin-bottom: 0.5rem;"></textarea>
+                                                </div>
+                                                <div style="display:flex; gap:0.5rem; margin-bottom:0.5rem; align-items:center;">
+                                                    <div style="width:10rem;">
+                                                        <label class="ts-label-sm">New Hours</label>
+                                                        <input type="number" name="hours" step="0.25" min="0" class="ts-input" placeholder="Leave blank to keep original" />
+                                                    </div>
+                                                </div>
+                                                <div class="ts-form-group">
+                                                    <label class="ts-label-sm">Justification *</label>
+                                                    <textarea name="justification" class="ts-input" rows="2" required placeholder="Why is this override necessary?"></textarea>
+                                                </div>
+                                                <div style="margin-top:0.5rem;">
+                                                    <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Create Override</button>
+                                                </div>
+                                            </form>
+                                        </details>
+                                    }
+                                    @if (!c.IsStudentSubmitted)
+                                    {
                                         <details style="display:inline-block; margin-left:0.5rem;">
                                             <summary class="ts-btn ts-btn-xs ts-btn-secondary">Edit</summary>
-                                            <form asp-action="EditNote" method="post" style="margin-top:0.5rem;">
+                                            <form asp-action="EditContribution" method="post" style="margin-top:0.5rem;">
                                                 @Html.AntiForgeryToken()
-                                                <input type="hidden" name="noteId" value="@note.Id" />
-                                                <input type="hidden" name="notesPage" value="@notesPage" />
+                                                <input type="hidden" name="contributionId" value="@c.Id" />
                                                 <div class="ts-form-group">
-                                                    <label class="ts-label-sm">Edit Note</label>
-                                                    <textarea name="content" class="ts-input" rows="3">@note.Content</textarea>
+                                                    <label class="ts-label-sm">Description</label>
+                                                    <textarea name="description" class="ts-input" rows="2">@c.Description</textarea>
                                                 </div>
-                                                <div style="margin-top:0.5rem; display:flex; gap:0.5rem; justify-content:flex-end;">
+                                                <div style="display:flex; gap:0.5rem; margin-top:0.5rem; align-items:center;">
+                                                    <div style="width:10rem;">
+                                                        <label class="ts-label-sm">Hours</label>
+                                                        <input type="number" name="hours" step="0.25" min="0" class="ts-input" value="@(c.HoursSpent ?? 0)" />
+                                                    </div>
+                                                    <div style="flex:1;">
+                                                        <label class="ts-label-sm">Notes (optional)</label>
+                                                        <input type="text" name="notes" class="ts-input" value="@c.Notes" />
+                                                    </div>
+                                                </div>
+                                                <div style="margin-top:0.5rem;">
                                                     <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Save</button>
                                                 </div>
                                             </form>
                                         </details>
                                     }
+                                    <a asp-action="ContributionHistory" asp-route-contributionId="@c.Id" class="ts-btn ts-btn-xs ts-btn-secondary" style="margin-left:0.5rem;">History</a>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="ts-body-xs ts-text-secondary" style="margin-top:0.25rem;">@c.Description</div>
+                        @if (c.HoursSpent.HasValue)
+                        {
+                            <div class="ts-body-xs">Hours: @c.HoursSpent.Value</div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(c.Notes))
+                        {
+                            <div class="ts-body-xs">Notes: @c.Notes</div>
+                        }
+
+                        @* Student submission indicator *@
+                        @if (c.IsStudentSubmitted)
+                        {
+                            <div class="ts-body-xs" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: var(--ts-warning-surface); color: var(--ts-warning-on-surface); border-radius: 3px; display: inline-block;">
+                                <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">verified_user</span>
+                                Student-submitted (immutable)
+                            </div>
+                        }
+
+                        @* Display overrides if they exist *@
+                        @if (c.Overrides != null && c.Overrides.Any())
+                        {
+                            <div style="margin-top: 0.75rem; padding: 0.5rem; background: var(--ts-surface-container); border-left: 3px solid var(--ts-tertiary); border-radius: 4px;">
+                                <div class="ts-body-xs" style="font-weight: 600; margin-bottom: 0.5rem;">
+                                    <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">edit_note</span>
+                                    Overrides
+                                </div>
+                                @foreach (var ovr in c.Overrides.OrderByDescending(o => o.OverriddenAt))
+                                {
+                                    <div style="margin-bottom: 0.5rem; padding: 0.5rem; background: var(--ts-surface); border-radius: 3px; border: 1px dashed var(--ts-border);">
+                                        <div class="ts-body-xs" style="margin-bottom: 0.25rem;">
+                                            <strong>Overridden by: @(ovr.OverriddenBy?.FirstName ?? "") @(ovr.OverriddenBy?.LastName ?? "")</strong>
+                                            <span class="ts-text-secondary" style="margin-left: 0.5rem;">@ovr.OverriddenAt.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</span>
+                                        </div>
+                                        @if (ovr.OriginalHours != ovr.NewHours)
+                                        {
+                                            <div class="ts-body-xs">
+                                                Hours: <span style="text-decoration: line-through;">@(ovr.OriginalHours ?? 0)</span> → <strong>@(ovr.NewHours ?? 0)</strong>
+                                            </div>
+                                        }
+                                        @if (!string.Equals(ovr.OriginalDescription, ovr.NewDescription))
+                                        {
+                                            <div class="ts-body-xs">
+                                                <strong>New Description:</strong> @ovr.NewDescription
+                                            </div>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(ovr.Justification))
+                                        {
+                                            <div class="ts-body-xs" style="margin-top: 0.25rem;">
+                                                <strong>Justification:</strong> @ovr.Justification
+                                            </div>
+                                        }
+                                        @if (ovr.DisputedById != null)
+                                        {
+                                            <div class="ts-body-xs" style="color: var(--ts-error); margin-top: 0.25rem;">
+                                                <strong>Disputed by: @(ovr.DisputedBy?.FirstName ?? "") @(ovr.DisputedBy?.LastName ?? "")</strong>
+                                                @if (!string.IsNullOrWhiteSpace(ovr.DisputeReason))
+                                                {
+                                                    <div>@ovr.DisputeReason</div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <div class="ts-body-sm ts-text-secondary" style="margin-top:0.5rem;">No contributions recorded yet.</div>
+        }
+    </div>
+</li>
+</ul>
+</div>
+</section>
+
+@* Multi-Assignee Section *@
+<section class="ts-card">
+    <div class="ts-card-header">
+        <h3 class="ts-title-lg">Team Members</h3>
+    </div>
+    <div class="ts-card-body">
+        @if (assignments.Any())
+        {
+            <ul style="list-style: none; padding: 0; margin: 0;">
+                @foreach (var assignment in assignments)
+                {
+                    <li style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--ts-border);">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <div class="ts-avatar" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--ts-primary); color: white; font-weight: bold; font-size: 14px;">
+                                @(assignment.AssignedTo?.FirstName?.Substring(0, 1).ToUpper() ?? "U")
+                            </div>
+                            <div>
+                                <div class="ts-body-sm" style="font-weight: 500;">@assignment.AssignedTo?.FirstName @assignment.AssignedTo?.LastName</div>
+                                <div class="ts-body-xs ts-text-secondary">@assignment.AssignedTo?.Email</div>
+                            </div>
+                        </div>
+                        @if (Model.IsLeadForCurrentUser || Model.IsProfessorForCurrentUser)
+                        {
+                            <form asp-action="RemoveAssignee" method="post" style="display:inline;" onsubmit="return confirm('Remove this assignee?');">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="taskId" value="@Model.Id" />
+                                <input type="hidden" name="userId" value="@assignment.AssignedToId" />
+                                <button type="submit" class="ts-btn ts-btn-sm ts-btn-secondary" title="Remove assignee">
+                                    <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
+                                </button>
+                            </form>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <div class="ts-body-sm ts-text-secondary">No team members assigned yet.</div>
+        }
+    </div>
+</section>
+
+@* Task Notes/Discussion Section *@
+<section class="ts-card">
+    <div class="ts-card-header">
+        <h3 class="ts-title-lg">Discussion</h3>
+    </div>
+    <div class="ts-card-body">
+        @* Add Note Form *@
+        @if (isAssigned || Model.IsLeadForCurrentUser || Model.IsProfessorForCurrentUser)
+        {
+            <form asp-action="AddNote" method="post" style="margin-bottom: 1.5rem;">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="taskId" value="@Model.Id" />
+                <div class="ts-form-group">
+                    <label for="noteContent" class="ts-label-sm">Add Note</label>
+                    <textarea name="content" id="noteContent" class="ts-input" placeholder="Share your thoughts or updates..." rows="3" style="resize: vertical;"></textarea>
+                </div>
+                <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Post Note</button>
+            </form>
+
+            <hr style="margin: 1rem 0; border: 0; border-top: 1px dashed var(--ts-border);" />
+        }
+
+        @* Notes List *@
+        @if (notes.Any())
+        {
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                @foreach (var note in notes)
+                {
+                    <div style="padding: 1rem; background: var(--ts-surface-container); border-radius: var(--ts-radius-md); border-left: 3px solid var(--ts-primary);">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                            <div>
+                                <div class="ts-body-sm" style="font-weight: 500;">
+                                    @if (note.User != null)
+                                    {
+                                        @note.User.FirstName @note.User.LastName
+                                    }
+                                    else
+                                    {
+                                        <span>Unknown User</span>
+                                    }
+                                    <span class="ts-body-xs ts-text-secondary" style="margin-left: 0.5rem;">@note.CreatedAt.ToString("MMM dd, yyyy HH:mm")</span>
                                 </div>
                             </div>
-                            <div class="ts-body-sm">@note.Content</div>
-                            @if (note.UpdatedAt != null)
-                            {
-                                <div class="ts-body-xs ts-text-secondary" style="margin-top:0.25rem;">Edited @note.UpdatedAt?.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</div>
-                            }
+                            <div>
+                                @* Edit/Delete controls for note author or professor/admin *@
+                                @if (Model.IsProfessorForCurrentUser || note.UserId == currentUserId)
+                                {
+                                    <form asp-action="DeleteNote" method="post" style="display:inline; margin-left:0.5rem;" onsubmit="return confirm('Delete this note?');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="noteId" value="@note.Id" />
+                                        <input type="hidden" name="notesPage" value="@notesPage" />
+                                        <button type="submit" class="ts-btn ts-btn-xs ts-btn-secondary" title="Delete note" style="padding: 0.25rem 0.5rem; font-size: 12px;">
+                                            <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
+                                        </button>
+                                    </form>
+
+                                    <details style="display:inline-block; margin-left:0.5rem;">
+                                        <summary class="ts-btn ts-btn-xs ts-btn-secondary">Edit</summary>
+                                        <form asp-action="EditNote" method="post" style="margin-top:0.5rem;">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="noteId" value="@note.Id" />
+                                            <input type="hidden" name="notesPage" value="@notesPage" />
+                                            <div class="ts-form-group">
+                                                <label class="ts-label-sm">Edit Note</label>
+                                                <textarea name="content" class="ts-input" rows="3">@note.Content</textarea>
+                                            </div>
+                                            <div style="margin-top:0.5rem; display:flex; gap:0.5rem; justify-content:flex-end;">
+                                                <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Save</button>
+                                            </div>
+                                        </form>
+                                    </details>
+                                }
+                            </div>
                         </div>
-                    }
-
-                    @* Pagination controls *@
-                    <div style="display:flex; gap:0.5rem; align-items:center; justify-content:flex-end; margin-top:0.5rem;">
-                        @{ var prev = notesPage - 1; var next = notesPage + 1; }
-                        @if (notesPage > 1)
+                        <div class="ts-body-sm">@note.Content</div>
+                        @if (note.UpdatedAt != null)
                         {
-                            <a asp-action="Details" asp-route-id="@Model.Id" asp-route-notesPage="@prev" class="ts-btn ts-btn-xs ts-btn-secondary">Previous</a>
-                        }
-                        else
-                        {
-                            <button class="ts-btn ts-btn-xs ts-btn-secondary" disabled>Previous</button>
-                        }
-
-                        <div class="ts-body-xs ts-text-secondary">Page @notesPage of @notesTotalPages</div>
-
-                        @if (notesPage < notesTotalPages)
-                        {
-                            <a asp-action="Details" asp-route-id="@Model.Id" asp-route-notesPage="@next" class="ts-btn ts-btn-xs ts-btn-secondary">Next</a>
-                        }
-                        else
-                        {
-                            <button class="ts-btn ts-btn-xs ts-btn-secondary" disabled>Next</button>
+                            <div class="ts-body-xs ts-text-secondary" style="margin-top:0.25rem;">Edited @note.UpdatedAt?.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</div>
                         }
                     </div>
+                }
+
+                @* Pagination controls *@
+                <div style="display:flex; gap:0.5rem; align-items:center; justify-content:flex-end; margin-top:0.5rem;">
+                    @{
+                        var prev = notesPage - 1; var next = notesPage + 1;
+                    }
+                    @if (notesPage > 1)
+                    {
+                        <a asp-action="Details" asp-route-id="@Model.Id" asp-route-notesPage="@prev" class="ts-btn ts-btn-xs ts-btn-secondary">Previous</a>
+                    }
+                    else
+                    {
+                        <button class="ts-btn ts-btn-xs ts-btn-secondary" disabled>Previous</button>
+                    }
+
+                    <div class="ts-body-xs ts-text-secondary">Page @notesPage of @notesTotalPages</div>
+
+                    @if (notesPage < notesTotalPages)
+                    {
+                        <a asp-action="Details" asp-route-id="@Model.Id" asp-route-notesPage="@next" class="ts-btn ts-btn-xs ts-btn-secondary">Next</a>
+                    }
+                    else
+                    {
+                        <button class="ts-btn ts-btn-xs ts-btn-secondary" disabled>Next</button>
+                    }
                 </div>
-            }
-            else
-            {
-                <div class="ts-body-sm ts-text-secondary">No notes yet. Be the first to comment!</div>
-            }
-        </div>
-    </section>
+            </div>
+        }
+        else
+        {
+            <div class="ts-body-sm ts-text-secondary">No notes yet. Be the first to comment!</div>
+        }
+    </div>
+</section>
 </div>
 
 @section Scripts {

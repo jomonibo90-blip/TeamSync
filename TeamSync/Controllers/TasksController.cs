@@ -1406,6 +1406,17 @@ public class TasksController : Controller
 
         var attributedUserId = string.IsNullOrWhiteSpace(userId) ? (task.AssignedToId ?? currentUser.Id) : userId.Trim();
 
+        // Validate that the attributed user exists in the database
+        if (!string.IsNullOrWhiteSpace(attributedUserId))
+        {
+            var attributedUser = await _context.Users.FindAsync(attributedUserId);
+            if (attributedUser == null)
+            {
+                TempData["ErrorMessage"] = "The specified user does not exist.";
+                return RedirectToAction("Details", new { id = taskId });
+            }
+        }
+
         // Determine if this is a student-submitted contribution
         // It's student-submitted if:
         // 1. The assignee is adding their own contribution

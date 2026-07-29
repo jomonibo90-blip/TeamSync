@@ -37,10 +37,6 @@
         <p class="ts-body-lg ts-text-secondary">Manage assigned and requested tasks for accountability.</p>
     </div>
     <div class="ts-task-actions">
-        <a href="#taskFilters" class="ts-btn ts-btn-secondary">
-            <span class="material-symbols-outlined" style="font-size:18px;">tune</span> Filter
-        </a>
-
         @if (canRequestTask)
         {
             <a asp-controller="Tasks" asp-action="SelectGroup" asp-route-mode="request" class="ts-btn ts-btn-primary">
