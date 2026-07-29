@@ -2,6 +2,7 @@
 @{
     ViewData["Title"] = "Task Management";
     var activeStatus = (ViewBag.ActiveStatus as string) ?? "All";
+    var isArchivedView = (ViewBag.IsArchivedView as bool?) ?? false;
     var canCreateTask = (ViewBag.CanCreateTask as bool?) ?? false;
     var canRequestTask = (ViewBag.CanRequestTask as bool?) ?? false;
 
@@ -33,17 +34,35 @@
 
 <div class="ts-task-page-header">
     <div>
-        <h1 class="ts-headline-lg-mobile md:ts-headline-lg">Task Management</h1>
-        <p class="ts-body-lg ts-text-secondary">Manage assigned and requested tasks for accountability.</p>
+        <h1 class="ts-headline-lg-mobile md:ts-headline-lg">@(isArchivedView ? "Archived Tasks" : "Task Management")</h1>
+        <p class="ts-body-lg ts-text-secondary">@(isArchivedView ? "View tasks that have been archived for reference." : "Manage assigned and requested tasks for accountability.")</p>
     </div>
     <div class="ts-task-actions">
-        @if (canRequestTask)
+        @if (!isArchivedView && canRequestTask)
         {
             <a asp-controller="Tasks" asp-action="SelectGroup" asp-route-mode="request" class="ts-btn ts-btn-primary">
                 <span class="material-symbols-outlined" style="font-size:18px;">assignment</span> Request Task
             </a>
         }
     </div>
+</div>
+
+@* Archive/Active Tabs *@
+<div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--ts-border); padding-bottom: 1rem;">
+    <a asp-action="Index" asp-route-status="@(activeStatus == "All" ? null : activeStatus)" asp-route-archived="false" 
+       style="padding: 0.5rem 1rem; border-radius: var(--ts-radius-sm); font-weight: 500; text-decoration: none; color: inherit; 
+               @(isArchivedView ? "background: transparent; color: var(--ts-text-secondary);" : "background: var(--ts-primary-light); color: var(--ts-primary);")"
+       title="View active tasks">
+        <span class="material-symbols-outlined" style="font-size:18px; vertical-align: middle; margin-right: 0.5rem;">task</span>
+        Active Tasks
+    </a>
+    <a asp-action="Index" asp-route-status="@(activeStatus == "All" ? null : activeStatus)" asp-route-archived="true" 
+       style="padding: 0.5rem 1rem; border-radius: var(--ts-radius-sm); font-weight: 500; text-decoration: none; color: inherit; 
+               @(isArchivedView ? "background: var(--ts-primary-light); color: var(--ts-primary);" : "background: transparent; color: var(--ts-text-secondary);")"
+       title="View archived tasks">
+        <span class="material-symbols-outlined" style="font-size:18px; vertical-align: middle; margin-right: 0.5rem;">archive</span>
+        Archived Tasks
+    </a>
 </div>
 
 @if (TempData["SuccessMessage"] != null)
@@ -63,7 +82,7 @@
     @foreach (var status in new[] { "All", "Requested", "Pending", "InProgress", "Completed", "Rejected" })
     {
         var active = string.Equals(activeStatus, status, StringComparison.OrdinalIgnoreCase);
-        <a asp-action="Index" asp-route-status="@(status == "All" ? null : status)" class="ts-filter-chip @(active ? "active" : "")">@status</a>
+        <a asp-action="Index" asp-route-status="@(status == "All" ? null : status)" asp-route-archived="@(isArchivedView)" class="ts-filter-chip @(active ? "active" : "")">@status</a>
     }
 </div>
 

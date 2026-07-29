@@ -38,7 +38,7 @@ public class TasksController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Index(string? status)
+    public async Task<IActionResult> Index(string? status, bool? archived)
     {
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
@@ -54,8 +54,17 @@ public class TasksController : Controller
             .Include(t => t.Group).ThenInclude(g => g.Members)
             .Include(t => t.AssignedTo)
             .Include(t => t.CreatedBy)
-            .Where(t => !t.ArchivedAt.HasValue)  // Exclude archived tasks by default
             .AsQueryable();
+
+        // Filter by archive status
+        if (archived == true)
+        {
+            query = query.Where(t => t.ArchivedAt.HasValue);
+        }
+        else
+        {
+            query = query.Where(t => !t.ArchivedAt.HasValue);  // Active tasks by default
+        }
 
         if (!isAdmin && !isProfessor)
         {
@@ -118,6 +127,7 @@ public class TasksController : Controller
 
         var canCreateTask = isAdmin || isProfessor || isLeadInAnyGroup;
         ViewBag.ActiveStatus = activeStatus;
+        ViewBag.IsArchivedView = archived ?? false;
         ViewBag.CanCreateTask = canCreateTask;
         ViewBag.CanRequestTask = !canCreateTask && isMemberInAnyGroup;
         ViewBag.CurrentUserId = currentUser.Id; // used by view to show card-level actions
