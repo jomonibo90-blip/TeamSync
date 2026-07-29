@@ -25,14 +25,19 @@ public class User : IdentityUser
     public ICollection<Task> CreatedTasks { get; set; } = new List<Task>();
     public ICollection<Contribution> Contributions { get; set; } = new List<Contribution>();
     public ICollection<Group> CreatedGroups { get; set; } = new List<Group>();
-    
+
     /// <summary>
     /// Task assignments for multi-assignee support.
     /// </summary>
     public ICollection<TaskAssignment> TaskAssignments { get; set; } = new List<TaskAssignment>();
-    
+
     /// <summary>
     /// Task notes created by this user.
     /// </summary>
     public ICollection<TaskNote> TaskNotes { get; set; } = new List<TaskNote>();
+
+    /// <summary>
+    /// User's notification and alert preferences.
+    /// </summary>
+    public AlertPreference? AlertPreference { get; set; }
 }

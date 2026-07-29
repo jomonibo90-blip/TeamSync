@@ -1,0 +1,149 @@
+@model TeamSync.Models.AlertPreference
+@{
+    ViewData["Title"] = "Alert Preferences";
+}
+
+<div class="ts-page-header ts-flex ts-justify-between ts-items-center" style="flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1 class="ts-headline-lg-mobile md:ts-headline-lg">Alert & Email Preferences</h1>
+        <p class="ts-body-lg ts-text-secondary">Manage how and when you receive notifications.</p>
+    </div>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="ts-alert" style="background: rgba(25,135,84,0.1); color: var(--ts-success); border: 1px solid rgba(25,135,84,0.2); margin-bottom: 1.5rem;">
+        @TempData["SuccessMessage"]
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="ts-alert ts-alert-error" style="margin-bottom: 1.5rem;">
+        @TempData["ErrorMessage"]
+    </div>
+}
+
+<form asp-action="AlertPreferences" method="post" class="ts-form">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+
+    <div class="ts-dashboard-card" style="margin-bottom: 2rem;">
+        <div class="ts-dashboard-card-header">
+            <h3 class="ts-title-lg">Email Notification Frequency</h3>
+            <p class="ts-body-sm ts-text-secondary">How often you want to receive email summaries</p>
+        </div>
+        <div class="ts-dashboard-card-body">
+            <div class="ts-form-group">
+                <label class="ts-label-md" style="margin-bottom: 1rem;">Notification Frequency</label>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="radio" asp-for="NotificationFrequency" value="Never" />
+                        <span>Never</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="radio" asp-for="NotificationFrequency" value="Daily" />
+                        <span>Daily</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="radio" asp-for="NotificationFrequency" value="Weekly" />
+                        <span>Weekly (Recommended)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="radio" asp-for="NotificationFrequency" value="Immediate" />
+                        <span>Immediate</span>
+                    </label>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem;">
+                <div class="ts-form-group">
+                    <label class="ts-label-sm" asp-for="DigestDayOfWeek">Digest Day of Week</label>
+                    <select asp-for="DigestDayOfWeek" class="ts-input">
+                        <option value="0">Sunday</option>
+                        <option value="1">Monday</option>
+                        <option value="2">Tuesday</option>
+                        <option value="3">Wednesday</option>
+                        <option value="4">Thursday</option>
+                        <option value="5">Friday</option>
+                        <option value="6">Saturday</option>
+                    </select>
+                </div>
+
+                <div class="ts-form-group">
+                    <label class="ts-label-sm" asp-for="DigestHourUtc">Digest Time (UTC)</label>
+                    <select asp-for="DigestHourUtc" class="ts-input">
+                        @for (int i = 0; i < 24; i++)
+                        {
+                            <option value="@i">@i:00 UTC</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div style="background: rgba(13,110,253,0.05); border-left: 4px solid var(--ts-primary); padding: 1rem; border-radius: 4px; margin-top: 1.5rem;">
+                <p class="ts-body-sm" style="margin: 0;">
+                    <strong>Digest sent every week on the selected day at the specified time (in UTC).</strong>
+                    This includes a summary of all alerts you've received during the past week.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="ts-dashboard-card">
+        <div class="ts-dashboard-card-header">
+            <h3 class="ts-title-lg">Alert Types</h3>
+            <p class="ts-body-sm ts-text-secondary">Which types of alerts you want to receive</p>
+        </div>
+        <div class="ts-dashboard-card-body">
+            <div style="display: grid; gap: 1rem;">
+                <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--ts-surface); border-radius: 6px; border: 1px solid var(--ts-border);">
+                    <input type="checkbox" asp-for="ReceiveTaskAssignmentAlerts" style="margin-top: 4px;" />
+                    <div>
+                        <div class="ts-label-md">📋 Task Assignments</div>
+                        <p class="ts-body-sm ts-text-secondary" style="margin: 0;">Get notified when you're assigned a new task</p>
+                    </div>
+                </label>
+
+                <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--ts-surface); border-radius: 6px; border: 1px solid var(--ts-border);">
+                    <input type="checkbox" asp-for="ReceiveApprovalRejectionAlerts" style="margin-top: 4px;" />
+                    <div>
+                        <div class="ts-label-md">⏳ Approvals & Rejections</div>
+                        <p class="ts-body-sm ts-text-secondary" style="margin: 0;">Get notified when your task is approved or rejected</p>
+                    </div>
+                </label>
+
+                <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--ts-surface); border-radius: 6px; border: 1px solid var(--ts-border);">
+                    <input type="checkbox" asp-for="ReceiveStatusChangeAlerts" style="margin-top: 4px;" />
+                    <div>
+                        <div class="ts-label-md">🔄 Status Changes</div>
+                        <p class="ts-body-sm ts-text-secondary" style="margin: 0;">Get notified when a task status changes</p>
+                    </div>
+                </label>
+
+                <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--ts-surface); border-radius: 6px; border: 1px solid var(--ts-border);">
+                    <input type="checkbox" asp-for="ReceiveCommentAlerts" style="margin-top: 4px;" />
+                    <div>
+                        <div class="ts-label-md">💬 Comments & Discussion</div>
+                        <p class="ts-body-sm ts-text-secondary" style="margin: 0;">Get notified when there are new comments on tasks</p>
+                    </div>
+                </label>
+
+                <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--ts-surface); border-radius: 6px; border: 1px solid var(--ts-border);">
+                    <input type="checkbox" asp-for="ReceiveGroupAlerts" style="margin-top: 4px;" />
+                    <div>
+                        <div class="ts-label-md">👥 Group Changes</div>
+                        <p class="ts-body-sm ts-text-secondary" style="margin: 0;">Get notified when members are added or removed from groups</p>
+                    </div>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 1rem; margin-top: 2rem; justify-content: flex-end;">
+        <a asp-controller="Home" asp-action="Index" class="ts-btn ts-btn-secondary">Cancel</a>
+        <button type="submit" class="ts-btn ts-btn-primary">
+            <span class="material-symbols-outlined" style="font-size: 18px;">save</span> Save Preferences
+        </button>
+    </div>
+</form>

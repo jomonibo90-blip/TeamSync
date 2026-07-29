@@ -18,17 +18,20 @@ public class TasksController : Controller
     private readonly UserManager<User> _userManager;
     private readonly ILogger<TasksController> _logger;
     private readonly NotificationService _notificationService;
+    private readonly IAlertService _alertService;
 
     public TasksController(
         ApplicationDbContext context,
         UserManager<User> userManager,
         ILogger<TasksController> logger,
-        NotificationService notificationService)
+        NotificationService notificationService,
+        IAlertService alertService)
     {
         _context = context;
         _userManager = userManager;
         _logger = logger;
         _notificationService = notificationService;
+        _alertService = alertService;
     }
 
     [HttpGet]
@@ -583,6 +586,17 @@ public class TasksController : Controller
         _context.Tasks.Update(task);
         await _context.SaveChangesAsync();
 
+        // Generate alert for task assignment
+        if (!string.IsNullOrWhiteSpace(task.AssignedToId))
+        {
+            var assignedUser = await _userManager.FindByIdAsync(task.AssignedToId);
+            if (assignedUser != null)
+            {
+                var alertMessage = $"You have been assigned to task '{task.Title}' in {task.Group?.Name}";
+                await _alertService.CreateAlertAsync(task.AssignedToId, task.Id, "TaskAssignment", alertMessage);
+            }
+        }
+
         _logger.LogInformation("Task request {TaskId} approved by {ApproverId} - AssignedTo: {AssignedToId} StartDate: {StartDate} DueDate: {DueDate}", task.Id, currentUser.Id, task.AssignedToId ?? "Unassigned", task.StartDate, task.DueDate);
 
         if (TempData["WarningMessage"] == null)
@@ -930,6 +944,13 @@ public class TasksController : Controller
                 "StatusChange",
                 $"Task '{task.Title}' is now in progress.",
                 task.Id);
+
+            // Generate status change alerts
+            await _alertService.CreateAlertsAsync(
+                recipientIds.ToList(),
+                task.Id,
+                "StatusChange",
+                $"Task '{task.Title}' status changed to In Progress");
         }
 
         TempData["SuccessMessage"] = "Task started.";
@@ -982,6 +1003,13 @@ public class TasksController : Controller
                 "ReviewRequest",
                 $"Task '{task.Title}' is ready for review.",
                 task.Id);
+
+            // Generate alert for review request
+            await _alertService.CreateAlertsAsync(
+                recipientIds.ToList(),
+                task.Id,
+                "ApprovalRequested",
+                $"Task '{task.Title}' is ready for review");
         }
 
         TempData["SuccessMessage"] = "Review requested.";
@@ -1134,7 +1162,7 @@ public class TasksController : Controller
 
                     await transaction.CommitAsync();
 
-                    // Send notification to assigned user and watchers (creator, lead, professors)
+                    // Send notifications and generate alerts for assigned user and watchers
                     var recipientIds = new HashSet<string>();
                     if (!string.IsNullOrEmpty(task.AssignedToId))
                         recipientIds.Add(task.AssignedToId);
@@ -1161,6 +1189,13 @@ public class TasksController : Controller
                             "StatusChange",
                             $"Task '{task.Title}' has been approved and marked as completed.",
                             task.Id);
+
+                        // Generate alerts for approval notification
+                        await _alertService.CreateAlertsAsync(
+                            recipientIds.ToList(),
+                            task.Id,
+                            "ApprovalRequested",
+                            $"Task '{task.Title}' has been approved and is now completed");
                     }
                 }
                 catch (DbUpdateConcurrencyException)
@@ -1252,6 +1287,17 @@ public class TasksController : Controller
                     _context.Tasks.Update(task);
                     await _context.SaveChangesAsync();
 
+                    // Generate alert for rejection notification
+                    if (!string.IsNullOrEmpty(task.AssignedToId))
+                    {
+                        var alertMessage = $"Task '{task.Title}' has been rejected and sent back to In Progress";
+                        if (!string.IsNullOrWhiteSpace(reason))
+                        {
+                            alertMessage += $": {reason}";
+                        }
+                        await _alertService.CreateAlertAsync(task.AssignedToId, task.Id, "ApprovalRejected", alertMessage);
+                    }
+
                     await transaction.CommitAsync();
 
                     TempData["SuccessMessage"] = "Review rejected; task set back to In Progress.";
@@ -1271,6 +1317,17 @@ public class TasksController : Controller
 
                     _context.Tasks.Update(task);
                     await _context.SaveChangesAsync();
+
+                    // Generate alert for lead rejection notification
+                    if (!string.IsNullOrEmpty(task.AssignedToId))
+                    {
+                        var alertMessage = $"Task '{task.Title}' has been rejected by lead and sent back to In Progress";
+                        if (!string.IsNullOrWhiteSpace(reason))
+                        {
+                            alertMessage += $": {reason}";
+                        }
+                        await _alertService.CreateAlertAsync(task.AssignedToId, task.Id, "ApprovalRejected", alertMessage);
+                    }
 
                     await transaction.CommitAsync();
 

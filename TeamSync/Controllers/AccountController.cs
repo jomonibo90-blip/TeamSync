@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
+using TeamSync.Data;
 using TeamSync.Models;
 using TeamSync.ViewModels;
 
@@ -9,15 +12,18 @@ public class AccountController : Controller
 {
     private readonly UserManager<User> _userManager;
     private readonly SignInManager<User> _signInManager;
+    private readonly ApplicationDbContext _context;
     private readonly ILogger<AccountController> _logger;
 
     public AccountController(
         UserManager<User> userManager,
         SignInManager<User> signInManager,
+        ApplicationDbContext context,
         ILogger<AccountController> logger)
     {
         _userManager = userManager;
         _signInManager = signInManager;
+        _context = context;
         _logger = logger;
     }
 
@@ -125,4 +131,86 @@ return View(model);
     {
         return View();
     }
+
+    /// <summary>
+    /// Display alert preferences page for current user.
+    /// </summary>
+    [HttpGet]
+    [Authorize]
+    public async Task<IActionResult> AlertPreferences()
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+            return Challenge();
+
+        var preference = await _context.AlertPreferences
+            .FirstOrDefaultAsync(ap => ap.UserId == user.Id);
+
+        // Create default preference if none exists
+        if (preference == null)
+        {
+            preference = new AlertPreference
+            {
+                UserId = user.Id,
+                NotificationFrequency = "Weekly",
+                DigestDayOfWeek = 1, // Monday
+                DigestHourUtc = 9
+            };
+            _context.AlertPreferences.Add(preference);
+            await _context.SaveChangesAsync();
+        }
+
+        return View(preference);
+    }
+
+    /// <summary>
+    /// Update alert preferences for current user.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize]
+    public async Task<IActionResult> AlertPreferences(AlertPreference model)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+            return Challenge();
+
+        var preference = await _context.AlertPreferences
+            .FirstOrDefaultAsync(ap => ap.UserId == user.Id);
+
+        if (preference == null)
+        {
+            model.UserId = user.Id;
+            model.CreatedAt = DateTime.UtcNow;
+            _context.AlertPreferences.Add(model);
+        }
+        else
+        {
+            preference.NotificationFrequency = model.NotificationFrequency;
+            preference.DigestDayOfWeek = model.DigestDayOfWeek;
+            preference.DigestHourUtc = model.DigestHourUtc;
+            preference.ReceiveTaskAssignmentAlerts = model.ReceiveTaskAssignmentAlerts;
+            preference.ReceiveApprovalRejectionAlerts = model.ReceiveApprovalRejectionAlerts;
+            preference.ReceiveStatusChangeAlerts = model.ReceiveStatusChangeAlerts;
+            preference.ReceiveCommentAlerts = model.ReceiveCommentAlerts;
+            preference.ReceiveGroupAlerts = model.ReceiveGroupAlerts;
+            preference.UpdatedAt = DateTime.UtcNow;
+            _context.AlertPreferences.Update(preference);
+        }
+
+        try
+        {
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Alert preferences updated successfully.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating alert preferences for user {UserId}", user.Id);
+            TempData["ErrorMessage"] = "An error occurred while updating preferences.";
+        }
+
+        return RedirectToAction(nameof(AlertPreferences));
+    }
 }
+
+

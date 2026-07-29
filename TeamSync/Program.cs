@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using TeamSync.BackgroundJobs;
 using TeamSync.Data;
 using TeamSync.Hubs;
 using TeamSync.Models;
@@ -53,9 +54,18 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
 builder.Services.AddScoped<DbInitializerService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<ChatService>();
+builder.Services.AddScoped<IAlertService, AlertService>();
+builder.Services.AddScoped<IDigestEmailService, DigestEmailService>();
+
+// Configure email settings
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Add background service for deadline checking
 builder.Services.AddHostedService<DeadlineCheckService>();
+
+// Add background service for weekly digest emails
+builder.Services.AddHostedService<WeeklyDigestBackgroundService>();
 
 var app = builder.Build();
 

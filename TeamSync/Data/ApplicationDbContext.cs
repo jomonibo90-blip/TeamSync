@@ -29,6 +29,9 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
     // Real-time notifications
     public DbSet<Models.Notification> Notifications { get; set; }
 
+    // Alert preferences for email notifications
+    public DbSet<Models.AlertPreference> AlertPreferences { get; set; }
+
     // Group chat messages
     public DbSet<Models.ChatMessage> ChatMessages { get; set; }
 
