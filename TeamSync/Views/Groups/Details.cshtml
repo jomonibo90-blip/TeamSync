@@ -249,7 +249,12 @@
 {
     <div class="ts-dashboard-card" style="margin-bottom:1.5rem;">
         <div class="ts-dashboard-card-header">
-            <h3 class="ts-title-lg">Active Tasks (@Model.ActiveTasks.Count)</h3>
+            <div class="ts-flex ts-justify-between ts-items-center">
+                <h3 class="ts-title-lg">Active Tasks (@Model.ActiveTasks.Count)</h3>
+                <a asp-controller="Tasks" asp-action="ArchivedTasks" asp-route-groupId="@Model.Id" class="ts-btn ts-btn-sm ts-btn-secondary" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;">
+                    <span class="material-symbols-outlined" style="font-size:16px;">archive</span> View Archived
+                </a>
+            </div>
         </div>
         <div class="ts-dashboard-card-body">
             @foreach (var t in Model.ActiveTasks)
