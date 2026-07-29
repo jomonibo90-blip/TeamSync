@@ -306,7 +306,7 @@
                     <li style="padding:0.5rem 0; border-bottom:1px dashed var(--ts-border);">
                         <div class="ts-body-sm" style="display:flex; justify-content:space-between; align-items:center;">
                             <div>
-                                <strong>@(c.User?.FirstName ?? "") @(c.User?.LastName ?? "")</strong>
+                                <strong>@($"{c.User?.FirstName ?? ""} {c.User?.LastName ?? ""}".Trim())</strong>
                                 <span class="ts-body-xs ts-text-secondary" style="margin-left:0.5rem;">@c.ContributedAt.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</span>
                             </div>
                             <div>
@@ -409,7 +409,7 @@
                                 {
                                     <div style="margin-bottom: 0.5rem; padding: 0.5rem; background: var(--ts-surface); border-radius: 3px; border: 1px dashed var(--ts-border);">
                                         <div class="ts-body-xs" style="margin-bottom: 0.25rem;">
-                                            <strong>Overridden by: @(ovr.OverriddenBy?.FirstName ?? "") @(ovr.OverriddenBy?.LastName ?? "")</strong>
+                                            <strong>Overridden by: @($"{ovr.OverriddenBy?.FirstName ?? ""} {ovr.OverriddenBy?.LastName ?? ""}".Trim())</strong>
                                             <span class="ts-text-secondary" style="margin-left: 0.5rem;">@ovr.OverriddenAt.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</span>
                                         </div>
                                         @if (ovr.OriginalHours != ovr.NewHours)
@@ -433,7 +433,7 @@
                                         @if (ovr.DisputedById != null)
                                         {
                                             <div class="ts-body-xs" style="color: var(--ts-error); margin-top: 0.25rem;">
-                                                <strong>Disputed by: @(ovr.DisputedBy?.FirstName ?? "") @(ovr.DisputedBy?.LastName ?? "")</strong>
+                                                <strong>Disputed by: @($"{ovr.DisputedBy?.FirstName ?? ""} {ovr.DisputedBy?.LastName ?? ""}".Trim())</strong>
                                                 @if (!string.IsNullOrWhiteSpace(ovr.DisputeReason))
                                                 {
                                                     <div>@ovr.DisputeReason</div>
@@ -475,7 +475,7 @@
                                 @(assignment.AssignedTo?.FirstName?.Substring(0, 1).ToUpper() ?? "U")
                             </div>
                             <div>
-                                <div class="ts-body-sm" style="font-weight: 500;">@assignment.AssignedTo?.FirstName @assignment.AssignedTo?.LastName</div>
+                                <div class="ts-body-sm" style="font-weight: 500;">@($"{assignment.AssignedTo?.FirstName ?? ""} {assignment.AssignedTo?.LastName ?? ""}".Trim())</div>
                                 <div class="ts-body-xs ts-text-secondary">@assignment.AssignedTo?.Email</div>
                             </div>
                         </div>
@@ -540,7 +540,7 @@
                                 <div class="ts-body-sm" style="font-weight: 500;">
                                     @if (note.User != null)
                                     {
-                                        @note.User.FirstName @note.User.LastName
+                                        @($"{note.User.FirstName} {note.User.LastName}")
                                     }
                                     else
                                     {
