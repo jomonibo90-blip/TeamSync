@@ -129,7 +129,8 @@ public class DeadlineCheckService : BackgroundService
 
                     if (!hasRecentNotification)
                     {
-                        var daysRemaining = (int)(task.DueDate.Value.Date - now.Date).TotalDays;
+                        var dueDate = task.DueDate!.Value.Date;
+                        var daysRemaining = (int)(dueDate - now.Date).TotalDays;
                         var message = daysRemaining switch
                         {
                             0 => $"Task '{task.Title}' is due today!",
