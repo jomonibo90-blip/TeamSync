@@ -19,19 +19,22 @@ public class TasksController : Controller
     private readonly ILogger<TasksController> _logger;
     private readonly NotificationService _notificationService;
     private readonly IAlertService _alertService;
+    private readonly IConfiguration _configuration;
 
     public TasksController(
         ApplicationDbContext context,
         UserManager<User> userManager,
         ILogger<TasksController> logger,
         NotificationService notificationService,
-        IAlertService alertService)
+        IAlertService alertService,
+        IConfiguration configuration)
     {
         _context = context;
         _userManager = userManager;
         _logger = logger;
         _notificationService = notificationService;
         _alertService = alertService;
+        _configuration = configuration;
     }
 
     [HttpGet]
@@ -749,6 +752,8 @@ public class TasksController : Controller
         var notesQuery = _context.TaskNotes
             .Where(tn => tn.TaskId == id)
             .Include(tn => tn.User)
+            .Include(tn => tn.Attachments)
+            .ThenInclude(fa => fa.UploadedByUser)
             .OrderByDescending(tn => tn.CreatedAt);
 
         var totalNotes = await notesQuery.CountAsync();
@@ -793,16 +798,91 @@ public class TasksController : Controller
         return View(vm);
     }
 
+    /// <summary>
+    /// Helper method to handle file attachment uploads for task notes
+    /// </summary>
+    private async Task<List<FileAttachment>> ProcessFileUploads(int taskNoteId, IFormFileCollection files, User uploadedByUser)
+    {
+        var attachments = new List<FileAttachment>();
+
+        if (files == null || files.Count == 0)
+            return attachments;
+
+        var fileUploadSettings = _configuration.GetSection("FileUploadSettings");
+        var maxFileSizeBytes = fileUploadSettings.GetValue<long>("MaxFileSizeBytes", 10485760); // 10MB default
+        var allowedExtensions = fileUploadSettings.GetSection("AllowedExtensions").Get<string[]>() ?? new string[] { };
+        var storagePath = fileUploadSettings.GetValue<string>("StoragePath", "wwwroot/uploads/task-notes");
+
+        // Ensure storage directory exists
+        var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), storagePath);
+        if (!Directory.Exists(uploadsDir))
+            Directory.CreateDirectory(uploadsDir);
+
+        foreach (var file in files)
+        {
+            if (file.Length == 0) continue;
+
+            // Validate file size
+            if (file.Length > maxFileSizeBytes)
+            {
+                TempData["WarningMessage"] = $"File {file.FileName} exceeds maximum size limit.";
+                continue;
+            }
+
+            // Validate file extension
+            var fileExtension = Path.GetExtension(file.FileName).ToLower();
+            if (!allowedExtensions.Contains(fileExtension))
+            {
+                TempData["WarningMessage"] = $"File type {fileExtension} is not allowed.";
+                continue;
+            }
+
+            try
+            {
+                // Generate unique filename to prevent conflicts
+                var uniqueFileName = $"{DateTime.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid().ToString().Substring(0, 8)}{fileExtension}";
+                var filePath = Path.Combine(uploadsDir, uniqueFileName);
+
+                // Save file to disk
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                // Create FileAttachment record
+                var attachment = new FileAttachment
+                {
+                    TaskNoteId = taskNoteId,
+                    FileName = file.FileName,
+                    FileType = file.ContentType ?? "application/octet-stream",
+                    FileSize = file.Length,
+                    FilePath = Path.Combine(storagePath, uniqueFileName).Replace("wwwroot/", "/").Replace("\\", "/"),
+                    UploadedByUserId = uploadedByUser.Id,
+                    UploadedAt = DateTime.UtcNow
+                };
+
+                attachments.Add(attachment);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error uploading file {file.FileName}: {ex.Message}");
+                TempData["WarningMessage"] = $"Error uploading file {file.FileName}.";
+            }
+        }
+
+        return attachments;
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> AddNote(int taskId, string content)
+    public async Task<IActionResult> AddNote(int taskId, string content, IFormFileCollection files)
     {
         var currentUser = await _userManager.GetUserAsync(User);
         if (currentUser == null) return Challenge();
 
-        if (string.IsNullOrWhiteSpace(content))
+        if (string.IsNullOrWhiteSpace(content) && (files == null || files.Count == 0))
         {
-            TempData["ErrorMessage"] = "Note cannot be empty.";
+            TempData["ErrorMessage"] = "Note cannot be empty and must contain either text or files.";
             return RedirectToAction("Details", new { id = taskId });
         }
 
@@ -828,12 +908,23 @@ public class TasksController : Controller
         {
             TaskId = taskId,
             UserId = currentUser.Id,
-            Content = content.Trim(),
+            Content = content?.Trim() ?? string.Empty,
             CreatedAt = DateTime.UtcNow
         };
 
         _context.TaskNotes.Add(note);
         await _context.SaveChangesAsync();
+
+        // Process file attachments
+        if (files != null && files.Count > 0)
+        {
+            var attachments = await ProcessFileUploads(note.Id, files, currentUser);
+            if (attachments.Count > 0)
+            {
+                _context.FileAttachments.AddRange(attachments);
+                await _context.SaveChangesAsync();
+            }
+        }
 
         TempData["SuccessMessage"] = "Note added.";
         return RedirectToAction("Details", new { id = taskId, notesPage = 1 });
@@ -893,15 +984,51 @@ public class TasksController : Controller
         if (note.UserId != currentUser.Id && !isAdmin && !isProfessor)
             return Forbid();
 
-        _context.TaskNotes.Remove(note);
-        await _context.SaveChangesAsync();
+             _context.TaskNotes.Remove(note);
+            await _context.SaveChangesAsync();
 
-        TempData["SuccessMessage"] = "Note deleted.";
-        return RedirectToAction("Details", new { id = task.Id, notesPage = notesPage });
-    }
+            TempData["SuccessMessage"] = "Note deleted.";
+            return RedirectToAction("Details", new { id = task.Id, notesPage = notesPage });
+        }
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
+        [HttpGet]
+        public async Task<IActionResult> DownloadAttachment(int attachmentId)
+        {
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null) return Challenge();
+
+            var attachment = await _context.FileAttachments
+                .Include(fa => fa.TaskNote)
+                .ThenInclude(tn => tn.Task)
+                .ThenInclude(t => t.Group)
+                .ThenInclude(g => g.Members)
+                .FirstOrDefaultAsync(fa => fa.Id == attachmentId);
+
+            if (attachment == null) return NotFound();
+
+            var taskNote = attachment.TaskNote;
+            if (taskNote == null || taskNote.Task == null || taskNote.Task.Group == null)
+                return NotFound();
+
+            // Check if user has access to this task
+            bool isAdmin = User.IsInRole("Admin");
+            bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+            var isMember = taskNote.Task.Group.Members.Any(m => m.UserId == currentUser.Id && m.Group.IsActive);
+
+            if (!isAdmin && !isProfessor && !isMember)
+                return Forbid();
+
+            var filePath = Path.Combine(Directory.GetCurrentDirectory(), attachment.FilePath.TrimStart('/').Replace("/", "\\"));
+
+            if (!System.IO.File.Exists(filePath))
+                return NotFound("File not found");
+
+            var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+            return File(fileBytes, attachment.FileType, attachment.FileName);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
     public async Task<IActionResult> SetInProgress(int id)
     {
         var currentUser = await _userManager.GetUserAsync(User);

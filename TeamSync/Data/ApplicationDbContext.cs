@@ -35,6 +35,9 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
     // Group chat messages
     public DbSet<Models.ChatMessage> ChatMessages { get; set; }
 
+    // File attachments for task notes
+    public DbSet<Models.FileAttachment> FileAttachments { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -335,5 +338,36 @@ public class ApplicationDbContext : IdentityDbContext<Models.User>
 
         modelBuilder.Entity<Models.ChatMessage>()
             .HasIndex(cm => new { cm.GroupId, cm.CreatedAt });
+
+        // Configure AlertPreference relationships
+        modelBuilder.Entity<Models.AlertPreference>()
+            .HasOne(ap => ap.User)
+            .WithOne(u => u.AlertPreference)
+            .HasForeignKey<Models.AlertPreference>(ap => ap.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Indices for alert preference queries
+        modelBuilder.Entity<Models.AlertPreference>()
+            .HasIndex(ap => ap.UserId);
+
+        // Configure FileAttachment relationships
+        modelBuilder.Entity<Models.FileAttachment>()
+            .HasOne(fa => fa.TaskNote)
+            .WithMany(tn => tn.Attachments)
+            .HasForeignKey(fa => fa.TaskNoteId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Models.FileAttachment>()
+            .HasOne(fa => fa.UploadedByUser)
+            .WithMany()
+            .HasForeignKey(fa => fa.UploadedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Indices for file attachment queries
+        modelBuilder.Entity<Models.FileAttachment>()
+            .HasIndex(fa => fa.TaskNoteId);
+
+        modelBuilder.Entity<Models.FileAttachment>()
+            .HasIndex(fa => fa.UploadedByUserId);
     }
 }

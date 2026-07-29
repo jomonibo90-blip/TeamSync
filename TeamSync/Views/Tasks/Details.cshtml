@@ -510,12 +510,17 @@
         @* Add Note Form *@
         @if (isAssigned || Model.IsLeadForCurrentUser || Model.IsProfessorForCurrentUser)
         {
-            <form asp-action="AddNote" method="post" style="margin-bottom: 1.5rem;">
+            <form asp-action="AddNote" method="post" enctype="multipart/form-data" style="margin-bottom: 1.5rem;">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="taskId" value="@Model.Id" />
                 <div class="ts-form-group">
                     <label for="noteContent" class="ts-label-sm">Add Note</label>
                     <textarea name="content" id="noteContent" class="ts-input" placeholder="Share your thoughts or updates..." rows="3" style="resize: vertical;"></textarea>
+                </div>
+                <div class="ts-form-group">
+                    <label for="attachments" class="ts-label-sm">Attach Files (Optional)</label>
+                    <input type="file" name="files" id="attachments" class="ts-input" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.webp,.bmp" />
+                    <small class="ts-body-xs ts-text-secondary" style="display: block; margin-top: 0.25rem;">Images will preview in lightbox. Documents are downloadable.</small>
                 </div>
                 <button type="submit" class="ts-btn ts-btn-sm ts-btn-primary">Post Note</button>
             </form>
@@ -579,6 +584,42 @@
                         @if (note.UpdatedAt != null)
                         {
                             <div class="ts-body-xs ts-text-secondary" style="margin-top:0.25rem;">Edited @note.UpdatedAt?.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</div>
+                        }
+
+                        @* Display file attachments *@
+                        @if (note.Attachments != null && note.Attachments.Any())
+                        {
+                            <div style="margin-top: 1rem; padding-top: 0.5rem; border-top: 1px solid var(--ts-border);">
+                                <div class="ts-body-xs ts-text-secondary" style="margin-bottom: 0.5rem; font-weight: 500;">Attachments:</div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                                    @foreach (var attachment in note.Attachments)
+                                    {
+                                        @if (attachment.IsImage)
+                                        {
+                                            <!-- Image preview with lightbox -->
+                                            <a href="@attachment.FilePath" class="glightbox" data-gallery="note-@note.Id-gallery" title="@attachment.FileName" style="display: inline-block; max-width: 120px; max-height: 120px; overflow: hidden; border-radius: var(--ts-radius-sm); border: 1px solid var(--ts-border);">
+                                                <img src="@attachment.FilePath" alt="@attachment.FileName" style="width: 100%; height: 100%; object-fit: cover;" />
+                                            </a>
+                                        }
+                                        else if (attachment.IsDocument)
+                                        {
+                                            <!-- Download link for documents -->
+                                            <a asp-action="DownloadAttachment" asp-route-attachmentId="@attachment.Id" class="ts-btn ts-btn-xs ts-btn-secondary" title="Download @attachment.FileName" style="text-decoration: none;">
+                                                <span class="material-symbols-outlined" style="font-size: 16px;">download</span>
+                                                @attachment.FileName
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <!-- Generic file download -->
+                                            <a asp-action="DownloadAttachment" asp-route-attachmentId="@attachment.Id" class="ts-btn ts-btn-xs ts-btn-secondary" title="Download @attachment.FileName" style="text-decoration: none;">
+                                                <span class="material-symbols-outlined" style="font-size: 16px;">attachment</span>
+                                                @attachment.FileName
+                                            </a>
+                                        }
+                                    }
+                                </div>
+                            </div>
                         }
                     </div>
                 }

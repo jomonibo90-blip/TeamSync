@@ -28,6 +28,9 @@
 
     <!-- TeamSync Design System -->
     <link rel="stylesheet" href="~/css/teamsync.css" asp-append-version="true" />
+
+    <!-- GLightbox for image preview -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css" />
 </head>
 <body class="ts-app-body">
   <!-- Mobile Drawer Overlay -->
@@ -202,8 +205,20 @@
         openBtn?.addEventListener('click', toggleDrawer);
         closeBtn?.addEventListener('click', toggleDrawer);
         overlay?.addEventListener('click', toggleDrawer);
-    </script>
+         </script>
 
-    @await RenderSectionAsync("Scripts", required: false)
-</body>
-</html>
+        <!-- GLightbox Script -->
+        <script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js"></script>
+        <script>
+            // Initialize GLightbox for image previews
+            const lightbox = GLightbox({
+                selector: '.glightbox',
+                touchNavigation: true,
+                loop: true,
+                autoplayVideos: true
+            });
+        </script>
+
+        @await RenderSectionAsync("Scripts", required: false)
+    </body>
+    </html>

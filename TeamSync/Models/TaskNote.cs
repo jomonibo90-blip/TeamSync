@@ -25,4 +25,9 @@ public class TaskNote
 
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+
+    /// <summary>
+    /// File attachments associated with this note (images, PDFs, documents, etc.)
+    /// </summary>
+    public ICollection<FileAttachment> Attachments { get; set; } = new List<FileAttachment>();
 }

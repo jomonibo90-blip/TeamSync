@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TeamSync.Data;
 
@@ -11,9 +12,11 @@ using TeamSync.Data;
 namespace TeamSync.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260729151844_FixAlertPreferenceRelationship")]
+    partial class FixAlertPreferenceRelationship
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -447,51 +450,6 @@ namespace TeamSync.Migrations
                     b.HasIndex("OverriddenById");
 
                     b.ToTable("ContributionOverrides");
-                });
-
-            modelBuilder.Entity("TeamSync.Models.FileAttachment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<string>("FilePath")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<long>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("FileType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<int>("TaskNoteId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UploadedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UploadedByUserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TaskNoteId");
-
-                    b.HasIndex("UploadedByUserId");
-
-                    b.ToTable("FileAttachments");
                 });
 
             modelBuilder.Entity("TeamSync.Models.Group", b =>
@@ -1139,25 +1097,6 @@ namespace TeamSync.Migrations
                     b.Navigation("OverriddenBy");
                 });
 
-            modelBuilder.Entity("TeamSync.Models.FileAttachment", b =>
-                {
-                    b.HasOne("TeamSync.Models.TaskNote", "TaskNote")
-                        .WithMany("Attachments")
-                        .HasForeignKey("TaskNoteId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("TeamSync.Models.User", "UploadedByUser")
-                        .WithMany()
-                        .HasForeignKey("UploadedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("TaskNote");
-
-                    b.Navigation("UploadedByUser");
-                });
-
             modelBuilder.Entity("TeamSync.Models.Group", b =>
                 {
                     b.HasOne("TeamSync.Models.User", "CreatedBy")
@@ -1372,11 +1311,6 @@ namespace TeamSync.Migrations
                     b.Navigation("Contributions");
 
                     b.Navigation("Notes");
-                });
-
-            modelBuilder.Entity("TeamSync.Models.TaskNote", b =>
-                {
-                    b.Navigation("Attachments");
                 });
 
             modelBuilder.Entity("TeamSync.Models.User", b =>

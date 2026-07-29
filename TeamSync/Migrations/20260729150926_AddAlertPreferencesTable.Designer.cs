@@ -12,8 +12,8 @@ using TeamSync.Data;
 namespace TeamSync.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260729145335_AddAlertPreferenceModel")]
-    partial class AddAlertPreferenceModel
+    [Migration("20260729150926_AddAlertPreferencesTable")]
+    partial class AddAlertPreferencesTable
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -259,7 +259,7 @@ namespace TeamSync.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("AlertPreference");
+                    b.ToTable("AlertPreferences");
                 });
 
             modelBuilder.Entity("TeamSync.Models.ChatMessage", b =>
