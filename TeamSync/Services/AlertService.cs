@@ -168,6 +168,12 @@ public class AlertService : IAlertService
             await _context.SaveChangesAsync();
 
             _logger.LogInformation($"Alerts created for {userIds.Count} users: {type}");
+
+            // Send immediate emails for each notification if user has that preference
+            foreach (var notification in notifications)
+            {
+                _ = SendImmediateEmailIfEnabledAsync(notification.UserId, notification);
+            }
         }
         catch (Exception ex)
         {
