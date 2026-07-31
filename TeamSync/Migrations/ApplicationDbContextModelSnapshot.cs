@@ -201,7 +201,7 @@ namespace TeamSync.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AddMemberRequests");
+                    b.ToTable("AddMemberRequests", (string)null);
                 });
 
             modelBuilder.Entity("TeamSync.Models.AlertPreference", b =>
@@ -256,7 +256,7 @@ namespace TeamSync.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("AlertPreferences");
+                    b.ToTable("AlertPreferences", (string)null);
                 });
 
             modelBuilder.Entity("TeamSync.Models.ChatMessage", b =>
@@ -291,7 +291,7 @@ namespace TeamSync.Migrations
 
                     b.HasIndex("GroupId", "CreatedAt");
 
-                    b.ToTable("ChatMessages");
+                    b.ToTable("ChatMessages", (string)null);
                 });
 
             modelBuilder.Entity("TeamSync.Models.Contribution", b =>
@@ -349,7 +349,7 @@ namespace TeamSync.Migrations
                     b.HasIndex("TaskId", "UserId")
                         .IsUnique();
 
-                    b.ToTable("Contributions");
+                    b.ToTable("Contributions", (string)null);
                 });
 
             modelBuilder.Entity("TeamSync.Models.ContributionHistory", b =>
@@ -383,7 +383,7 @@ namespace TeamSync.Migrations
 
                     b.HasIndex("ContributionId");
 
-                    b.ToTable("ContributionHistories");
+                    b.ToTable("ContributionHistories", (string)null);
                 });
 
             modelBuilder.Entity("TeamSync.Models.ContributionOverride", b =>
@@ -446,52 +446,7 @@ namespace TeamSync.Migrations
 
                     b.HasIndex("OverriddenById");
 
-                    b.ToTable("ContributionOverrides");
-                });
-
-            modelBuilder.Entity("TeamSync.Models.FileAttachment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<string>("FilePath")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<long>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("FileType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<int>("TaskNoteId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UploadedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UploadedByUserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TaskNoteId");
-
-                    b.HasIndex("UploadedByUserId");
-
-                    b.ToTable("FileAttachments");
+                    b.ToTable("ContributionOverrides", (string)null);
                 });
 
             modelBuilder.Entity("TeamSync.Models.Group", b =>
@@ -533,7 +488,7 @@ namespace TeamSync.Migrations
 
                     b.HasIndex("CreatedById");
 
-                    b.ToTable("Groups");
+                    b.ToTable("Groups", (string)null);
                 });
 
             modelBuilder.Entity("TeamSync.Models.GroupMember", b =>
@@ -567,7 +522,7 @@ namespace TeamSync.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("GroupMembers");
+                    b.ToTable("GroupMembers", (string)null);
                 });
 
             modelBuilder.Entity("TeamSync.Models.JoinRequest", b =>
@@ -606,7 +561,7 @@ namespace TeamSync.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("JoinRequests");
+                    b.ToTable("JoinRequests", (string)null);
                 });
 
             modelBuilder.Entity("TeamSync.Models.Notification", b =>
@@ -650,7 +605,7 @@ namespace TeamSync.Migrations
 
                     b.HasIndex("UserId", "IsRead");
 
-                    b.ToTable("Notifications");
+                    b.ToTable("Notifications", (string)null);
                 });
 
             modelBuilder.Entity("TeamSync.Models.RemovalRequest", b =>
@@ -706,7 +661,7 @@ namespace TeamSync.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RemovalRequests");
+                    b.ToTable("RemovalRequests", (string)null);
                 });
 
             modelBuilder.Entity("TeamSync.Models.Task", b =>
@@ -801,7 +756,7 @@ namespace TeamSync.Migrations
 
                     b.HasIndex("GroupId");
 
-                    b.ToTable("Tasks");
+                    b.ToTable("Tasks", (string)null);
                 });
 
             modelBuilder.Entity("TeamSync.Models.TaskAssignment", b =>
@@ -837,7 +792,7 @@ namespace TeamSync.Migrations
 
                     b.HasIndex("TaskId");
 
-                    b.ToTable("TaskAssignments");
+                    b.ToTable("TaskAssignments", (string)null);
                 });
 
             modelBuilder.Entity("TeamSync.Models.TaskNote", b =>
@@ -872,7 +827,7 @@ namespace TeamSync.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("TaskNotes");
+                    b.ToTable("TaskNotes", (string)null);
                 });
 
             modelBuilder.Entity("TeamSync.Models.User", b =>
@@ -1139,25 +1094,6 @@ namespace TeamSync.Migrations
                     b.Navigation("OverriddenBy");
                 });
 
-            modelBuilder.Entity("TeamSync.Models.FileAttachment", b =>
-                {
-                    b.HasOne("TeamSync.Models.TaskNote", "TaskNote")
-                        .WithMany("Attachments")
-                        .HasForeignKey("TaskNoteId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("TeamSync.Models.User", "UploadedByUser")
-                        .WithMany()
-                        .HasForeignKey("UploadedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("TaskNote");
-
-                    b.Navigation("UploadedByUser");
-                });
-
             modelBuilder.Entity("TeamSync.Models.Group", b =>
                 {
                     b.HasOne("TeamSync.Models.User", "CreatedBy")
@@ -1372,11 +1308,6 @@ namespace TeamSync.Migrations
                     b.Navigation("Contributions");
 
                     b.Navigation("Notes");
-                });
-
-            modelBuilder.Entity("TeamSync.Models.TaskNote", b =>
-                {
-                    b.Navigation("Attachments");
                 });
 
             modelBuilder.Entity("TeamSync.Models.User", b =>
