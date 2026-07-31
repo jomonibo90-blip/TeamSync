@@ -103,6 +103,8 @@ public class AlertService : IAlertService
     {
         try
         {
+            _logger.LogInformation($"Starting SendImmediateEmailIfEnabledAsync for user {userId}, alert type: {notification.Type}");
+
             var user = await _context.Users
                 .Include(u => u.AlertPreference)
                 .FirstOrDefaultAsync(u => u.Id == userId);
@@ -113,9 +115,12 @@ public class AlertService : IAlertService
                 return;
             }
 
+            _logger.LogInformation($"User found: {user.Email}, AlertPreference: {user.AlertPreference?.NotificationFrequency}");
+
             // Check if user has "Immediate" notification preference
             if (user.AlertPreference?.NotificationFrequency != "Immediate")
             {
+                _logger.LogInformation($"User {userId} does not have 'Immediate' notification frequency. Frequency: {user.AlertPreference?.NotificationFrequency ?? "NULL"}");
                 return;
             }
 
@@ -130,6 +135,8 @@ public class AlertService : IAlertService
                 _ => false
             };
 
+            _logger.LogInformation($"Alert type {notification.Type} enabled for user {userId}: {isAlertTypeEnabled}");
+
             if (!isAlertTypeEnabled)
             {
                 _logger.LogInformation($"Alert type {notification.Type} is disabled for user {userId}");
@@ -140,6 +147,7 @@ public class AlertService : IAlertService
             var subject = $"TeamSync: {notification.Type}";
             var htmlContent = FormatAlertEmailHtml(notification, user.UserName ?? "User");
 
+            _logger.LogInformation($"Sending email to {user.Email} with subject: {subject}");
             await _emailService.SendEmailAsync(user.Email, subject, htmlContent);
             _logger.LogInformation($"Immediate email sent to {user.Email} for alert type {notification.Type}");
         }
@@ -170,8 +178,10 @@ public class AlertService : IAlertService
             _logger.LogInformation($"Alerts created for {userIds.Count} users: {type}");
 
             // Send immediate emails for each notification if user has that preference
+            _logger.LogInformation($"Processing immediate emails for {userIds.Count} users for alert type: {type}");
             foreach (var notification in notifications)
             {
+                _logger.LogInformation($"Queuing immediate email for user {notification.UserId}");
                 _ = SendImmediateEmailIfEnabledAsync(notification.UserId, notification);
             }
         }
