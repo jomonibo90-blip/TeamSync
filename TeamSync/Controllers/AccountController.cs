@@ -57,6 +57,20 @@ FirstName = model.FirstName,
     // Assign default Student role
      await _userManager.AddToRoleAsync(user, "Student");
 
+    // Create default AlertPreference for new user
+    var alertPreference = new AlertPreference
+    {
+        UserId = user.Id,
+        NotificationFrequency = "Immediate",
+        DigestDayOfWeek = 1, // Monday
+        DigestHourUtc = 9,   // 9 AM UTC
+        ReceiveTaskAssignmentAlerts = true,
+        ReceiveApprovalRejectionAlerts = true,
+        ReceiveStatusChangeAlerts = true
+    };
+    _context.AlertPreferences.Add(alertPreference);
+    await _context.SaveChangesAsync();
+
     await _signInManager.SignInAsync(user, isPersistent: false);
        return RedirectToAction("Index", "Home");
             }
