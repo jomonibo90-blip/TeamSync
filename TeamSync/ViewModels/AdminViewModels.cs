@@ -80,6 +80,7 @@ public class StudentDashboardViewModel
 {
     public List<GroupListViewModel> Groups { get; set; } = new();
     public StudentProgressViewModel Progress { get; set; } = new();
+    public List<NotificationViewModel> RecentAlerts { get; set; } = new();
 }
 
 public class StudentProgressViewModel
@@ -124,8 +125,18 @@ public class GroupProgressViewModel
     public int Completed { get; set; }
     public int InProgress { get; set; }
     public int Pending { get; set; }
-    
+
     public decimal Percentage => Total > 0 
         ? (Completed * 100m) / Total 
         : 0;
+}
+
+public class NotificationViewModel
+{
+    public int Id { get; set; }
+    public string Type { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public bool IsRead { get; set; }
+    public int? TaskId { get; set; }
 }

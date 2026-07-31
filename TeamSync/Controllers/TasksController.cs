@@ -1622,42 +1622,98 @@ public class TasksController : Controller
             }
         }
 
+        // Check if a contribution already exists for this task and user
+        var existingContribution = await _context.Contributions
+            .FirstOrDefaultAsync(c => c.TaskId == taskId && c.UserId == attributedUserId);
+
         // Determine if this is a student-submitted contribution
         // It's student-submitted if:
         // 1. The assignee is adding their own contribution
         // 2. AND they are not an admin, professor, or lead
         bool isStudentSubmitted = isAssigned && !isAdmin && !isProfessor && !isLead && attributedUserId == currentUser.Id;
 
-        var contribution = new Contribution
+        string action;
+        Contribution contribution;
+
+        if (existingContribution != null)
         {
-            TaskId = taskId,
-            UserId = attributedUserId,
-            Description = (description ?? string.Empty).Trim(),
-            HoursSpent = hours,
-            Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
-            RecordedById = currentUser.Id,
-            RecordedAt = DateTime.UtcNow,
-            ContributedAt = DateTime.UtcNow,
-            IsStudentSubmitted = isStudentSubmitted
-        };
+            // Update existing contribution
+            var oldDescription = existingContribution.Description;
+            var oldHours = existingContribution.HoursSpent;
+            var oldNotes = existingContribution.Notes;
 
-        _context.Contributions.Add(contribution);
-        await _context.SaveChangesAsync();
+            existingContribution.Description = (description ?? string.Empty).Trim();
+            existingContribution.HoursSpent = hours;
+            existingContribution.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+            existingContribution.RecordedById = currentUser.Id;
+            existingContribution.RecordedAt = DateTime.UtcNow;
 
-        // create audit record
-        var changes = JsonSerializer.Serialize(new { contribution.UserId, contribution.Description, contribution.HoursSpent, contribution.Notes });
-        var history = new ContributionHistory
+            _context.Contributions.Update(existingContribution);
+            await _context.SaveChangesAsync();
+
+            action = "Updated";
+            contribution = existingContribution;
+
+            // Create audit record for update
+            var changes = JsonSerializer.Serialize(new
+            {
+                oldDescription,
+                newDescription = existingContribution.Description,
+                oldHours,
+                newHours = existingContribution.HoursSpent,
+                oldNotes,
+                newNotes = existingContribution.Notes
+            });
+            var history = new ContributionHistory
+            {
+                ContributionId = contribution.Id,
+                Action = action,
+                PerformedById = currentUser.Id,
+                PerformedAt = DateTime.UtcNow,
+                Changes = changes
+            };
+            _context.ContributionHistories.Add(history);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Contribution updated.";
+        }
+        else
         {
-            ContributionId = contribution.Id,
-            Action = "Created",
-            PerformedById = currentUser.Id,
-            PerformedAt = DateTime.UtcNow,
-            Changes = changes
-        };
-        _context.ContributionHistories.Add(history);
-        await _context.SaveChangesAsync();
+            // Create new contribution
+            contribution = new Contribution
+            {
+                TaskId = taskId,
+                UserId = attributedUserId,
+                Description = (description ?? string.Empty).Trim(),
+                HoursSpent = hours,
+                Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
+                RecordedById = currentUser.Id,
+                RecordedAt = DateTime.UtcNow,
+                ContributedAt = DateTime.UtcNow,
+                IsStudentSubmitted = isStudentSubmitted
+            };
 
-        TempData["SuccessMessage"] = "Contribution added.";
+            _context.Contributions.Add(contribution);
+            await _context.SaveChangesAsync();
+
+            action = "Created";
+
+            // Create audit record for creation
+            var changes = JsonSerializer.Serialize(new { contribution.UserId, contribution.Description, contribution.HoursSpent, contribution.Notes });
+            var history = new ContributionHistory
+            {
+                ContributionId = contribution.Id,
+                Action = action,
+                PerformedById = currentUser.Id,
+                PerformedAt = DateTime.UtcNow,
+                Changes = changes
+            };
+            _context.ContributionHistories.Add(history);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Contribution added.";
+        }
+
         return RedirectToAction("Details", new { id = taskId });
     }
 

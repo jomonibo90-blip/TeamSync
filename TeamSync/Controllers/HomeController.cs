@@ -188,10 +188,26 @@ public class HomeController : Controller
                 };
             }
 
+            // Get recent alerts/notifications
+            var recentAlerts = await _context.Notifications
+                .Where(n => n.UserId == user.Id)
+                .OrderByDescending(n => n.CreatedAt)
+                .Take(5)
+                .Select(n => new NotificationViewModel
+                {
+                    Id = n.Id,
+                    Type = n.Type,
+                    Message = n.Message,
+                    CreatedAt = n.CreatedAt,
+                    IsRead = n.IsRead,
+                    TaskId = n.TaskId
+                })
+                .ToListAsync();
 
             var studentViewModel = new StudentDashboardViewModel
             {
                 Groups = groupViewModels,
+                RecentAlerts = recentAlerts,
                 Progress = new StudentProgressViewModel
                 {
                     TotalTasks = totalTasks,

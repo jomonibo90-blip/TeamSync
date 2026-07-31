@@ -6,7 +6,6 @@ public class RegisterViewModel
 {
     [Required(ErrorMessage = "Email is required")]
     [EmailAddress(ErrorMessage = "Invalid email address")]
-    [RegularExpression(@"^.*@conestogac\.on\.ca$", ErrorMessage = "Only @conestogac.on.ca email addresses are allowed.")]
     public string Email { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "First name is required")]
