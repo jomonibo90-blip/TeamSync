@@ -38,26 +38,26 @@
                 <label class="ts-label-md" style="margin-bottom: 1rem;">Notification Frequency</label>
                 <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
                     <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                        <input type="radio" asp-for="NotificationFrequency" value="Never" />
+                        <input type="radio" asp-for="NotificationFrequency" value="Never" onchange="updateDigestVisibility()" />
                         <span>Never</span>
                     </label>
                     <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                        <input type="radio" asp-for="NotificationFrequency" value="Daily" />
+                        <input type="radio" asp-for="NotificationFrequency" value="Daily" onchange="updateDigestVisibility()" />
                         <span>Daily</span>
                     </label>
                     <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                        <input type="radio" asp-for="NotificationFrequency" value="Weekly" />
+                        <input type="radio" asp-for="NotificationFrequency" value="Weekly" onchange="updateDigestVisibility()" />
                         <span>Weekly (Recommended)</span>
                     </label>
                     <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                        <input type="radio" asp-for="NotificationFrequency" value="Immediate" />
+                        <input type="radio" asp-for="NotificationFrequency" value="Immediate" onchange="updateDigestVisibility()" />
                         <span>Immediate</span>
                     </label>
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem;">
-                <div class="ts-form-group">
+            <div id="digestScheduleContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem;">
+                <div class="ts-form-group" id="dayOfWeekContainer">
                     <label class="ts-label-sm" asp-for="DigestDayOfWeek">Digest Day of Week</label>
                     <select asp-for="DigestDayOfWeek" class="ts-input">
                         <option value="0">Sunday</option>
@@ -81,11 +81,8 @@
                 </div>
             </div>
 
-            <div style="background: rgba(13,110,253,0.05); border-left: 4px solid var(--ts-primary); padding: 1rem; border-radius: 4px; margin-top: 1.5rem;">
-                <p class="ts-body-sm" style="margin: 0;">
-                    <strong>Digest sent every week on the selected day at the specified time (in UTC).</strong>
-                    This includes a summary of all alerts you've received during the past week.
-                </p>
+            <div id="frequencyDescription" style="background: rgba(13,110,253,0.05); border-left: 4px solid var(--ts-primary); padding: 1rem; border-radius: 4px; margin-top: 1.5rem;">
+                <p class="ts-body-sm" style="margin: 0;"></p>
             </div>
         </div>
     </div>
@@ -150,3 +147,33 @@
         </button>
     </div>
 </form>
+
+<script>
+    function updateDigestVisibility() {
+        const frequency = document.querySelector('input[name="NotificationFrequency"]:checked').value;
+        const scheduleContainer = document.getElementById('digestScheduleContainer');
+        const dayOfWeekContainer = document.getElementById('dayOfWeekContainer');
+        const descriptionDiv = document.getElementById('frequencyDescription');
+        const descriptionText = descriptionDiv.querySelector('.ts-body-sm');
+
+        // Show/hide schedule based on frequency
+        if (frequency === 'Weekly') {
+            scheduleContainer.style.display = 'grid';
+            dayOfWeekContainer.style.display = 'block';
+            descriptionText.innerHTML = '<strong>Digest sent every week on the selected day at the specified time (in UTC).</strong> This includes a summary of all alerts you\'ve received during the past week.';
+        } else if (frequency === 'Daily') {
+            scheduleContainer.style.display = 'grid';
+            dayOfWeekContainer.style.display = 'none';
+            descriptionText.innerHTML = '<strong>Digest sent every day at the specified time (in UTC).</strong> This includes a summary of all alerts you\'ve received since the last digest.';
+        } else if (frequency === 'Immediate') {
+            scheduleContainer.style.display = 'none';
+            descriptionText.innerHTML = '<strong>Alerts sent immediately as they occur.</strong> You\'ll receive notifications right away without waiting for a digest.';
+        } else if (frequency === 'Never') {
+            scheduleContainer.style.display = 'none';
+            descriptionText.innerHTML = '<strong>Email notifications are disabled.</strong> You won\'t receive any digest emails, but alerts may still appear in-app if enabled.';
+        }
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', updateDigestVisibility);
+</script>
