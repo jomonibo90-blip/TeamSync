@@ -443,6 +443,13 @@ public class TasksController : Controller
                 "StatusChange",
                 message,
                 task.Id);
+
+            // Create alerts for newly assigned users
+            await _alertService.CreateAlertsAsync(
+                newlyAssignedIds,
+                task.Id,
+                "TaskAssignment",
+                message);
         }
 
         TempData["SuccessMessage"] = "Task updated successfully.";
@@ -1064,6 +1071,10 @@ public class TasksController : Controller
         var recipientIds = new HashSet<string>();
         if (!string.IsNullOrEmpty(task.CreatedById))
             recipientIds.Add(task.CreatedById);
+
+        // Add assigned user to recipients
+        if (!string.IsNullOrEmpty(task.AssignedToId))
+            recipientIds.Add(task.AssignedToId);
 
         if (task.Group?.Members != null)
         {
