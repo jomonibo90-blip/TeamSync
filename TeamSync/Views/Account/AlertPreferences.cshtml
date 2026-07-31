@@ -105,13 +105,16 @@
                     </div>
                 </label>
 
-                <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--ts-surface); border-radius: 6px; border: 1px solid var(--ts-border);">
-                    <input type="checkbox" asp-for="ReceiveApprovalRejectionAlerts" style="margin-top: 4px;" />
-                    <div>
-                        <div class="ts-label-md">⏳ Approvals & Rejections</div>
-                        <p class="ts-body-sm ts-text-secondary" style="margin: 0;">Get notified when your task is approved or rejected</p>
-                    </div>
-                </label>
+                @if (User?.IsInRole("Student") ?? false)
+                {
+                    <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--ts-surface); border-radius: 6px; border: 1px solid var(--ts-border);">
+                        <input type="checkbox" asp-for="ReceiveApprovalRejectionAlerts" style="margin-top: 4px;" />
+                        <div>
+                            <div class="ts-label-md">⏳ Approvals & Rejections</div>
+                            <p class="ts-body-sm ts-text-secondary" style="margin: 0;">Get notified when your task is approved or rejected</p>
+                        </div>
+                    </label>
+                }
 
                 <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--ts-surface); border-radius: 6px; border: 1px solid var(--ts-border);">
                     <input type="checkbox" asp-for="ReceiveStatusChangeAlerts" style="margin-top: 4px;" />
