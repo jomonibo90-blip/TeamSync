@@ -54,11 +54,13 @@ public interface IAlertService
 public class AlertService : IAlertService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IEmailService _emailService;
     private readonly ILogger<AlertService> _logger;
 
-    public AlertService(ApplicationDbContext context, ILogger<AlertService> logger)
+    public AlertService(ApplicationDbContext context, IEmailService emailService, ILogger<AlertService> logger)
     {
         _context = context;
+        _emailService = emailService;
         _logger = logger;
     }
 
@@ -80,12 +82,71 @@ public class AlertService : IAlertService
             await _context.SaveChangesAsync();
 
             _logger.LogInformation($"Alert created for user {userId}: {type} - {message}");
+
+            // Send immediate email if user has that preference
+            _ = SendImmediateEmailIfEnabledAsync(userId, notification);
+
             return notification;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, $"Error creating alert for user {userId}");
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Send an immediate email if user has "Immediate" notification preference and this alert type is enabled.
+    /// This runs async without blocking alert creation.
+    /// </summary>
+    private async System.Threading.Tasks.Task SendImmediateEmailIfEnabledAsync(string userId, Notification notification)
+    {
+        try
+        {
+            var user = await _context.Users
+                .Include(u => u.AlertPreference)
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null || string.IsNullOrWhiteSpace(user.Email))
+            {
+                _logger.LogWarning($"Cannot send immediate email: User {userId} not found or has no email");
+                return;
+            }
+
+            // Check if user has "Immediate" notification preference
+            if (user.AlertPreference?.NotificationFrequency != "Immediate")
+            {
+                return;
+            }
+
+            // Check if this alert type is enabled in preferences
+            var isAlertTypeEnabled = notification.Type switch
+            {
+                "TaskAssignment" => user.AlertPreference.ReceiveTaskAssignmentAlerts,
+                "ApprovalRejection" => user.AlertPreference.ReceiveApprovalRejectionAlerts,
+                "StatusChange" => user.AlertPreference.ReceiveStatusChangeAlerts,
+                "Comment" => user.AlertPreference.ReceiveCommentAlerts,
+                "GroupChange" => user.AlertPreference.ReceiveGroupAlerts,
+                _ => false
+            };
+
+            if (!isAlertTypeEnabled)
+            {
+                _logger.LogInformation($"Alert type {notification.Type} is disabled for user {userId}");
+                return;
+            }
+
+            // Generate and send email
+            var subject = $"TeamSync: {notification.Type}";
+            var htmlContent = FormatAlertEmailHtml(notification, user.UserName ?? "User");
+
+            await _emailService.SendEmailAsync(user.Email, subject, htmlContent);
+            _logger.LogInformation($"Immediate email sent to {user.Email} for alert type {notification.Type}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error sending immediate email for alert to user {userId}");
+            // Don't rethrow - we don't want email failures to break alert creation
         }
     }
 
@@ -187,5 +248,78 @@ public class AlertService : IAlertService
         await _context.SaveChangesAsync();
 
         _logger.LogInformation($"Deleted {oldAlerts.Count} alerts older than {olderThanDays} days");
+    }
+
+    /// <summary>
+    /// Format a notification alert as HTML email content for immediate sending.
+    /// </summary>
+    private string FormatAlertEmailHtml(Notification notification, string userName)
+    {
+        var alertTypeIcon = notification.Type switch
+        {
+            "TaskAssignment" => "📋",
+            "ApprovalRejection" => "⏳",
+            "StatusChange" => "🔄",
+            "Comment" => "💬",
+            "GroupChange" => "👥",
+            _ => "🔔"
+        };
+
+        var alertTypeLabel = notification.Type switch
+        {
+            "TaskAssignment" => "Task Assignment",
+            "ApprovalRejection" => "Approval/Rejection",
+            "StatusChange" => "Status Change",
+            "Comment" => "New Comment",
+            "GroupChange" => "Group Change",
+            _ => "Alert"
+        };
+
+        var html = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: #0d6efd; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }}
+        .header h1 {{ margin: 0; font-size: 24px; }}
+        .content {{ background: #f8f9fa; border: 1px solid #dee2e6; border-top: none; padding: 20px; border-radius: 0 0 8px 8px; }}
+        .alert-type {{ color: #0d6efd; font-weight: 600; margin-bottom: 10px; }}
+        .message {{ background: white; padding: 15px; border-left: 4px solid #0d6efd; border-radius: 4px; margin: 15px 0; }}
+        .timestamp {{ color: #888; font-size: 12px; margin-top: 15px; }}
+        .footer {{ text-align: center; color: #888; font-size: 12px; margin-top: 20px; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1>TeamSync Alert</h1>
+        </div>
+        <div class='content'>
+            <p>Hi {userName},</p>
+            <div class='alert-type'>{alertTypeIcon} {alertTypeLabel}</div>
+            <div class='message'>
+                {notification.Message}
+            </div>
+            <div class='timestamp'>
+                Received at: {notification.CreatedAt:g} UTC
+            </div>
+            <p>
+                <a href='https://localhost/Tasks/Details/{notification.TaskId}' style='color: #0d6efd; text-decoration: none;'>
+                    View Details →
+                </a>
+            </p>
+        </div>
+        <div class='footer'>
+            <p>You're receiving this email because you have Immediate alerts enabled in your alert preferences.</p>
+            <p><a href='https://localhost/Account/AlertPreferences' style='color: #0d6efd; text-decoration: none;'>Manage Preferences</a></p>
+        </div>
+    </div>
+</body>
+</html>";
+
+        return html;
     }
 }
