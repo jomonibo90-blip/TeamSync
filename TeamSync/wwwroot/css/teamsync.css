@@ -1638,3 +1638,56 @@ border-radius: 9999px;
     }
 }
 
+/* Profile Dropdown Menu */
+.ts-profile-container {
+    position: relative;
+}
+
+.ts-profile-dropdown {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    width: 200px;
+    background: var(--ts-surface);
+    border: 1px solid var(--ts-border);
+    border-radius: var(--ts-radius-lg, 12px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.ts-profile-dropdown.show {
+    display: flex;
+}
+
+.ts-profile-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    color: var(--ts-text);
+    text-decoration: none;
+    border-bottom: 1px solid var(--ts-border);
+    transition: background-color 0.2s;
+    cursor: pointer;
+}
+
+.ts-profile-menu-item:last-child {
+    border-bottom: none;
+}
+
+.ts-profile-menu-item:hover {
+    background-color: var(--ts-hover-bg, rgba(0, 0, 0, 0.05));
+}
+
+.ts-profile-menu-item span.material-symbols-outlined {
+    font-size: 20px;
+}
+
+.ts-profile-menu-item span:not(.material-symbols-outlined) {
+    font-size: 14px;
+    font-weight: 500;
+}
+

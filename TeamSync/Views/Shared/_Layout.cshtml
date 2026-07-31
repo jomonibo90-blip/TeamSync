@@ -150,15 +150,29 @@
 
                 @if (User?.Identity?.IsAuthenticated ?? false)
                 {
-                    <div class="ts-avatar ts-avatar-sm">
-                        @{
-                            var initial = User.Identity?.Name?.Substring(0, 1).ToUpper() ?? "U";
-                        }
-                        @initial
+                    <div class="ts-profile-container">
+                        <button id="profileBtn" class="ts-avatar ts-avatar-sm" onclick="toggleProfileDropdown()" title="Profile Menu" style="border: none; background: none; cursor: pointer; padding: 0;">
+                            @{
+                                var initial = User.Identity?.Name?.Substring(0, 1).ToUpper() ?? "U";
+                            }
+                            @initial
+                        </button>
+                        <div id="profileDropdown" class="ts-profile-dropdown">
+                            <div class="ts-dropdown-header">
+                                <h3>Account</h3>
+                            </div>
+                            <div class="ts-dropdown-body">
+                                <a asp-controller="Account" asp-action="AlertPreferences" class="ts-profile-menu-item">
+                                    <span class="material-symbols-outlined">notifications</span>
+                                    <span>Alert Preferences</span>
+                                </a>
+                                <a asp-controller="Account" asp-action="Logout" class="ts-profile-menu-item">
+                                    <span class="material-symbols-outlined">logout</span>
+                                    <span>Logout</span>
+                                </a>
+                            </div>
+                        </div>
                     </div>
-                    <a asp-controller="Account" asp-action="Logout" class="ts-icon-btn ts-hide-mobile" title="Logout">
-                        <span class="material-symbols-outlined">logout</span>
-                    </a>
                 }
             </div>
         </header>
@@ -170,6 +184,25 @@
          </div>
         </main>
     </div>
+
+    <script>
+        // Profile menu toggle - define early so onclick can access it
+        function toggleProfileDropdown() {
+            const dropdown = document.getElementById('profileDropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('show');
+            }
+        }
+
+        // Close profile dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const profileContainer = document.querySelector('.ts-profile-container');
+            const profileDropdown = document.getElementById('profileDropdown');
+            if (profileContainer && profileDropdown && !profileContainer.contains(event.target)) {
+                profileDropdown.classList.remove('show');
+            }
+        });
+    </script>
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
@@ -205,7 +238,8 @@
         openBtn?.addEventListener('click', toggleDrawer);
         closeBtn?.addEventListener('click', toggleDrawer);
         overlay?.addEventListener('click', toggleDrawer);
-         </script>
+
+
 
         <!-- GLightbox Script -->
         <script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js"></script>
