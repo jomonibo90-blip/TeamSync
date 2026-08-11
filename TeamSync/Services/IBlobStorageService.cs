@@ -22,6 +22,14 @@ namespace TeamSync.Services
         Task DeleteBlobAsync(string containerName, string fileName);
 
         /// <summary>
+        /// Downloads a blob from Azure Blob Storage
+        /// </summary>
+        /// <param name="containerName">Name of the blob container</param>
+        /// <param name="fileName">Name of the file to download</param>
+        /// <returns>Byte array of the downloaded blob</returns>
+        Task<byte[]> DownloadBlobAsync(string containerName, string fileName);
+
+        /// <summary>
         /// Checks if Azure Blob Storage is configured
         /// </summary>
         /// <returns>True if connection string is available</returns>

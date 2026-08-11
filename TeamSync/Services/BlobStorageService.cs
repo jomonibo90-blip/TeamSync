@@ -86,6 +86,31 @@ namespace TeamSync.Services
             }
         }
 
+        public async Task<byte[]> DownloadBlobAsync(string containerName, string fileName)
+        {
+            if (!_isConfigured || _containerClient == null)
+            {
+                throw new InvalidOperationException("Azure Blob Storage is not configured.");
+            }
+
+            try
+            {
+                var blobClient = _containerClient.GetBlobClient(fileName);
+                var download = await blobClient.DownloadAsync();
+                using (var ms = new MemoryStream())
+                {
+                    await download.Value.Content.CopyToAsync(ms);
+                    _logger.LogInformation($"File {fileName} downloaded from blob storage successfully.");
+                    return ms.ToArray();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error downloading file {fileName} from blob storage: {ex.Message}");
+                throw;
+            }
+        }
+
         public bool IsConfigured()
         {
             return _isConfigured;

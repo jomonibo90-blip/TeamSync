@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using Azure;
 using TeamSync.Data;
 using TeamSync.Models;
 using TeamSync.Services;
@@ -2179,14 +2180,31 @@ public class TasksController : Controller
             // Check if FilePath is a blob URL (Azure Blob Storage)
             if (attachment.FilePath.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             {
-                // Download from Azure Blob Storage using HttpClient
-                using (var httpClient = new HttpClient())
-                {
-                    var response = await httpClient.GetAsync(attachment.FilePath);
-                    if (!response.IsSuccessStatusCode)
-                        return NotFound("Image not found in blob storage.");
+                // Extract blob name from the FilePath URL
+                // URL format: https://{account}.blob.core.windows.net/{container}/{blobname}
+                var uri = new Uri(attachment.FilePath);
+                var blobName = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
 
-                    imageBytes = await response.Content.ReadAsByteArrayAsync();
+                if (string.IsNullOrEmpty(blobName))
+                {
+                    _logger.LogError($"Could not extract blob name from FilePath: {attachment.FilePath}");
+                    return NotFound("Invalid blob path.");
+                }
+
+                // Download from Azure Blob Storage using authenticated service
+                try
+                {
+                    imageBytes = await _blobStorageService.DownloadBlobAsync("task-attachments", blobName);
+                }
+                catch (Azure.RequestFailedException ex)
+                {
+                    _logger.LogError($"Azure error retrieving blob {blobName}: {ex.Message}");
+                    return NotFound("Image not found in blob storage.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Error downloading blob {blobName}: {ex.Message}");
+                    return StatusCode(500, "Error retrieving image from blob storage.");
                 }
             }
             else
