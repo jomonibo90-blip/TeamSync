@@ -1,5 +1,7 @@
 # Test Weekly Digest Email Feature
 # This script generates sample data and triggers the digest email
+# NOTE: For production, SMTP password should be stored in Azure Key Vault or environment variables
+# Never hardcode credentials in test scripts or source code
 
 Write-Host "=====================================================" -ForegroundColor Cyan
 Write-Host "   TeamSync Weekly Digest Email - Comprehensive Test" -ForegroundColor Cyan
@@ -10,6 +12,11 @@ Write-Host ""
 $appUrl = "http://localhost:5278"  # HTTP port from launchSettings.json
 $testEndpoint = "$appUrl/api/test/generate-and-send-digest"
 $digestStatusEndpoint = "$appUrl/api/test/digest-status"
+
+# For production: Read SMTP password from environment variable or Key Vault
+# $SmtpPassword = $env:EmailSettings__SmtpPassword
+# If not set, the application will use the configuration provider which will read from Key Vault
+# Do NOT hardcode password here
 
 # Allow self-signed certificates (for local development)
 [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
