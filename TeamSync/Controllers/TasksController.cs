@@ -873,7 +873,7 @@ public class TasksController : Controller
                     FileName = file.FileName,
                     FileType = file.ContentType ?? "application/octet-stream",
                     FileSize = file.Length,
-                    FilePath = Path.Combine(storagePath, uniqueFileName).Replace("wwwroot/", "/").Replace("\\", "/"),
+                    FilePath = $"/uploads/task-notes/{uniqueFileName}",
                     UploadedByUserId = uploadedByUser.Id,
                     UploadedAt = DateTime.UtcNow
                 };
@@ -1035,7 +1035,7 @@ public class TasksController : Controller
             if (!isAdmin && !isProfessor && !isMember)
                 return Forbid();
 
-            var filePath = Path.Combine(Directory.GetCurrentDirectory(), attachment.FilePath.TrimStart('/').Replace("/", "\\"));
+            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot" + attachment.FilePath.Replace("/", Path.DirectorySeparatorChar.ToString()));
 
             if (!System.IO.File.Exists(filePath))
                 return NotFound("File not found");

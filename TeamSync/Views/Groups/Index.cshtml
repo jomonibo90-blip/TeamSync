@@ -16,8 +16,8 @@
     </div>
     <div class="ts-flex ts-items-center ts-gap-md" style="flex-wrap: wrap;">
         <!-- Search Input -->
-        <form method="get" asp-action="Index" style="display: flex; align-items: center; gap: 0;">
-            <div class="ts-input-wrapper" style="width: 280px; max-width: 100%;">
+        <form method="get" asp-action="Index" style="display: flex; align-items: center;">
+            <div class="ts-input-wrapper" style="width: 280px; max-width: 100%; flex: 0 0 auto;">
                 <span class="material-symbols-outlined ts-input-icon">search</span>
                 <input type="text" name="search" class="ts-input ts-input-with-icon" placeholder="Search projects or courses..." value="@ViewData["SearchTerm"]" />
             </div>
