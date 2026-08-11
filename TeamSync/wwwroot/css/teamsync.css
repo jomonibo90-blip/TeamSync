@@ -1021,11 +1021,24 @@ label:has(+ input:disabled) {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    white-space: nowrap;
+    overflow: visible;
 }
 
 .ts-sidebar-header h1 .material-symbols-outlined {
     font-size: 28px;
     color: var(--ts-primary);
+    flex-shrink: 0;
+    animation: ts-sync-spin 3s linear infinite;
+}
+
+@keyframes ts-sync-spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .ts-sidebar-nav {
@@ -1173,6 +1186,17 @@ label:has(+ input:disabled) {
     font-family: var(--ts-font-display);
     margin: 0;
     font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    white-space: nowrap;
+    overflow: visible;
+}
+
+.ts-drawer-header h1 .material-symbols-outlined {
+    font-size: 28px;
+    flex-shrink: 0;
+    animation: ts-sync-spin 3s linear infinite;
 }
 
 .ts-drawer-close {
