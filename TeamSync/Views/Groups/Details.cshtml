@@ -3,7 +3,7 @@
     ViewData["Title"] = Model.Name;
     bool canManageMembers = Model.CurrentUserRole == "Professor" || Model.CurrentUserRole == "Lead" || User.IsInRole("Admin");
     bool isProfessor = Model.CurrentUserRole == "Professor" || User.IsInRole("Admin");
-    bool isStudent = Model.CurrentUserRole == "Member";
+    bool isStudent = Model.CurrentUserRole == "Student" || Model.CurrentUserRole == "Member";
 
     string TaskStatusBadge(string status) => status switch
     {
