@@ -479,7 +479,30 @@ public class DbInitializerService
         }
 
         await _context.SaveChangesAsync();
+
+        // Test: Add one manual contribution to the first completed task to verify DB works
+        var firstCompletedTask = createdTasks.FirstOrDefault(t => t.Status == "Completed");
+        if (firstCompletedTask != null && !string.IsNullOrEmpty(firstCompletedTask.AssignedToId))
+        {
+            var testContribution = new Contribution
+            {
+                TaskId = firstCompletedTask.Id,
+                UserId = firstCompletedTask.AssignedToId,
+                Description = "Initialized Firebase console project and enabled services",
+                ContributedAt = now.AddDays(-15),
+                HoursSpent = 5.5m,
+                RecordedById = firstCompletedTask.AssignedToId,
+                RecordedAt = now.AddDays(-15).AddHours(4),
+                Source = "ManualEntry",
+                IsStudentSubmitted = true,
+                Notes = "Initial Firebase setup - 4.5 hours"
+            };
+            _context.Contributions.Add(testContribution);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Added test contribution");
+        }
+
         var savedContributions = await _context.Contributions.CountAsync();
-        _logger.LogInformation($"Demo test data seeded successfully: {savedContributions} contributions and realistic workflow scenario.");
+        _logger.LogInformation($"Demo test data seeded successfully: {savedContributions} contributions in database.");
     }
 }
