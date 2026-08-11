@@ -1062,13 +1062,60 @@ public class TasksController : Controller
             if (!isAdmin && !isProfessor && !isMember)
                 return Forbid();
 
-            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot" + attachment.FilePath.Replace("/", Path.DirectorySeparatorChar.ToString()));
+            try
+            {
+                byte[] fileBytes;
 
-            if (!System.IO.File.Exists(filePath))
-                return NotFound("File not found");
+                // Check if FilePath is a blob URL (Azure Blob Storage)
+                if (attachment.FilePath.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Extract blob name from the FilePath URL
+                    var uri = new Uri(attachment.FilePath);
+                    var blobName = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
 
-            var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
-            return File(fileBytes, attachment.FileType, attachment.FileName);
+                    if (string.IsNullOrEmpty(blobName))
+                    {
+                        _logger.LogError($"Could not extract blob name from FilePath: {attachment.FilePath}");
+                        return NotFound("Invalid blob path.");
+                    }
+
+                    // Download from Azure Blob Storage using authenticated service
+                    try
+                    {
+                        fileBytes = await _blobStorageService.DownloadBlobAsync("task-attachments", blobName);
+                    }
+                    catch (RequestFailedException ex)
+                    {
+                        _logger.LogError($"Azure error retrieving blob {blobName}: {ex.Message}");
+                        return NotFound("File not found in blob storage.");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Error downloading blob {blobName}: {ex.Message}");
+                        return StatusCode(500, "Error retrieving file from blob storage.");
+                    }
+                }
+                else
+                {
+                    // Serve from local file system
+                    var filePath = Path.Combine(
+                        Directory.GetCurrentDirectory(),
+                        "wwwroot" + attachment.FilePath.Replace("/", Path.DirectorySeparatorChar.ToString())
+                    );
+
+                    if (!System.IO.File.Exists(filePath))
+                        return NotFound("File not found");
+
+                    fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+                }
+
+                return File(fileBytes, attachment.FileType, attachment.FileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error downloading attachment {attachmentId}: {ex.Message}");
+                return StatusCode(500, "Error downloading file.");
+            }
         }
 
         [HttpPost]
