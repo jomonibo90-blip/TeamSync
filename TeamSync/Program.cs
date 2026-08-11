@@ -5,8 +5,18 @@ using TeamSync.Data;
 using TeamSync.Hubs;
 using TeamSync.Models;
 using TeamSync.Services;
+using Azure.Identity;
+using Azure.Extensions.AspNetCore.Configuration.Secrets;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Azure Key Vault if KeyVaultName is present in configuration
+var keyVaultName = builder.Configuration["KeyVaultName"];
+if (!string.IsNullOrEmpty(keyVaultName))
+{
+    var kvUri = new Uri($"https://{keyVaultName}.vault.azure.net/");
+    builder.Configuration.AddAzureKeyVault(kvUri, new DefaultAzureCredential());
+}
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
