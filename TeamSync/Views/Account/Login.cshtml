@@ -19,18 +19,16 @@
         <div class="ts-auth-card">
           <!-- Brand Header -->
             <div class="ts-auth-brand">
-        <h1 class="ts-display-lg">
-    <span class="material-symbols-outlined icon-fill" style="font-size: 40px;">sync</span>
-                 TeamSync
-              </h1>
-      <p class="ts-body-md">Team accountability, simplified.</p>
-         </div>
+                <div class="ts-auth-logo-wrapper">
+                    <span class="material-symbols-outlined ts-auth-logo-icon">sync</span>
+                </div>
+                <h1 class="ts-auth-title">TeamSync</h1>
+                <p class="ts-auth-tagline">Team accountability, simplified.</p>
+            </div>
 
         <!-- Login Card -->
-   <div class="ts-card">
-          <div class="ts-card-body" style="padding: 2rem;">
-            <h2 class="ts-title-lg" style="margin-bottom: 0.25rem;">Sign In</h2>
-             <p class="ts-body-sm ts-text-secondary" style="margin-bottom: 1.5rem;">Please enter your credentials to access your workspace.</p>
+        <div class="ts-card">
+            <div class="ts-card-body" style="padding: 2rem;">
 
         <form asp-action="Login" asp-controller="Account" method="post">
           @Html.AntiForgeryToken()
@@ -43,21 +41,21 @@
         }
 
             <!-- Email Input -->
-   <div class="ts-form-group">
-   <label asp-for="Email" class="ts-label">Email Address</label>
-             <div class="ts-input-wrapper">
-       <span class="material-symbols-outlined ts-input-icon">mail</span>
-  <input asp-for="Email" type="email" class="ts-input ts-input-with-icon" placeholder="user@example.com" />
-          </div>
-           <span asp-validation-for="Email" class="ts-validation-error"></span>
-      </div>
+            <div class="ts-form-group">
+                <label asp-for="Email" class="ts-label">Email Address</label>
+                <div class="ts-input-wrapper">
+                    <span class="material-symbols-outlined ts-input-icon">mail</span>
+                    <input asp-for="Email" type="email" class="ts-input" placeholder="user@example.com" />
+                </div>
+                <span asp-validation-for="Email" class="ts-validation-error"></span>
+            </div>
 
             <!-- Password Input -->
             <div class="ts-form-group">
     <label asp-for="Password" class="ts-label">Password</label>
      <div class="ts-input-wrapper">
  <span class="material-symbols-outlined ts-input-icon">lock</span>
-         <input asp-for="Password" type="password" class="ts-input ts-input-with-icon" placeholder="••••••••" />
+         <input asp-for="Password" type="password" class="ts-input" placeholder="••••••••" />
  </div>
  <span asp-validation-for="Password" class="ts-validation-error"></span>
     </div>
@@ -105,3 +103,4 @@
     <script src="~/lib/jquery-validation-unobtrusive/dist/jquery.validate.unobtrusive.min.js"></script>
 </body>
 </html>
+

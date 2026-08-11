@@ -72,19 +72,191 @@ public class HomeController : Controller
                 .OrderByDescending(gm => gm.Group!.CreatedAt)
                 .ToListAsync();
 
-            groupViewModels = memberships.Select(gm => new GroupListViewModel
+            var groupIds = memberships.Where(m => m.Group != null).Select(m => m.Group!.Id).ToList();
+
+            // Fetch all data needed for analytics
+            var allTasks = await _context.Tasks
+                .Include(t => t.Group)
+                .Where(t => t.GroupId.HasValue && groupIds.Contains(t.GroupId.Value))
+                .ToListAsync();
+
+            var allContributions = await _context.Contributions
+                .Where(c => c.Task != null && 
+                    c.Task.GroupId.HasValue && 
+                    groupIds.Contains(c.Task.GroupId.Value))
+                .ToListAsync();
+
+            // Build enhanced group progress view models
+            var groupProgress = memberships.Select(gm => 
             {
-                Id = gm.Group!.Id,
-                Name = gm.Group.Name,
-                Description = gm.Group.Description ?? string.Empty,
-                MemberCount = gm.Group.Members.Count,
-                StudentCount = gm.Group.Members.Count(m => m.Role != "Professor"),
-                CreatedAt = gm.Group.CreatedAt,
-                IsActive = gm.Group.IsActive,
-                UserRole = gm.Role
+                var group = gm.Group!;
+                var groupTasks = allTasks.Where(t => t.GroupId == group.Id).ToList();
+
+                return new ProfessorGroupProgressViewModel
+                {
+                    Id = group.Id,
+                    Name = group.Name,
+                    Description = group.Description ?? string.Empty,
+                    MemberCount = group.Members.Count,
+                    StudentCount = group.Members.Count(m => m.Role != "Professor"),
+                    CreatedAt = group.CreatedAt,
+                    IsActive = group.IsActive,
+                    UserRole = gm.Role,
+                    TotalTasks = groupTasks.Count,
+                    CompletedTasks = groupTasks.Count(t => t.Status == "Completed"),
+                    InProgressTasks = groupTasks.Count(t => t.Status == "InProgress"),
+                    PendingTasks = groupTasks.Count(t => t.Status == "Pending"),
+                    ReadyForReviewTasks = groupTasks.Count(t => t.Status == "ReadyForReview")
+                };
             }).ToList();
 
-            return View("ProfessorDashboard", groupViewModels);
+            // === TASK ANALYTICS ===
+            var overdueCount = allTasks.Count(t => t.DueDate.HasValue && 
+                t.DueDate.Value < DateTime.UtcNow && 
+                t.Status != "Completed");
+
+            var completedTasks = allTasks.Count(t => t.Status == "Completed");
+            var readyForReviewTasks = allTasks.Count(t => t.Status == "ReadyForReview");
+
+            // === PERFORMANCE INSIGHTS ===
+            var topPerforming = groupProgress
+                .Where(g => g.TotalTasks > 0)
+                .OrderByDescending(g => g.ProgressPercentage)
+                .Take(5)
+                .Select(g => new TopPerformingGroupViewModel
+                {
+                    GroupId = g.Id,
+                    GroupName = g.Name,
+                    CompletionRate = g.ProgressPercentage,
+                    CompletedTasks = g.CompletedTasks,
+                    TotalTasks = g.TotalTasks,
+                    StudentCount = g.StudentCount
+                })
+                .ToList();
+
+            var atRiskGroups = groupProgress
+                .Where(g => g.ProgressPercentage < 50 || 
+                    g.ReadyForReviewTasks > (g.TotalTasks / 4))
+                .OrderBy(g => g.ProgressPercentage)
+                .Select(g =>
+                {
+                    var groupTasks = allTasks.Where(t => t.GroupId == g.Id).ToList();
+                    var groupOverdueCount = groupTasks.Count(t => t.DueDate.HasValue && 
+                        t.DueDate.Value < DateTime.UtcNow && 
+                        t.Status != "Completed");
+
+                    string riskLevel;
+                    string description;
+
+                    if (g.ProgressPercentage < 25)
+                    {
+                        riskLevel = "critical";
+                        description = $"Only {(int)g.ProgressPercentage}% tasks completed - Urgent intervention needed";
+                    }
+                    else if (g.ProgressPercentage < 50)
+                    {
+                        riskLevel = "high";
+                        description = $"{groupOverdueCount} overdue tasks - Progress falling behind";
+                    }
+                    else
+                    {
+                        riskLevel = "medium";
+                        description = $"High review backlog ({g.ReadyForReviewTasks} awaiting review)";
+                    }
+
+                    return new AtRiskGroupViewModel
+                    {
+                        GroupId = g.Id,
+                        GroupName = g.Name,
+                        CompletionRate = g.ProgressPercentage,
+                        OverdueTaskCount = groupOverdueCount,
+                        TotalTasks = g.TotalTasks,
+                        RiskLevel = riskLevel,
+                        Description = description
+                    };
+                })
+                .ToList();
+
+            // === ACTIVITY TRENDS (7-day) ===
+            var activityTrend7Days = BuildActivityTrend(allContributions, 7);
+            var activityTrend30Days = BuildActivityTrend(allContributions, 30);
+
+            // === STUDENT ENGAGEMENT ===
+            var studentIds = await _context.GroupMembers
+                .Where(gm => groupIds.Contains(gm.GroupId) && gm.Role != "Professor")
+                .Select(gm => gm.UserId)
+                .Distinct()
+                .ToListAsync();
+
+            var studentEngagementMetrics = new List<StudentEngagementMetricViewModel>();
+            var inactiveCount = 0;
+            decimal totalContributions = 0;
+
+            foreach (var studentId in studentIds)
+            {
+                var studentContributions = allContributions.Where(c => c.UserId == studentId).ToList();
+                var lastContributed = studentContributions.Any()
+                    ? studentContributions.Max(c => c.ContributedAt)
+                    : DateTime.UtcNow.AddDays(-365);
+
+                var isInactive = (DateTime.UtcNow.AddDays(-7)) > lastContributed;
+                if (isInactive) inactiveCount++;
+
+                var totalHours = studentContributions.Sum(c => c.HoursSpent ?? 0);
+                totalContributions += studentContributions.Count;
+
+                var student = await _userManager.FindByIdAsync(studentId);
+                studentEngagementMetrics.Add(new StudentEngagementMetricViewModel
+                {
+                    UserId = studentId,
+                    StudentName = student?.UserName ?? "Unknown",
+                    ContributionCount = studentContributions.Count,
+                    TotalHoursContributed = totalHours,
+                    LastContributedAt = lastContributed
+                });
+            }
+
+            var avgContributionPerStudent = studentIds.Count > 0 
+                ? totalContributions / studentIds.Count 
+                : 0;
+
+            var activStudentCount = studentIds.Count - inactiveCount;
+            var submissionRate = studentIds.Count > 0
+                ? (decimal)activStudentCount / studentIds.Count * 100
+                : 0;
+
+            // Build comprehensive ViewModel
+            var dashboardViewModel = new ProfessorDashboardViewModel
+            {
+                ActiveGroupCount = groupProgress.Count(g => g.IsActive),
+                TotalStudentsMonitored = studentIds.Count,
+                TotalTasksAcrossGroups = allTasks.Count,
+                CompletedTasksAcrossGroups = completedTasks,
+                InProgressTasksAcrossGroups = allTasks.Count(t => t.Status == "InProgress"),
+                PendingTasksAcrossGroups = allTasks.Count(t => t.Status == "Pending"),
+                ReadyForReviewTasksAcrossGroups = readyForReviewTasks,
+
+                // Task Analytics
+                OverdueTaskCount = overdueCount,
+                PendingTaskCount = allTasks.Count(t => t.Status == "Pending"),
+                AwaitingReviewCount = readyForReviewTasks,
+
+                // Performance Insights
+                TopPerformingGroups = topPerforming,
+                AtRiskGroups = atRiskGroups,
+                ActivityTrend7Days = activityTrend7Days,
+                ActivityTrend30Days = activityTrend30Days,
+
+                // Student Engagement
+                AverageContributionPerStudent = avgContributionPerStudent,
+                InactiveStudentCount = inactiveCount,
+                StudentSubmissionRate = submissionRate,
+                StudentEngagementMetrics = studentEngagementMetrics.OrderByDescending(s => s.ContributionCount).ToList(),
+
+                Groups = groupProgress
+            };
+
+            return View("ProfessorDashboard", dashboardViewModel);
         }
         else
         {
@@ -264,6 +436,40 @@ public class HomeController : Controller
 
         var score = baseScore + contributionBonus + hoursBonus - pendingPenalty;
         return Math.Max(0, Math.Min(10, score)); // Clamp between 0-10
+    }
+
+    /// <summary>
+    /// Build activity trend data for charts (last N days of contributions/completions).
+    /// </summary>
+    private List<ActivityTrendDataPoint> BuildActivityTrend(List<Contribution> contributions, int days)
+    {
+        var trends = new List<ActivityTrendDataPoint>();
+        var now = DateTime.UtcNow;
+
+        for (int i = days - 1; i >= 0; i--)
+        {
+            var date = now.AddDays(-i).Date;
+            var nextDate = date.AddDays(1);
+
+            var dayContributions = contributions
+                .Where(c => c.ContributedAt.Date == date)
+                .ToList();
+
+            var dayContributionCount = dayContributions.Count;
+            var avgHours = dayContributions.Any()
+                ? dayContributions.Average(c => (double)(c.HoursSpent ?? 0m))
+                : 0;
+
+            trends.Add(new ActivityTrendDataPoint
+            {
+                Date = date.ToString("ddd"), // "Mon", "Tue", etc.
+                ContributionCount = dayContributionCount,
+                CompletedTaskCount = 0, // Could be populated from task completion data if needed
+                AverageHoursSpent = (decimal)avgHours
+            });
+        }
+
+        return trends;
     }
 
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]

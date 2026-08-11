@@ -1,51 +1,225 @@
-@model List<TeamSync.ViewModels.GroupListViewModel>
+@model ProfessorDashboardViewModel
 @{
     ViewData["Title"] = "Professor Dashboard";
 }
 
-<div class="ts-page-header ts-flex ts-justify-between ts-items-center" style="flex-wrap: wrap; gap: 1rem;">
-    <div>
-        <h1 class="ts-display-lg ts-text-primary" style="margin-bottom: 0.5rem;">Professor Dashboard</h1>
-        <p class="ts-body-lg ts-text-secondary">Overview of all tracked projects. <em style="font-weight: 600;">Team accountability, simplified.</em></p>
-    </div>
-    <div class="ts-flex ts-gap-md">
-        <a href="@Url.Action("Create", "Groups")" class="ts-btn ts-btn-primary">
-            <span class="material-symbols-outlined" style="font-size: 18px;">add</span> New Project
-        </a>
-    </div>
+<div class="ts-page-header" style="margin-bottom: 2rem;">
+    <h1>Professor Dashboard</h1>
+    <p class="ts-body-md ts-text-secondary">Monitor group progress, task completions, and student engagement across all your projects</p>
 </div>
 
-<!-- KPI Cards -->
+<!-- SECTION 1: TASK ANALYTICS (Priority 1) -->
 <div class="ts-dashboard-grid" style="margin-bottom: 2rem;">
-    <!-- Card 1 -->
+    <!-- Card 1: Overdue Tasks (Alert) -->
+    <div class="ts-dashboard-card" style="padding: 1.5rem; @(Model.OverdueTaskCount > 0 ? "border-left: 4px solid var(--ts-error);" : "border-left: 4px solid var(--ts-success);")">
+        <div class="ts-flex ts-justify-between ts-mb-sm">
+            <span class="ts-label-sm ts-text-secondary" style="text-transform: uppercase;">Overdue Tasks</span>
+            <span class="material-symbols-outlined @(Model.OverdueTaskCount > 0 ? "ts-text-error" : "ts-text-success")" style="font-size: 24px;">@(Model.OverdueTaskCount > 0 ? "warning" : "check_circle")</span>
+        </div>
+        <div class="ts-display-lg" style="margin-bottom: 0.5rem;">@Model.OverdueTaskCount</div>
+        <div class="ts-body-sm @(Model.OverdueTaskCount > 0 ? "ts-text-error" : "ts-text-success")">
+            @if (Model.OverdueTaskCount > 0)
+            {
+                <span>⚠️ Immediate attention required</span>
+            }
+            else
+            {
+                <span>✓ All tasks on schedule</span>
+            }
+        </div>
+    </div>
+
+    <!-- Card 2: Task Completion Rate -->
+    <div class="ts-dashboard-card" style="padding: 1.5rem;">
+        <div class="ts-flex ts-justify-between ts-mb-sm">
+            <span class="ts-label-sm ts-text-secondary" style="text-transform: uppercase;">Completion Rate</span>
+            <span class="material-symbols-outlined ts-text-primary" style="font-size: 24px;">trending_up</span>
+        </div>
+        <div class="ts-display-lg" style="margin-bottom: 0.5rem;">@Model.TaskCompletionRate.ToString("F1")%</div>
+        <div class="ts-body-sm ts-text-secondary">@Model.CompletedTasksAcrossGroups of @Model.TotalTasksAcrossGroups tasks completed</div>
+    </div>
+
+    <!-- Card 3: Pending Tasks -->
+    <div class="ts-dashboard-card" style="padding: 1.5rem;">
+        <div class="ts-flex ts-justify-between ts-mb-sm">
+            <span class="ts-label-sm ts-text-secondary" style="text-transform: uppercase;">Pending Tasks</span>
+            <span class="material-symbols-outlined ts-text-warning" style="font-size: 24px;">schedule</span>
+        </div>
+        <div class="ts-display-lg" style="margin-bottom: 0.5rem;">@Model.PendingTaskCount</div>
+        <div class="ts-body-sm ts-text-secondary">@Model.AwaitingReviewCount awaiting review</div>
+    </div>
+
+    <!-- Card 4: Active Groups -->
     <div class="ts-dashboard-card" style="padding: 1.5rem;">
         <div class="ts-flex ts-justify-between ts-mb-sm">
             <span class="ts-label-sm ts-text-secondary" style="text-transform: uppercase;">Active Groups</span>
-            <span class="material-symbols-outlined ts-text-primary">groups</span>
+            <span class="material-symbols-outlined ts-text-primary" style="font-size: 24px;">groups</span>
         </div>
-        <div class="ts-display-lg" style="margin-bottom: 0.5rem;">@Model.Count(g => g.IsActive)</div>
-        <div class="ts-body-sm ts-text-success ts-flex ts-items-center ts-gap-sm">
-            <span class="material-symbols-outlined" style="font-size: 16px;">check_circle</span> On track
-        </div>
-    </div>
-
-    <!-- Card 2 -->
-    <div class="ts-dashboard-card" style="padding: 1.5rem;">
-        <div class="ts-flex ts-justify-between ts-mb-sm">
-            <span class="ts-label-sm ts-text-secondary" style="text-transform: uppercase;">Students Monitored</span>
-            <span class="material-symbols-outlined ts-text-secondary">school</span>
-        </div>
-        <div class="ts-display-lg" style="margin-bottom: 0.5rem;">@Model.Sum(g => g.StudentCount)</div>
-        <div class="ts-body-sm ts-text-secondary">Across your groups</div>
+        <div class="ts-display-lg" style="margin-bottom: 0.5rem;">@Model.ActiveGroupCount</div>
+        <div class="ts-body-sm ts-text-secondary">@Model.TotalStudentsMonitored students monitored</div>
     </div>
 </div>
 
-<!-- Active Classes Matrix -->
+<!-- SECTION 2: PERFORMANCE INSIGHTS (Priority 2) -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <!-- Top Performing Groups -->
+    @if (Model.TopPerformingGroups.Any())
+    {
+        <div class="ts-dashboard-card">
+            <div class="ts-dashboard-card-header">
+                <h3 class="ts-title-lg" style="margin: 0;">
+                    <span class="material-symbols-outlined ts-text-success" style="font-size: 20px;">emoji_events</span>
+                    Top Performing Groups
+                </h3>
+            </div>
+            <div class="ts-dashboard-card-body" style="padding: 0;">
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tbody>
+                            @foreach (var group in Model.TopPerformingGroups.Take(5))
+                            {
+                                <tr style="border-bottom: 1px solid var(--ts-border); padding: 1rem;">
+                                    <td style="padding: 1rem;">
+                                        <div class="ts-body-md ts-text-primary" style="font-weight: 600;">@group.GroupName</div>
+                                        <div class="ts-body-sm ts-text-secondary">@group.StudentCount students</div>
+                                    </td>
+                                    <td style="padding: 1rem; text-align: right;">
+                                        <div class="ts-body-md" style="color: var(--ts-success); font-weight: 600;">@group.CompletionRate.ToString("F0")%</div>
+                                        <div class="ts-body-sm ts-text-secondary">@group.CompletedTasks/@group.TotalTasks</div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- At-Risk Groups (Alert) -->
+    @if (Model.AtRiskGroups.Any())
+    {
+        <div class="ts-dashboard-card" style="border-left: 4px solid var(--ts-error);">
+            <div class="ts-dashboard-card-header">
+                <h3 class="ts-title-lg" style="margin: 0;">
+                    <span class="material-symbols-outlined ts-text-error" style="font-size: 20px;">priority_high</span>
+                    At-Risk Groups
+                </h3>
+            </div>
+            <div class="ts-dashboard-card-body" style="padding: 0;">
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tbody>
+                            @foreach (var group in Model.AtRiskGroups.Take(5))
+                            {
+                                var riskColor = group.RiskLevel == "critical" ? "var(--ts-error)" : 
+                                               group.RiskLevel == "high" ? "var(--ts-warning)" : "var(--ts-info)";
+                                <tr style="border-bottom: 1px solid var(--ts-border); padding: 1rem;">
+                                    <td style="padding: 1rem;">
+                                        <div class="ts-body-md ts-text-primary" style="font-weight: 600;">@group.GroupName</div>
+                                        <div class="ts-body-sm" style="color: @riskColor;">@group.Description</div>
+                                    </td>
+                                    <td style="padding: 1rem; text-align: right;">
+                                        <span style="display: inline-block; padding: 0.25rem 0.75rem; background: @(group.RiskLevel == "critical" ? "var(--ts-error-tonal)" : 
+                                              group.RiskLevel == "high" ? "var(--ts-warning-tonal)" : "var(--ts-info-tonal)"); 
+                                              color: @riskColor; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600;">
+                                            @group.RiskLevel.ToUpper()
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- SECTION 3: ACTIVITY TRENDS (Visual Charts) -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <!-- 7-Day Activity Trend -->
+    @if (Model.ActivityTrend7Days.Any())
+    {
+        <div class="ts-dashboard-card">
+            <div class="ts-dashboard-card-header">
+                <h3 class="ts-title-lg" style="margin: 0;">
+                    <span class="material-symbols-outlined ts-text-primary" style="font-size: 20px;">show_chart</span>
+                    7-Day Activity Trend
+                </h3>
+            </div>
+            <div class="ts-dashboard-card-body">
+                <canvas id="chart7Day" style="max-height: 250px;"></canvas>
+            </div>
+        </div>
+    }
+
+    <!-- 30-Day Activity Trend -->
+    @if (Model.ActivityTrend30Days.Any())
+    {
+        <div class="ts-dashboard-card">
+            <div class="ts-dashboard-card-header">
+                <h3 class="ts-title-lg" style="margin: 0;">
+                    <span class="material-symbols-outlined ts-text-primary" style="font-size: 20px;">calendar_month</span>
+                    30-Day Activity Trend
+                </h3>
+            </div>
+            <div class="ts-dashboard-card-body">
+                <canvas id="chart30Day" style="max-height: 250px;"></canvas>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- SECTION 4: STUDENT ENGAGEMENT (Priority 3) -->
+<div class="ts-dashboard-grid" style="margin-bottom: 2rem;">
+    <!-- Card 1: Avg Contribution -->
+    <div class="ts-dashboard-card" style="padding: 1.5rem;">
+        <div class="ts-flex ts-justify-between ts-mb-sm">
+            <span class="ts-label-sm ts-text-secondary" style="text-transform: uppercase;">Avg Contribution/Student</span>
+            <span class="material-symbols-outlined ts-text-primary" style="font-size: 24px;">person_check</span>
+        </div>
+        <div class="ts-display-lg" style="margin-bottom: 0.5rem;">@Model.AverageContributionPerStudent.ToString("F1")</div>
+        <div class="ts-body-sm ts-text-secondary">contributions per student</div>
+    </div>
+
+    <!-- Card 2: Inactive Students -->
+    <div class="ts-dashboard-card" style="padding: 1.5rem; @(Model.InactiveStudentCount > 0 ? "border-left: 4px solid var(--ts-warning);" : "")">
+        <div class="ts-flex ts-justify-between ts-mb-sm">
+            <span class="ts-label-sm ts-text-secondary" style="text-transform: uppercase;">Inactive Students</span>
+            <span class="material-symbols-outlined @(Model.InactiveStudentCount > 0 ? "ts-text-warning" : "ts-text-success")" style="font-size: 24px;">@(Model.InactiveStudentCount > 0 ? "person_off" : "done_all")</span>
+        </div>
+        <div class="ts-display-lg" style="margin-bottom: 0.5rem;">@Model.InactiveStudentCount</div>
+        <div class="ts-body-sm ts-text-secondary">no activity in 7 days</div>
+    </div>
+
+    <!-- Card 3: Submission Rate -->
+    <div class="ts-dashboard-card" style="padding: 1.5rem;">
+        <div class="ts-flex ts-justify-between ts-mb-sm">
+            <span class="ts-label-sm ts-text-secondary" style="text-transform: uppercase;">Submission Rate</span>
+            <span class="material-symbols-outlined ts-text-primary" style="font-size: 24px;">check_circle</span>
+        </div>
+        <div class="ts-display-lg" style="margin-bottom: 0.5rem;">@Model.StudentSubmissionRate.ToString("F1")%</div>
+        <div class="ts-body-sm ts-text-secondary">students actively contributing</div>
+    </div>
+
+    <!-- Card 4: Total Students -->
+    <div class="ts-dashboard-card" style="padding: 1.5rem;">
+        <div class="ts-flex ts-justify-between ts-mb-sm">
+            <span class="ts-label-sm ts-text-secondary" style="text-transform: uppercase;">Students Monitored</span>
+            <span class="material-symbols-outlined ts-text-primary" style="font-size: 24px;">school</span>
+        </div>
+        <div class="ts-display-lg" style="margin-bottom: 0.5rem;">@Model.TotalStudentsMonitored</div>
+        <div class="ts-body-sm ts-text-secondary">across all groups</div>
+    </div>
+</div>
+
+<!-- SECTION 5: ACTIVE GROUPS MATRIX -->
 <div class="ts-dashboard-card">
     <div class="ts-dashboard-card-header">
         <h3 class="ts-title-lg">
             <span class="material-symbols-outlined ts-text-primary" style="font-size: 20px;">folder_shared</span>
-            Active Projects
+            Active Projects Summary
         </h3>
     </div>
     <div class="ts-dashboard-card-body" style="padding: 0;">
@@ -54,41 +228,59 @@
                 <thead style="background: var(--ts-surface-container-low);">
                     <tr style="border-bottom: 1px solid var(--ts-border);">
                         <th style="padding: 1rem 1.5rem;" class="ts-label-sm ts-text-secondary">PROJECT</th>
-                        <th style="padding: 1rem 1.5rem;" class="ts-label-sm ts-text-secondary">ROLE</th>
-                        <th style="padding: 1rem 1.5rem;" class="ts-label-sm ts-text-secondary">MEMBERS</th>
+                        <th style="padding: 1rem 1.5rem;" class="ts-label-sm ts-text-secondary">STUDENTS</th>
+                        <th style="padding: 1rem 1.5rem;" class="ts-label-sm ts-text-secondary">PROGRESS</th>
+                        <th style="padding: 1rem 1.5rem;" class="ts-label-sm ts-text-secondary">TASKS</th>
                         <th style="padding: 1rem 1.5rem; text-align: right;" class="ts-label-sm ts-text-secondary">STATUS</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @if (!Model.Any())
+                    @if (!Model.Groups.Any())
                     {
                         <tr>
-                            <td colspan="4" style="padding: 2rem; text-align: center; color: var(--ts-text-secondary);">
+                            <td colspan="5" style="padding: 2rem; text-align: center; color: var(--ts-text-secondary);">
                                 No projects created yet.
                             </td>
                         </tr>
                     }
-                    @foreach (var group in Model)
+                    @foreach (var group in Model.Groups)
                     {
+                        var progressColor = group.ProgressStatus switch
+                        {
+                            "completed" => "var(--ts-success)",
+                            "on-track" => "var(--ts-primary)",
+                            "in-progress" => "var(--ts-info)",
+                            "at-risk" => "var(--ts-warning)",
+                            _ => "var(--ts-error)"
+                        };
+                        var statusIcon = group.ProgressStatus switch
+                        {
+                            "completed" => "check_circle",
+                            "on-track" => "done_all",
+                            "in-progress" => "schedule",
+                            "at-risk" => "error",
+                            _ => "priority_high"
+                        };
+
                         <tr style="border-bottom: 1px solid var(--ts-border);">
                             <td style="padding: 1rem 1.5rem;">
                                 <a href="@Url.Action("Details", "Groups", new { id = group.Id })" class="ts-label-md" style="text-decoration: none; color: var(--ts-primary);">@group.Name</a>
                             </td>
-                            <td style="padding: 1rem 1.5rem;" class="ts-body-md">@group.UserRole</td>
-                            <td style="padding: 1rem 1.5rem;" class="ts-body-md">@group.MemberCount</td>
+                            <td style="padding: 1rem 1.5rem;" class="ts-body-md">@group.StudentCount</td>
+                            <td style="padding: 1rem 1.5rem;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <div style="flex: 1; height: 6px; background: var(--ts-surface-container-high); border-radius: 3px; overflow: hidden;">
+                                        <div style="width: @(group.ProgressPercentage)%; height: 100%; background: @progressColor; transition: width 0.3s ease;"></div>
+                                    </div>
+                                    <span class="ts-body-sm" style="min-width: 40px; text-align: right;">@group.ProgressPercentage.ToString("F0")%</span>
+                                </div>
+                            </td>
+                            <td style="padding: 1rem 1.5rem;" class="ts-body-md">@group.CompletedTasks/@group.TotalTasks</td>
                             <td style="padding: 1rem 1.5rem; text-align: right;">
-                                @if (group.IsActive)
-                                {
-                                    <span style="display: inline-flex; align-items: center; gap: 4px; color: var(--ts-success); font-size: 14px;">
-                                        <span class="material-symbols-outlined" style="font-size: 16px;">check_circle</span> Active
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span style="display: inline-flex; align-items: center; gap: 4px; color: var(--ts-text-secondary); font-size: 14px;">
-                                        <span class="material-symbols-outlined" style="font-size: 16px;">archive</span> Archived
-                                    </span>
-                                }
+                                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 0.35rem 0.75rem; background: @(progressColor)15; color: @progressColor; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600;">
+                                    <span class="material-symbols-outlined" style="font-size: 16px;">@statusIcon</span>
+                                    @(group.ProgressStatus.Replace("-", " ").ToUpper())
+                                </span>
                             </td>
                         </tr>
                     }
@@ -97,3 +289,90 @@
         </div>
     </div>
 </div>
+
+<!-- Chart.js Scripts -->
+<script>
+    // Chart.js configuration and data
+    const primaryColor = '#0057cd';
+    const successColor = '#198754';
+    const warningColor = '#ffc107';
+    const errorColor = '#ba1a1a';
+
+    // 7-Day Chart
+    const ctx7Day = document.getElementById('chart7Day');
+    if (ctx7Day) {
+        const data7Day = @Html.Raw(Json.Serialize(Model.ActivityTrend7Days));
+        new Chart(ctx7Day, {
+            type: 'line',
+            data: {
+                labels: data7Day.map(d => d.date),
+                datasets: [{
+                    label: 'Contributions',
+                    data: data7Day.map(d => d.contributionCount),
+                    borderColor: primaryColor,
+                    backgroundColor: primaryColor + '15',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: primaryColor,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.05)' }
+                    }
+                }
+            }
+        });
+    }
+
+    // 30-Day Chart
+    const ctx30Day = document.getElementById('chart30Day');
+    if (ctx30Day) {
+        const data30Day = @Html.Raw(Json.Serialize(Model.ActivityTrend30Days));
+        new Chart(ctx30Day, {
+            type: 'line',
+            data: {
+                labels: data30Day.map(d => d.date),
+                datasets: [{
+                    label: 'Contributions',
+                    data: data30Day.map(d => d.contributionCount),
+                    borderColor: primaryColor,
+                    backgroundColor: primaryColor + '15',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: primaryColor,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.05)' }
+                    }
+                }
+            }
+        });
+    }
+</script>

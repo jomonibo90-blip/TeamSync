@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Mail;
+using System.Text;
 using Microsoft.Extensions.Options;
 
 namespace TeamSync.Services;
@@ -63,18 +64,26 @@ public class EmailService : IEmailService
                     }
 
                     mailMessage.Subject = subject;
-                    mailMessage.Body = htmlContent;
-                    mailMessage.IsBodyHtml = true;
 
-                    // Add alternative plain text view if provided
+                    // When we have both HTML and plain text, use only AlternateViews (multipart/alternative)
                     if (!string.IsNullOrWhiteSpace(plainTextContent))
                     {
-                        var plainView = AlternateView.CreateAlternateViewFromString(plainTextContent, null, "text/plain");
-                        var htmlView = AlternateView.CreateAlternateViewFromString(htmlContent, null, "text/html");
+                        // Clear the body and set up as multipart
+                        mailMessage.Body = "";
+
+                        // Create views - HTML first (will be preferred by most clients)
+                        var htmlView = AlternateView.CreateAlternateViewFromString(htmlContent, Encoding.UTF8, "text/html");
+                        var plainView = AlternateView.CreateAlternateViewFromString(plainTextContent, Encoding.UTF8, "text/plain");
+
                         mailMessage.AlternateViews.Add(plainView);
                         mailMessage.AlternateViews.Add(htmlView);
-                        mailMessage.Body = plainTextContent;
-                        mailMessage.IsBodyHtml = false;
+                        mailMessage.IsBodyHtml = false; // Let the AlternateViews handle it
+                    }
+                    else
+                    {
+                        // Only HTML content
+                        mailMessage.Body = htmlContent;
+                        mailMessage.IsBodyHtml = true;
                     }
 
                     await client.SendMailAsync(mailMessage);

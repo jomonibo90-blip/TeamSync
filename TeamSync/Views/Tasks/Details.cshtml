@@ -143,23 +143,23 @@
                     var approveLabel = Model.IsLeadForCurrentUser && !Model.IsProfessorForCurrentUser ? "Lead Approve" : "Finalize";
                     var approveClass = Model.IsLeadForCurrentUser && !Model.IsProfessorForCurrentUser ? "ts-btn ts-btn-sm ts-btn-warning" : "ts-btn ts-btn-sm ts-btn-success";
 
-                    <div class="ts-mt-sm" style="display:flex; gap:0.5rem; align-items:flex-start; flex-wrap:wrap;">
+                    <div class="ts-mt-sm" style="display:grid; grid-template-columns:1fr 1fr; gap:2rem; align-items:start;">
                         <form asp-action="ApproveCompletion" method="post" style="display:flex; flex-direction:column; gap:0.5rem;">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@Model.Id" />
                             <label for="approveNotes" class="ts-label-sm ts-text-secondary">Approval Notes (optional)</label>
-                            <textarea id="approveNotes" name="notes" class="ts-input" rows="3" placeholder="Add approval notes (optional)" style="width:24rem; max-width:100%;"></textarea>
+                            <textarea id="approveNotes" name="notes" class="ts-input" rows="3" placeholder="Add approval notes (optional)" style="width:100%;"></textarea>
                             <label for="approveHours" class="ts-label-sm ts-text-secondary">Hours (optional)</label>
-                            <input id="approveHours" name="hours" type="number" step="0.25" min="0" max="1000" class="ts-input" style="width:8rem;" />
-                            <button type="submit" class="@approveClass">@approveLabel</button>
+                            <input id="approveHours" name="hours" type="number" step="0.25" min="0" max="1000" class="ts-input" style="width:100%;" />
+                            <button type="submit" class="@approveClass" style="width:100%;">@approveLabel</button>
                         </form>
 
                         <form asp-action="RejectCompletion" method="post" style="display:flex; flex-direction:column; gap:0.5rem;">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@Model.Id" />
                             <label for="rejectReason" class="ts-label-sm ts-text-secondary">Rejection Reason (optional)</label>
-                            <textarea id="rejectReason" name="reason" class="ts-input" rows="3" placeholder="Add reason for rejection (optional)" style="width:24rem; max-width:100%;"></textarea>
-                            <button type="submit" class="ts-btn ts-btn-secondary" onclick="return confirm('Reject completion?');">Reject</button>
+                            <textarea id="rejectReason" name="reason" class="ts-input" rows="3" placeholder="Add reason for rejection (optional)" style="width:100%;"></textarea>
+                            <button type="submit" class="ts-btn ts-btn-secondary" onclick="return confirm('Reject completion?');" style="width:100%;">Reject</button>
                         </form>
                     </div>
                 }
@@ -276,7 +276,7 @@
                 <input type="hidden" name="taskId" value="@Model.Id" />
                 <div class="ts-form-group">
                     <label class="ts-label-sm">Description</label>
-                    <textarea name="description" class="ts-input" rows="2" required></textarea>
+                    <textarea name="description" class="ts-input" rows="2"></textarea>
                 </div>
                 <div style="display:flex; gap:0.5rem; margin-top:0.5rem; align-items:center;">
                     <div style="width:10rem;">
@@ -287,7 +287,7 @@
                         <label class="ts-label-sm">Notes (optional)</label>
                         <input type="text" name="notes" class="ts-input" />
                     </div>
-                    <div style="width:12rem;">
+                    <div style="width:16rem;">
                         <label class="ts-label-sm">User (optional)</label>
                         <input type="text" name="userId" class="ts-input" placeholder="user id to attribute" />
                     </div>

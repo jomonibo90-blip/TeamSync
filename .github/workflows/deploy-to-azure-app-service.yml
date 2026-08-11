@@ -1,0 +1,113 @@
+name: Deploy TeamSync to Azure App Service
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  AZURE_WEBAPP_NAME: 'teamsync'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore TeamSync/TeamSync.csproj
+
+      - name: Build
+        run: dotnet build TeamSync/TeamSync.csproj --configuration Release --no-restore
+
+      - name: Run tests
+        run: |
+          # Add test projects if available
+          if [ -d "Tests" ]; then
+            dotnet test --configuration Release --no-build --verbosity normal
+          else
+            echo "No test projects found, skipping tests"
+          fi
+        continue-on-error: true
+
+      - name: Publish
+        run: dotnet publish TeamSync/TeamSync.csproj -c Release -o ${{ github.workspace }}/publish --no-build
+
+      - name: Upload publish artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: teamsync-publish
+          path: ${{ github.workspace }}/publish/
+          retention-days: 1
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Download publish artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: teamsync-publish
+          path: ${{ github.workspace }}/publish/
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: ${{ github.workspace }}/publish/
+
+      - name: Health Check
+        run: |
+          echo "Waiting for app to be ready..."
+          sleep 30
+
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/)
+          echo "Health check response: $response"
+
+          if [ "$response" = "200" ] || [ "$response" = "302" ] || [ "$response" = "401" ]; then
+            echo "✅ App is healthy"
+            exit 0
+          else
+            echo "❌ Health check failed with status $response"
+            exit 1
+          fi
+
+      - name: Deployment Summary
+        if: success()
+        run: |
+          echo "## ✅ Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "- **App**: ${{ env.AZURE_WEBAPP_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deployment Failed
+        if: failure()
+        run: |
+          echo "## ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "Check the workflow logs above for details" >> $GITHUB_STEP_SUMMARY

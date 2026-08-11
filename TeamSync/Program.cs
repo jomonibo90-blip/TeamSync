@@ -5,18 +5,8 @@ using TeamSync.Data;
 using TeamSync.Hubs;
 using TeamSync.Models;
 using TeamSync.Services;
-using Azure.Identity;
-using Azure.Extensions.AspNetCore.Configuration.Secrets;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// Configure Azure Key Vault if KeyVaultName is present in configuration
-var keyVaultName = builder.Configuration["KeyVaultName"];
-if (!string.IsNullOrEmpty(keyVaultName))
-{
-    var kvUri = new Uri($"https://{keyVaultName}.vault.azure.net/");
-    builder.Configuration.AddAzureKeyVault(kvUri, new DefaultAzureCredential());
-}
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
@@ -41,8 +31,11 @@ builder.Services.AddCors(options =>
 });
 
 // Add Entity Framework DbContext
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException("Connection string 'DefaultConnection' not found in configuration. Please set it in appsettings.Production.json or App Service application settings.");
+}
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
@@ -70,6 +63,9 @@ builder.Services.AddScoped<IDigestEmailService, DigestEmailService>();
 // Configure email settings
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddScoped<IEmailService, EmailService>();
+
+// Add Blob Storage service for file uploads
+builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
 
 // Add background service for deadline checking
 builder.Services.AddHostedService<DeadlineCheckService>();

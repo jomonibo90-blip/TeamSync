@@ -20,6 +20,7 @@ public class TasksController : Controller
     private readonly NotificationService _notificationService;
     private readonly IAlertService _alertService;
     private readonly IConfiguration _configuration;
+    private readonly IBlobStorageService _blobStorageService;
 
     public TasksController(
         ApplicationDbContext context,
@@ -27,7 +28,8 @@ public class TasksController : Controller
         ILogger<TasksController> logger,
         NotificationService notificationService,
         IAlertService alertService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IBlobStorageService blobStorageService)
     {
         _context = context;
         _userManager = userManager;
@@ -35,6 +37,7 @@ public class TasksController : Controller
         _notificationService = notificationService;
         _alertService = alertService;
         _configuration = configuration;
+        _blobStorageService = blobStorageService;
     }
 
     [HttpGet]
@@ -667,152 +670,161 @@ public class TasksController : Controller
     [HttpGet]
     public async Task<IActionResult> Details(int id, int notesPage = 1)
     {
-        var currentUser = await _userManager.GetUserAsync(User);
-        if (currentUser == null) return Challenge();
-
-        var task = await _context.Tasks
-            .Include(t => t.Group).ThenInclude(g => g.Members)
-            .Include(t => t.AssignedTo)
-            .Include(t => t.CreatedBy)
-            .FirstOrDefaultAsync(t => t.Id == id);
-
-        if (task == null)
+        try
         {
-            _logger.LogWarning("Task not found: Id={TaskId} requested by User={UserId}", id, currentUser?.Id);
-            TempData["ErrorMessage"] = "Task not found.";
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null) return Challenge();
+
+            var task = await _context.Tasks
+                .Include(t => t.Group).ThenInclude(g => g.Members)
+                .Include(t => t.AssignedTo)
+                .Include(t => t.CreatedBy)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == id);
+
+            if (task == null)
+            {
+                _logger.LogWarning("Task not found: Id={TaskId} requested by User={UserId}", id, currentUser?.Id);
+                TempData["ErrorMessage"] = "Task not found.";
+                return RedirectToAction("Index");
+            }
+
+            // Authorization: admins and professors can view; others only if assigned or group member
+            bool isAdmin = User.IsInRole("Admin");
+            bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+
+            if (!isAdmin && !isProfessor)
+            {
+                var isMember = task.Group?.Members?.Any(m => m.UserId == currentUser.Id) ?? false;
+                var isAssigned = task.AssignedToId == currentUser.Id;
+                if (!isMember && !isAssigned)
+                    return Forbid();
+            }
+
+            var vm = new global::TeamSync.ViewModels.TaskListItemViewModel
+            {
+                Id = task.Id,
+                GroupId = task.GroupId,
+                GroupName = task.Group?.Name,
+                Title = task.Title,
+                Description = task.Description,
+                Status = task.Status,
+                AssignedToId = task.AssignedToId,
+                AssignedToName = task.AssignedTo != null ? $"{task.AssignedTo.FirstName} {task.AssignedTo.LastName}" : null,
+                CreatedById = task.CreatedById,
+                CreatedByName = task.CreatedBy != null ? $"{task.CreatedBy.FirstName} {task.CreatedBy.LastName}" : null,
+                StartDate = task.StartDate,
+                DueDate = task.DueDate,
+                Priority = task.Priority,
+                ReviewRequestedById = task.ReviewRequestedById,
+                ReviewRequestedAt = task.ReviewRequestedAt,
+                LeadApprovedById = task.LeadApprovedById,
+                LeadApprovedAt = task.LeadApprovedAt,
+                CompletionApprovedById = task.CompletionApprovedById,
+                CompletionApprovedAt = task.CompletionApprovedAt,
+                ApprovalNotes = task.ApprovalNotes
+            };
+
+            // Resolve names for review/completion actors if present
+            if (!string.IsNullOrEmpty(vm.ReviewRequestedById))
+            {
+                var user = await _context.Users.FindAsync(vm.ReviewRequestedById);
+                if (user != null) vm.ReviewRequestedByName = $"{user.FirstName} {user.LastName}";
+            }
+            if (!string.IsNullOrEmpty(vm.LeadApprovedById))
+            {
+                var user = await _context.Users.FindAsync(vm.LeadApprovedById);
+                if (user != null) vm.LeadApprovedByName = $"{user.FirstName} {user.LastName}";
+            }
+            if (!string.IsNullOrEmpty(vm.CompletionApprovedById))
+            {
+                var user = await _context.Users.FindAsync(vm.CompletionApprovedById);
+                if (user != null) vm.CompletionApprovedByName = $"{user.FirstName} {user.LastName}";
+            }
+
+            // Flags for UI actions
+            ViewBag.IsAssigned = task.AssignedToId == currentUser.Id;
+            var currentMember = task.Group?.Members?.FirstOrDefault(m => m.UserId == currentUser.Id);
+            bool isLead = currentMember?.Role == "Lead";
+            // reuse previously-declared isAdmin/isProfessor variables (do not redeclare)
+            isAdmin = User.IsInRole("Admin");
+            isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+
+            // expose flags on viewmodel for Details view
+            vm.IsLeadForCurrentUser = isLead;
+            vm.IsProfessorForCurrentUser = isProfessor || isAdmin;
+
+            // Can approve completion if admin, professor, or lead
+            ViewBag.CanApproveCompletion = isAdmin || isProfessor || isLead;
+
+            // Can archive if admin, professor, or lead (and not already archived)
+            ViewBag.CanArchiveTask = (isAdmin || isProfessor || isLead) && !task.ArchivedAt.HasValue;
+            ViewBag.IsArchived = task.ArchivedAt.HasValue;
+
+            // Load assignments
+            var assignments = await _context.TaskAssignments
+                .Where(ta => ta.TaskId == id && ta.RemovedAt == null)
+                .Include(ta => ta.AssignedTo)
+                .OrderBy(ta => ta.AssignedAt)
+                .ToListAsync();
+
+            // Pagination for notes
+            const int pageSize = 8;
+            if (notesPage < 1) notesPage = 1;
+
+            var notesQuery = _context.TaskNotes
+                .Where(tn => tn.TaskId == id)
+                .Include(tn => tn.User)
+                .Include(tn => tn.Attachments)
+                .OrderByDescending(tn => tn.CreatedAt);
+
+            var totalNotes = await notesQuery.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalNotes / (double)pageSize);
+            if (totalPages == 0) totalPages = 1;
+            if (notesPage > totalPages) notesPage = totalPages;
+
+            var notes = await notesQuery
+                .Skip((notesPage - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            // Ensure User navigation is loaded for each note
+            foreach (var note in notes)
+            {
+                if (note.User == null && !string.IsNullOrEmpty(note.UserId))
+                {
+                    note.User = await _context.Users.FindAsync(note.UserId);
+                }
+            }
+
+            // Load contributions for display
+            var contributions = await _context.Contributions
+                .Where(c => c.TaskId == id)
+                .Include(c => c.User)
+                .Include(c => c.Overrides).ThenInclude(co => co.OverriddenBy)
+                .Include(c => c.Overrides).ThenInclude(co => co.DisputedBy)
+                .OrderByDescending(c => c.ContributedAt)
+                .ToListAsync();
+
+            ViewBag.TaskAssignments = assignments;
+            ViewBag.TaskNotes = notes;
+            ViewBag.TaskContributions = contributions;
+            ViewBag.CurrentUserId = currentUser.Id;
+
+            // Pagination metadata
+            ViewBag.NotesPage = notesPage;
+            ViewBag.NotesTotalPages = totalPages;
+            ViewBag.NotesTotalCount = totalNotes;
+            ViewBag.NotesPageSize = pageSize;
+
+            return View(vm);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading task details for ID {TaskId}", id);
+            TempData["ErrorMessage"] = $"Error loading task details: {ex.Message}";
             return RedirectToAction("Index");
         }
-
-        // Authorization: admins and professors can view; others only if assigned or group member
-        bool isAdmin = User.IsInRole("Admin");
-        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
-
-        if (!isAdmin && !isProfessor)
-        {
-            var isMember = task.Group?.Members.Any(m => m.UserId == currentUser.Id) ?? false;
-            var isAssigned = task.AssignedToId == currentUser.Id;
-            if (!isMember && !isAssigned)
-                return Forbid();
-        }
-
-        var vm = new global::TeamSync.ViewModels.TaskListItemViewModel
-        {
-            Id = task.Id,
-            GroupId = task.GroupId,
-            GroupName = task.Group?.Name,
-            Title = task.Title,
-            Description = task.Description,
-            Status = task.Status,
-            AssignedToId = task.AssignedToId,
-            AssignedToName = task.AssignedTo != null ? $"{task.AssignedTo.FirstName} {task.AssignedTo.LastName}" : null,
-            CreatedById = task.CreatedById,
-            CreatedByName = task.CreatedBy != null ? $"{task.CreatedBy.FirstName} {task.CreatedBy.LastName}" : null,
-            StartDate = task.StartDate,
-            DueDate = task.DueDate,
-            Priority = task.Priority,
-            ReviewRequestedById = task.ReviewRequestedById,
-            ReviewRequestedAt = task.ReviewRequestedAt,
-            LeadApprovedById = task.LeadApprovedById,
-            LeadApprovedAt = task.LeadApprovedAt,
-            CompletionApprovedById = task.CompletionApprovedById,
-            CompletionApprovedAt = task.CompletionApprovedAt,
-            ApprovalNotes = task.ApprovalNotes
-        };
-
-        // Resolve names for review/completion actors if present
-        if (!string.IsNullOrEmpty(vm.ReviewRequestedById))
-        {
-            var user = await _context.Users.FindAsync(vm.ReviewRequestedById);
-            if (user != null) vm.ReviewRequestedByName = $"{user.FirstName} {user.LastName}";
-        }
-        if (!string.IsNullOrEmpty(vm.LeadApprovedById))
-        {
-            var user = await _context.Users.FindAsync(vm.LeadApprovedById);
-            if (user != null) vm.LeadApprovedByName = $"{user.FirstName} {user.LastName}";
-        }
-        if (!string.IsNullOrEmpty(vm.CompletionApprovedById))
-        {
-            var user = await _context.Users.FindAsync(vm.CompletionApprovedById);
-            if (user != null) vm.CompletionApprovedByName = $"{user.FirstName} {user.LastName}";
-        }
-
-        // Flags for UI actions
-        ViewBag.IsAssigned = task.AssignedToId == currentUser.Id;
-        var currentMember = task.Group?.Members.FirstOrDefault(m => m.UserId == currentUser.Id);
-        bool isLead = currentMember?.Role == "Lead";
-        // reuse previously-declared isAdmin/isProfessor variables (do not redeclare)
-        isAdmin = User.IsInRole("Admin");
-        isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
-
-        // expose flags on viewmodel for Details view
-        vm.IsLeadForCurrentUser = isLead;
-        vm.IsProfessorForCurrentUser = isProfessor || isAdmin;
-
-        // Can approve completion if admin, professor, or lead
-        ViewBag.CanApproveCompletion = isAdmin || isProfessor || isLead;
-
-        // Can archive if admin, professor, or lead (and not already archived)
-        ViewBag.CanArchiveTask = (isAdmin || isProfessor || isLead) && !task.ArchivedAt.HasValue;
-        ViewBag.IsArchived = task.ArchivedAt.HasValue;
-
-        // Load assignments
-        var assignments = await _context.TaskAssignments
-            .Where(ta => ta.TaskId == id && ta.RemovedAt == null)
-            .Include(ta => ta.AssignedTo)
-            .OrderBy(ta => ta.AssignedAt)
-            .ToListAsync();
-
-        // Pagination for notes
-        const int pageSize = 8;
-        if (notesPage < 1) notesPage = 1;
-
-        var notesQuery = _context.TaskNotes
-            .Where(tn => tn.TaskId == id)
-            .Include(tn => tn.User)
-            .Include(tn => tn.Attachments)
-            .ThenInclude(fa => fa.UploadedByUser)
-            .OrderByDescending(tn => tn.CreatedAt);
-
-        var totalNotes = await notesQuery.CountAsync();
-        var totalPages = (int)Math.Ceiling(totalNotes / (double)pageSize);
-        if (totalPages == 0) totalPages = 1;
-        if (notesPage > totalPages) notesPage = totalPages;
-
-        var notes = await notesQuery
-            .Skip((notesPage - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
-
-        // Ensure User navigation is loaded for each note
-        foreach (var note in notes)
-        {
-            if (note.User == null && !string.IsNullOrEmpty(note.UserId))
-            {
-                note.User = await _context.Users.FindAsync(note.UserId);
-            }
-        }
-
-        // Load contributions for display
-        var contributions = await _context.Contributions
-            .Where(c => c.TaskId == id)
-            .Include(c => c.User)
-            .Include(c => c.Overrides).ThenInclude(co => co.OverriddenBy)
-            .Include(c => c.Overrides).ThenInclude(co => co.DisputedBy)
-            .OrderByDescending(c => c.ContributedAt)
-            .ToListAsync();
-
-        ViewBag.TaskAssignments = assignments;
-        ViewBag.TaskNotes = notes;
-        ViewBag.TaskContributions = contributions;
-        ViewBag.CurrentUserId = currentUser.Id;
-
-        // Pagination metadata
-        ViewBag.NotesPage = notesPage;
-        ViewBag.NotesTotalPages = totalPages;
-        ViewBag.NotesTotalCount = totalNotes;
-        ViewBag.NotesPageSize = pageSize;
-
-        return View(vm);
     }
 
     /// <summary>
@@ -829,11 +841,6 @@ public class TasksController : Controller
         var maxFileSizeBytes = fileUploadSettings.GetValue<long>("MaxFileSizeBytes", 10485760); // 10MB default
         var allowedExtensions = fileUploadSettings.GetSection("AllowedExtensions").Get<string[]>() ?? new string[] { };
         var storagePath = fileUploadSettings.GetValue<string>("StoragePath", "wwwroot/uploads/task-notes");
-
-        // Ensure storage directory exists
-        var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), storagePath);
-        if (!Directory.Exists(uploadsDir))
-            Directory.CreateDirectory(uploadsDir);
 
         foreach (var file in files)
         {
@@ -858,12 +865,31 @@ public class TasksController : Controller
             {
                 // Generate unique filename to prevent conflicts
                 var uniqueFileName = $"{DateTime.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid().ToString().Substring(0, 8)}{fileExtension}";
-                var filePath = Path.Combine(uploadsDir, uniqueFileName);
+                string filePath;
 
-                // Save file to disk
-                using (var stream = new FileStream(filePath, FileMode.Create))
+                if (_blobStorageService.IsConfigured())
                 {
-                    await file.CopyToAsync(stream);
+                    // Use Azure Blob Storage for production
+                    using (var stream = file.OpenReadStream())
+                    {
+                        var blobUri = await _blobStorageService.UploadBlobAsync("task-attachments", uniqueFileName, stream);
+                        filePath = blobUri;
+                    }
+                }
+                else
+                {
+                    // Fall back to local file storage for development
+                    var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), storagePath);
+                    if (!Directory.Exists(uploadsDir))
+                        Directory.CreateDirectory(uploadsDir);
+
+                    var localFilePath = Path.Combine(uploadsDir, uniqueFileName);
+                    using (var stream = new FileStream(localFilePath, FileMode.Create))
+                    {
+                        await file.CopyToAsync(stream);
+                    }
+
+                    filePath = $"/uploads/task-notes/{uniqueFileName}";
                 }
 
                 // Create FileAttachment record
@@ -873,7 +899,7 @@ public class TasksController : Controller
                     FileName = file.FileName,
                     FileType = file.ContentType ?? "application/octet-stream",
                     FileSize = file.Length,
-                    FilePath = $"/uploads/task-notes/{uniqueFileName}",
+                    FilePath = filePath,
                     UploadedByUserId = uploadedByUser.Id,
                     UploadedAt = DateTime.UtcNow
                 };
