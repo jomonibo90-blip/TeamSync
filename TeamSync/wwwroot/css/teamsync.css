@@ -607,6 +607,7 @@ textarea.ts-input {
     font-size: 44px;
     color: var(--ts-on-primary);
     font-weight: 700;
+    animation: ts-sync-spin 3s linear infinite;
 }
 
 /* Main brand title */
