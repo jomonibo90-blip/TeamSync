@@ -97,6 +97,31 @@ public class NotificationHub : Hub
     /// <summary>
     /// Request recent notifications for the current user.
     /// Limited to last 10.
+    /// <summary>
+    /// Mark all notifications as read for the current user.
+    /// </summary>
+    public async System.Threading.Tasks.Task MarkAllAsRead()
+    {
+        if (Context.User == null) return;
+
+        var user = await _userManager.GetUserAsync(Context.User);
+        if (user == null) return;
+
+        var unreadNotifications = await _context.Notifications
+            .Where(n => n.UserId == user.Id && !n.IsRead)
+            .ToListAsync();
+
+        foreach (var notification in unreadNotifications)
+        {
+            notification.IsRead = true;
+        }
+
+        await _context.SaveChangesAsync();
+
+        // Notify the client
+        await Clients.Caller.SendAsync("AllNotificationsMarkedAsRead", unreadNotifications.Select(n => n.Id).ToList());
+    }
+
     /// </summary>
     public async Task<List<object>> GetRecentNotifications(int limit = 10)
     {

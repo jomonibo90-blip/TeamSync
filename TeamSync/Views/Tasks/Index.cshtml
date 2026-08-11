@@ -99,7 +99,7 @@ else
         {
             var assigneeInitial = string.IsNullOrWhiteSpace(t.AssignedToName) ? "U" : t.AssignedToName.Trim()[0].ToString().ToUpperInvariant();
             var assigneeCount = taskAssignments.ContainsKey(t.Id) ? taskAssignments[t.Id] : 0;
-            <article class="ts-task-item">
+            <article class="ts-task-item @(t.Priority switch { 3 => "high-priority", 2 => "medium-priority", _ => "low-priority" })" data-priority="@(t.Priority switch { 3 => "HIGH", 2 => "MEDIUM", _ => "LOW" })">
                 <div class="ts-task-item-top">
                     <div class="ts-task-title-wrap">
                         <h3 class="ts-task-title">
@@ -110,7 +110,6 @@ else
                             <p class="ts-task-desc">@t.Description</p>
                         }
                     </div>
-                    <span class="ts-badge @PriorityClass(t.Priority)">@PriorityLabel(t.Priority)</span>
                 </div>
 
                 <div class="ts-task-item-meta">

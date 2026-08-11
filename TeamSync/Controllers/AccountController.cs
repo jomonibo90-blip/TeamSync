@@ -225,6 +225,39 @@ return View(model);
 
         return RedirectToAction(nameof(AlertPreferences));
     }
-}
 
+    /// <summary>
+    /// Clear all unread notifications for the current user (API endpoint).
+    /// </summary>
+    [HttpPost]
+    [Authorize]
+    [Route("api/notifications/clear")]
+    public async Task<IActionResult> ClearNotifications()
+    {
+        try
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+                return Unauthorized();
+
+            var unreadNotifications = await _context.Notifications
+                .Where(n => n.UserId == user.Id && !n.IsRead)
+                .ToListAsync();
+
+            foreach (var notification in unreadNotifications)
+            {
+                notification.IsRead = true;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { success = true, clearedCount = unreadNotifications.Count });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error clearing notifications for user {UserId}", User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value);
+            return StatusCode(500, new { success = false, error = "Failed to clear notifications" });
+        }
+    }
+}
 

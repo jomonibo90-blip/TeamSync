@@ -217,7 +217,7 @@ class NotificationClient {
         if (!badge) return;
 
         if (this.unreadCount > 0) {
-            badge.textContent = this.unreadCount > 99 ? '99+' : this.unreadCount;
+            badge.textContent = this.unreadCount > 99 ? '99+' : String(this.unreadCount);
             badge.style.display = 'inline-block';
         } else {
             badge.style.display = 'none';
@@ -260,6 +260,18 @@ class NotificationClient {
     async markAsRead(notificationId) {
         if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
             try {
+                // Remove notification from local array immediately for UI responsiveness
+                this.notifications = this.notifications.filter(n => n.id !== notificationId);
+
+                // Decrement unread count
+                this.unreadCount = Math.max(0, this.unreadCount - 1);
+
+                // Update UI immediately
+                this.updateUnreadBadge();
+                this.refreshNotificationsUI();
+                this.updateDashboardPanel();
+
+                // Send to server
                 await this.connection.invoke("MarkAsRead", notificationId);
             } catch (error) {
                 console.error("Error marking notification as read:", error);

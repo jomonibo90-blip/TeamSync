@@ -151,11 +151,8 @@
                 @if (User?.Identity?.IsAuthenticated ?? false)
                 {
                     <div class="ts-profile-container">
-                        <button id="profileBtn" class="ts-avatar ts-avatar-sm" onclick="toggleProfileDropdown()" title="Profile Menu" style="border: none; background: none; cursor: pointer; padding: 0;">
-                            @{
-                                var initial = User.Identity?.Name?.Substring(0, 1).ToUpper() ?? "U";
-                            }
-                            @initial
+                        <button id="profileBtn" class="ts-icon-btn" onclick="toggleProfileDropdown()" title="Profile Menu">
+                            <span class="material-symbols-outlined">account_circle</span>
                         </button>
                         <div id="profileDropdown" class="ts-profile-dropdown">
                             <div class="ts-dropdown-header">
