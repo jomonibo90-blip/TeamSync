@@ -590,8 +590,8 @@
                                         {
                                             <!-- Image preview with lightbox and download button -->
                                             <div style="position: relative; display: inline-block; max-width: 120px; max-height: 120px; overflow: hidden; border-radius: var(--ts-radius-sm); border: 1px solid var(--ts-border); group: hover;">
-                                                <a href="@attachment.FilePath" class="glightbox" data-gallery="note-@note.Id-gallery" title="@attachment.FileName" style="display: block; width: 100%; height: 100%;">
-                                                    <img src="@attachment.FilePath" alt="@attachment.FileName" style="width: 100%; height: 100%; object-fit: cover;" />
+                                                <a href="@Url.Action("GetAttachmentImage", "Tasks", new { attachmentId = attachment.Id })" class="glightbox" data-gallery="note-@note.Id-gallery" title="@attachment.FileName" style="display: block; width: 100%; height: 100%;">
+                                                    <img src="@Url.Action("GetAttachmentImage", "Tasks", new { attachmentId = attachment.Id })" alt="@attachment.FileName" style="width: 100%; height: 100%; object-fit: cover;" />
                                                 </a>
                                                 <!-- Download button overlay -->
                                                 <a asp-action="DownloadAttachment" asp-route-attachmentId="@attachment.Id" class="ts-btn ts-btn-xs ts-btn-secondary" title="Download @attachment.FileName" style="position: absolute; bottom: 4px; right: 4px; padding: 4px 6px; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s ease; background: rgba(0, 0, 0, 0.7); border: none;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'">

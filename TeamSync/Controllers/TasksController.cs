@@ -2137,4 +2137,80 @@ public class TasksController : Controller
 
         return View(archivedTasks);
     }
+
+    /// <summary>
+    /// Serves attachment images with authentication and access control.
+    /// This endpoint allows authorized users to view images stored in Azure Blob Storage or local storage.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> GetAttachmentImage(int attachmentId)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser == null) return Challenge();
+
+        var attachment = await _context.FileAttachments
+            .Include(fa => fa.TaskNote)
+            .ThenInclude(tn => tn.Task)
+            .ThenInclude(t => t.Group)
+            .ThenInclude(g => g.Members)
+            .FirstOrDefaultAsync(fa => fa.Id == attachmentId);
+
+        if (attachment == null) return NotFound();
+
+        // Check if this is an image
+        if (!attachment.IsImage) return BadRequest("This attachment is not an image.");
+
+        var taskNote = attachment.TaskNote;
+        if (taskNote == null || taskNote.Task == null || taskNote.Task.Group == null)
+            return NotFound();
+
+        // Check if user has access to this task
+        bool isAdmin = User.IsInRole("Admin");
+        bool isProfessor = await _userManager.IsInRoleAsync(currentUser, "Professor");
+        var isMember = taskNote.Task.Group.Members.Any(m => m.UserId == currentUser.Id && m.Group.IsActive);
+
+        if (!isAdmin && !isProfessor && !isMember)
+            return Forbid();
+
+        try
+        {
+            byte[] imageBytes;
+
+            // Check if FilePath is a blob URL (Azure Blob Storage)
+            if (attachment.FilePath.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                // Download from Azure Blob Storage using HttpClient
+                using (var httpClient = new HttpClient())
+                {
+                    var response = await httpClient.GetAsync(attachment.FilePath);
+                    if (!response.IsSuccessStatusCode)
+                        return NotFound("Image not found in blob storage.");
+
+                    imageBytes = await response.Content.ReadAsByteArrayAsync();
+                }
+            }
+            else
+            {
+                // Serve from local file system
+                var filePath = Path.Combine(
+                    Directory.GetCurrentDirectory(),
+                    "wwwroot" + attachment.FilePath.Replace("/", Path.DirectorySeparatorChar.ToString())
+                );
+
+                if (!System.IO.File.Exists(filePath))
+                    return NotFound("Image file not found.");
+
+                imageBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+            }
+
+            // Return the image with appropriate content type
+            return File(imageBytes, attachment.FileType ?? "image/jpeg", attachment.FileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error retrieving attachment image {attachmentId}: {ex.Message}");
+            return StatusCode(500, "Error retrieving image.");
+        }
+    }
 }
+
