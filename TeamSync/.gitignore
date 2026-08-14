@@ -4,3 +4,32 @@
 # Documentation files (generated during development)
 *.md
 !README.md
+
+# Build and deployment artifacts
+*.zip
+deploy_*.zip
+deploy_extracted/
+publish_output/
+build/
+dist/
+obj/
+bin/
+
+# Admin and utility scripts (development only)
+*.ps1
+*.sql
+!README.md
+
+# IDE
+.vs/
+*.user
+*.suo
+
+# Sensitive files with credentials or secrets
+ExecuteSqlScript.cs
+*.secrets
+appsettings.*.json
+appsettings.*.local.json
+
+# Utility projects (not needed in production)
+SqlScriptRunner/

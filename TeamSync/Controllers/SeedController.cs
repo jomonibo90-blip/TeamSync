@@ -142,21 +142,21 @@ public class SeedController : ControllerBase
             }
 
             // Create Student 1 (Lead)
-            var jim = new User
+            var jordan = new User
             {
-                UserName = "jim@teamsync.com",
-                Email = "jim@teamsync.com",
-                FirstName = "Jim",
+                UserName = "jordan@teamsync.com",
+                Email = "jordan@teamsync.com",
+                FirstName = "Jordan",
                 LastName = "Lead",
                 StudentId = "STU001",
                 EmailConfirmed = true,
                 IsActive = true
             };
-            result = await _userManager.CreateAsync(jim, "Student@123456");
+            result = await _userManager.CreateAsync(jordan, "Student@123456");
             if (result.Succeeded)
             {
-                await _userManager.AddToRoleAsync(jim, "Student");
-                _logger.LogInformation("Created Student 1: Jim");
+                await _userManager.AddToRoleAsync(jordan, "Student");
+                _logger.LogInformation("Created Student 1: Jordan");
             }
 
             // Create Student 2
@@ -197,7 +197,7 @@ public class SeedController : ControllerBase
             // Add Members
             _context.GroupMembers.AddRange(
                 new GroupMember { GroupId = group.Id, UserId = professor.Id, Role = "Professor", JoinedAt = now.AddDays(-30) },
-                new GroupMember { GroupId = group.Id, UserId = jim.Id, Role = "Lead", JoinedAt = now.AddDays(-28) },
+                new GroupMember { GroupId = group.Id, UserId = jordan.Id, Role = "Lead", JoinedAt = now.AddDays(-28) },
                 new GroupMember { GroupId = group.Id, UserId = steve.Id, Role = "Student", JoinedAt = now.AddDays(-28) }
             );
             await _context.SaveChangesAsync();
@@ -207,17 +207,17 @@ public class SeedController : ControllerBase
             var taskConfigs = new[]
             {
                 // Completed
-                new { Title = "Finalize UI Design Mockups", Desc = "Complete all Figma designs", DueDate = now.AddDays(-10), Status = "Completed", Priority = 2, AssignedTo = jim.Id },
+                new { Title = "Finalize UI Design Mockups", Desc = "Complete all Figma designs", DueDate = now.AddDays(-10), Status = "Completed", Priority = 2, AssignedTo = jordan.Id },
                 new { Title = "Setup Firebase Project", Desc = "Initialize Firebase with auth", DueDate = now.AddDays(-8), Status = "Completed", Priority = 3, AssignedTo = steve.Id },
-                new { Title = "Create Authentication Module", Desc = "Login, register, password reset", DueDate = now.AddDays(-3), Status = "Completed", Priority = 1, AssignedTo = jim.Id },
+                new { Title = "Create Authentication Module", Desc = "Login, register, password reset", DueDate = now.AddDays(-3), Status = "Completed", Priority = 1, AssignedTo = jordan.Id },
 
                 // In-Progress
-                new { Title = "Build Home Screen UI", Desc = "Implement home screen with task list", DueDate = now.AddDays(5), Status = "InProgress", Priority = 1, AssignedTo = jim.Id },
+                new { Title = "Build Home Screen UI", Desc = "Implement home screen with task list", DueDate = now.AddDays(5), Status = "InProgress", Priority = 1, AssignedTo = jordan.Id },
                 new { Title = "Implement Task Creation Flow", Desc = "Form, validation, submission logic", DueDate = now.AddDays(7), Status = "InProgress", Priority = 1, AssignedTo = steve.Id },
 
                 // Pending
                 new { Title = "Build Task Detail View", Desc = "Task details, edit, delete, comments", DueDate = now.AddDays(10), Status = "Pending", Priority = 2, AssignedTo = steve.Id },
-                new { Title = "Implement Real-time Sync", Desc = "WebSocket/Firestore listeners", DueDate = now.AddDays(12), Status = "Pending", Priority = 2, AssignedTo = jim.Id },
+                new { Title = "Implement Real-time Sync", Desc = "WebSocket/Firestore listeners", DueDate = now.AddDays(12), Status = "Pending", Priority = 2, AssignedTo = jordan.Id },
 
                 // Ready for Review
                 new { Title = "Write Unit Tests", Desc = "Test auth module, 80%+ coverage", DueDate = now.AddDays(-1), Status = "ReadyForReview", Priority = 2, AssignedTo = steve.Id },
@@ -354,21 +354,21 @@ public class SeedController : ControllerBase
     {
         try
         {
-            var jim = await _context.Users.FirstOrDefaultAsync(u => u.Email == "jim@teamsync.com");
+            var jordan = await _context.Users.FirstOrDefaultAsync(u => u.Email == "jordan@teamsync.com");
             var steve = await _context.Users.FirstOrDefaultAsync(u => u.Email == "steve@teamsync.com");
 
-            if (jim == null || steve == null)
+            if (jordan == null || steve == null)
             {
                 return BadRequest(new { error = "Demo users not found. Run /api/seed/demo first." });
             }
 
             // Count contributions for each user to determine who has more data
-            var jimContributions = await _context.Contributions.CountAsync(c => c.UserId == jim.Id);
+            var jordanContributions = await _context.Contributions.CountAsync(c => c.UserId == jordan.Id);
             var steveContributions = await _context.Contributions.CountAsync(c => c.UserId == steve.Id);
 
-            var targetUser = jimContributions >= steveContributions ? jim : steve;
+            var targetUser = jordanContributions >= steveContributions ? jordan : steve;
 
-            _logger.LogInformation($"Selected {targetUser.FirstName} for digest ({jimContributions} vs {steveContributions} contributions)");
+            _logger.LogInformation($"Selected {targetUser.FirstName} for digest ({jordanContributions} vs {steveContributions} contributions)");
 
             // Create or update AlertPreferences for target user
             var existingPref = await _context.AlertPreferences.FirstOrDefaultAsync(ap => ap.UserId == targetUser.Id);
@@ -401,7 +401,7 @@ public class SeedController : ControllerBase
             {
                 message = "Digest email setup complete!",
                 targetUser = new { email = targetUser.Email, name = targetUser.FirstName },
-                contributions = jimContributions >= steveContributions ? jimContributions : steveContributions,
+                contributions = jordanContributions >= steveContributions ? jordanContributions : steveContributions,
                 digestSchedule = new
                 {
                     dayOfWeek = (DayOfWeek)digestPreference.DigestDayOfWeek,
@@ -725,5 +725,111 @@ public class SeedController : ControllerBase
             "GroupMember" => "👥 Group Changes",
             _ => type
         };
+    }
+
+    /// <summary>
+    /// POST /api/seed/send-jordan-digest - Send one-week digest email directly to jomonibo@gmail.com
+    /// </summary>
+    [HttpPost("send-jordan-digest")]
+    public async Task<IActionResult> SendJordanDigest()
+    {
+        try
+        {
+            var jordan = await _context.Users
+                .Include(u => u.AlertPreference)
+                .FirstOrDefaultAsync(u => u.Email == "jordan@teamsync.com");
+
+            if (jordan == null)
+            {
+                return BadRequest(new { error = "Jordan user not found. Run /api/seed/demo first." });
+            }
+
+            // Ensure Jordan has AlertPreference set
+            var alertPref = jordan.AlertPreference;
+            if (alertPref == null)
+            {
+                alertPref = new AlertPreference
+                {
+                    UserId = jordan.Id,
+                    NotificationFrequency = "Weekly",
+                    ReceiveTaskAssignmentAlerts = true,
+                    ReceiveApprovalRejectionAlerts = true,
+                    ReceiveStatusChangeAlerts = true,
+                    ReceiveCommentAlerts = true,
+                    ReceiveGroupAlerts = true
+                };
+                _context.AlertPreferences.Add(alertPref);
+                await _context.SaveChangesAsync();
+            }
+
+            // Check if Jordan has any notifications from the past week
+            var recentNotifications = await _context.Notifications
+                .Where(n => n.UserId == jordan.Id && n.CreatedAt >= DateTime.UtcNow.AddDays(-7))
+                .CountAsync();
+
+            if (recentNotifications == 0)
+            {
+                return BadRequest(new { error = "No alerts from the past week for Jordan. Data may need to be seeded." });
+            }
+
+            // Get alerts for the digest
+            var alerts = await _context.Notifications
+                .Include(n => n.Task)
+                .Where(n => n.UserId == jordan.Id && n.CreatedAt >= DateTime.UtcNow.AddDays(-7))
+                .OrderByDescending(n => n.CreatedAt)
+                .ToListAsync();
+
+            // Generate email content
+            var (htmlContent, plainTextContent) = GenerateDigestEmail(jordan, alerts);
+
+            // Save email as HTML file for verification
+            var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "emails");
+            Directory.CreateDirectory(uploadsDir);
+            var emailFileName = $"digest_{jordan.Id}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.html";
+            var emailFilePath = Path.Combine(uploadsDir, emailFileName);
+            await System.IO.File.WriteAllTextAsync(emailFilePath, htmlContent);
+
+            _logger.LogInformation($"Email HTML saved to: {emailFilePath}");
+
+            // Try to send via email service
+            bool emailSent = false;
+            string emailError = null;
+
+            try
+            {
+                await _emailService.SendEmailAsync("jomonibo@gmail.com", "TeamSync Weekly Digest - Jordan's Activities", htmlContent, plainTextContent);
+                emailSent = true;
+                _logger.LogInformation($"One-week digest email sent to jomonibo@gmail.com with {recentNotifications} notifications from Jordan");
+            }
+            catch (Exception emailEx)
+            {
+                emailError = emailEx.Message;
+                _logger.LogWarning(emailEx, $"SMTP Error - but email HTML generated and saved. Error: {emailEx.Message}");
+            }
+
+            var response = new
+            {
+                message = emailSent 
+                    ? "✅ Email sent to jomonibo@gmail.com!" 
+                    : "⚠️ Email HTML generated (saved for review) but SMTP delivery failed",
+                recipient = "jomonibo@gmail.com",
+                notificationsIncluded = recentNotifications,
+                subject = "TeamSync Weekly Digest - Jordan's Activities",
+                timestamp = DateTime.UtcNow,
+                emailSent = emailSent,
+                smtpError = emailError,
+                previewUrl = $"/uploads/emails/{emailFileName}",
+                note = emailSent 
+                    ? "Check your inbox" 
+                    : "Email HTML saved to preview. SMTP configuration needs review."
+            };
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing digest request");
+            return BadRequest(new { error = ex.Message, details = ex.StackTrace });
+        }
     }
 }

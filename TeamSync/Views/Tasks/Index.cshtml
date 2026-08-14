@@ -112,6 +112,21 @@ else
                     </div>
                 </div>
 
+                @* Task Timeline Progress Bar *@
+                @if (t.StartDate.HasValue && t.DueDate.HasValue)
+                {
+                    <div class="ts-task-progress-container" style="margin: 0.75rem 0;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+                            <span class="ts-body-xs" style="color: var(--ts-text-secondary); font-weight: 500;">Timeline</span>
+                            <div class="ts-progress-bar" style="flex: 1; height: 6px; background: var(--ts-border); border-radius: 3px; overflow: hidden;">
+                                <div class="ts-progress-fill" style="height: 100%; width: @(t.ProgressPercentage)%; background: @(t.Status == "Completed" ? "var(--ts-success)" : t.ProgressPercentage >= 75 ? "var(--ts-warning)" : "var(--ts-primary)"); transition: width 0.3s ease;"></div>
+                            </div>
+                            <span class="ts-progress-text" style="font-size: 0.75rem; color: var(--ts-text-secondary); min-width: 35px; text-align: right;">@(t.ProgressPercentage)%</span>
+                        </div>
+                        <span class="ts-body-xs" style="color: var(--ts-text-secondary);">@(t.StartDate?.ToString("MMM dd") ?? "N/A") → @(t.DueDate?.ToString("MMM dd") ?? "N/A")</span>
+                    </div>
+                }
+
                 <div class="ts-task-item-meta">
                     <span class="ts-status @StatusClass(t.Status)">@t.Status</span>
 

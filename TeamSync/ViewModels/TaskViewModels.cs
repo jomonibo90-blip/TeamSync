@@ -79,6 +79,42 @@ namespace TeamSync.ViewModels
         // Role of the current user for this item
         public bool IsLeadForCurrentUser { get; set; } = false;
         public bool IsProfessorForCurrentUser { get; set; } = false;
+
+        // Progress calculation based on time elapsed between StartDate and DueDate
+        public int ProgressPercentage
+        {
+            get
+            {
+                // If task is completed, show 100%
+                if (Status == "Completed")
+                    return 100;
+
+                // If no start or due date, cannot calculate progress
+                if (!StartDate.HasValue || !DueDate.HasValue)
+                    return 0;
+
+                var now = DateTime.UtcNow;
+                var start = StartDate.Value;
+                var due = DueDate.Value;
+
+                // If task hasn't started yet, show 0%
+                if (now < start)
+                    return 0;
+
+                // If task is past due date, show 100% (time-wise)
+                if (now >= due)
+                    return 100;
+
+                // Calculate percentage of time elapsed
+                var totalDays = (due - start).TotalDays;
+                var elapsedDays = (now - start).TotalDays;
+
+                if (totalDays <= 0)
+                    return 0;
+
+                return (int)((elapsedDays / totalDays) * 100);
+            }
+        }
     }
 
     public class TaskEditViewModel
